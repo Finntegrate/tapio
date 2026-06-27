@@ -37,32 +37,82 @@ jobs:
           path: ~/.cache/prek
           key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
+      # Inline annotations on the "Files changed" tab for any lint finding, independent
+      # of whether prek below also catches it -- this is just for in-PR visibility.
+      - name: Annotate Ruff findings
+        if: always()
+        continue-on-error: true
+        run: uv run ruff check --output-format=github .
+
       # Runs the same checks as the local pre-commit hook (yaml/json/toml checks,
       # pyupgrade, trailing commas, ruff lint+format, keep-sorted) so CI fails on
       # anything a contributor's local hook would have caught. mypy and pyrefly are
       # skipped here and run as separate steps below against the project's own venv,
       # instead of letting prek build a second, duplicate dependency set for them.
+      # continue-on-error lets every check below run even if this one fails, so a
+      # single push surfaces all problems instead of just the first one encountered;
+      # the "Fail if any check failed" step at the end still gates the job overall.
       - name: Run pre-commit checks (prek)
+        id: prek
+        continue-on-error: true
         run: SKIP=mypy,pyrefly uv run prek run --all-files
 
       - name: Run type checking with Mypy
+        id: mypy
+        continue-on-error: true
         run: uv run mypy tapio
 
       - name: Run Pyrefly code check
+        id: pyrefly
+        continue-on-error: true
         run: uv run pyrefly check
 
       - name: Test with pytest and coverage
+        id: pytest
+        continue-on-error: true
         run: uv run pytest --cov=tapio --cov-report=xml --cov-report=term
 
       - name: Check coverage threshold
+        id: coverage
+        continue-on-error: true
         run: |
           coverage_result=$(uv run coverage report | tail -1 | awk '{print $NF}' | sed 's/%//')
+          echo "coverage_pct=$coverage_result" >> "$GITHUB_OUTPUT"
           echo "Coverage: $coverage_result%"
           if (( $(echo "$coverage_result < 80" | bc -l) )); then
             echo "❌ Coverage threshold not met: $coverage_result% is less than 80%"
             exit 1
           else
             echo "✅ Coverage threshold met: $coverage_result% is greater than or equal to 80%"
+          fi
+
+      # Aggregated pass/fail dashboard rendered on the workflow run's Summary tab,
+      # so contributors don't need to open individual step logs to see what failed.
+      - name: Write job summary
+        if: always()
+        run: |
+          {
+            echo "## CI Results"
+            echo
+            echo "| Check | Result |"
+            echo "|-------|--------|"
+            echo "| prek (lint, format, yaml/json/toml, etc.) | ${{ steps.prek.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| mypy | ${{ steps.mypy.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| pyrefly | ${{ steps.pyrefly.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| pytest | ${{ steps.pytest.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| coverage (≥80%) | ${{ steps.coverage.outcome == 'success' && '✅ Passed' || '❌ Failed' }} (${{ steps.coverage.outputs.coverage_pct }}%) |"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if any check failed
+        if: always()
+        run: |
+          if [ "${{ steps.prek.outcome }}" != "success" ] || \
+             [ "${{ steps.mypy.outcome }}" != "success" ] || \
+             [ "${{ steps.pyrefly.outcome }}" != "success" ] || \
+             [ "${{ steps.pytest.outcome }}" != "success" ] || \
+             [ "${{ steps.coverage.outcome }}" != "success" ]; then
+            echo "One or more checks failed. See the job summary above and the failing step's log for details."
+            exit 1
           fi
 
     # - name: Upload coverage to Codecov
