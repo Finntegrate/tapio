@@ -15,6 +15,8 @@ Thank you for considering contributing to Tapio Assistant! This document provide
   - [Package Management](#package-management)
   - [Code Quality](#code-quality)
     - [Ruff](#ruff)
+    - [Type Checking](#type-checking)
+    - [Pre-commit Hooks (prek)](#pre-commit-hooks-prek)
   - [Testing Guidelines](#testing-guidelines)
     - [Running Tests](#running-tests)
     - [Code Coverage](#code-coverage)
@@ -31,12 +33,15 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Configuration Structure](#configuration-structure)
     - [Required vs Optional Fields](#required-vs-optional-fields)
     - [Adding New Sites](#adding-new-sites)
-  - [Ollama for LLM Inference](#ollama-for-llm-inference)
   - [Pull Request Process](#pull-request-process)
 
 ## Technical Architecture
 
-The following diagram illustrates the high-level architecture and data flow of the Tapio Assistant:
+Tapio is a RAG (Retrieval-Augmented Generation) application with three main parts:
+
+1. **Data Pipeline**: Crawls, parses, and vectorizes web content
+2. **RAG System**: Handles user queries, vector search, and LLM (Large Language Model) response generation
+3. **Components**: The modules that implement the two parts above
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#f0f0f0', 'primaryTextColor': '#323232', 'primaryBorderColor': '#606060', 'lineColor': '#404040', 'secondaryColor': '#c0c0c0', 'tertiaryColor': '#e0e0e0' }}}%%
@@ -65,26 +70,17 @@ graph TD
         N[gradio_app.py] -.->|implements| F & G & H & I
     end
 
-    style A fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
-    style B fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
-    style C fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
-    style D fill:#ffcb8c,stroke:#404040,stroke-width:2px,color:#232323
-    style E fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
-    style F fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
-    style G fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
-    style H fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
-    style I fill:#a3ffb0,stroke:#404040,stroke-width:2px,color:#232323
-    style J fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
-    style K fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
-    style L fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
-    style M fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
-    style N fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
+    classDef neutral fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
+    classDef component fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
+    classDef vectorstore fill:#ffcb8c,stroke:#404040,stroke-width:2px,color:#232323
+    classDef gradio fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
+    classDef ollama fill:#a3ffb0,stroke:#404040,stroke-width:2px,color:#232323
+    class A,B,C,E,G,H neutral
+    class J,K,L,M,N component
+    class D vectorstore
+    class F gradio
+    class I ollama
 ```
-
-The architecture follows a pipeline design with three main components:
-1. **Data Pipeline**: Responsible for crawling, parsing, and vectorizing web content
-2. **RAG System**: Handles user queries, vector search, and LLM response generation
-3. **Components**: The specific modules that implement the functionality
 
 ## Development Environment Setup
 
@@ -118,7 +114,7 @@ code .
 2. VS Code will automatically detect the dev container configuration and prompt you to "Reopen in Container". Click this button to set up the development environment automatically.
 
 The dev container includes:
-- Python 3.12
+- Python 3.14
 - `uv` package manager
 - Ollama for local LLM inference
 - All required VS Code extensions (Python, Ruff, GitHub Copilot, etc.)
@@ -145,7 +141,7 @@ For a completely cloud-based development environment that requires no local setu
 > 3. Click the "..." menu and select "Stop codespace"
 
 The Codespace includes the same development environment as the local dev container:
-- Python 3.12, `uv` package manager, and Ollama
+- Python 3.14, `uv` package manager, and Ollama
 - All required VS Code extensions pre-installed
 - Automatic dependency installation
 
@@ -176,34 +172,16 @@ uv sync --dev
 
 ### Installing Required Models
 
-Regardless of which setup method you chose, you'll need to install the required Ollama models for LLM text generation:
+Regardless of which setup method you chose, you'll need to install `llama3.2`, the base model this project uses for text generation:
 
 ```bash
 ollama pull llama3.2
+ollama list  # verify it installed
 ```
 
-**Note on Model Sizes**: Some Ollama models are substantially large (several GB) and may require significant computational resources. If you have limited disk space or computational power, consider experimenting with smaller parameter versions of models:
+**Note on Model Sizes**: Some Ollama models are several GB and need significant disk space and compute. If your machine is limited, try a smaller variant instead, e.g. `ollama pull llama3.2:1b` or `ollama pull gemma3:1b`.
 
-- `llama3.2:1b` - Lightweight 1 billion parameter version
-- `llama3.2:3b` - Medium 3 billion parameter version
-- `deepseek-r1:1.5b` - Efficient reasoning model
-- `gemma3:1b` - Google's compact model
-- `qwen3:1.7b` - Alibaba's efficient model
-
-You can install any of these alternatives with:
-```bash
-ollama pull <model-name>
-```
-
-You can verify the model is installed by listing available models:
-
-```bash
-ollama list
-```
-
-**Embedding Models**: The vectorization process uses sentence-transformers models for generating embeddings (default: `all-MiniLM-L6-v2`). These models are automatically downloaded by the HuggingFace library when first used, so no manual installation is required.
-
-*Note: While Ollama also provides embedding models (like `all-minilm`), the current implementation uses HuggingFace sentence-transformers models. If you've installed Ollama embedding models, they won't be used by the current vectorization process unless the code is modified to use Ollama embeddings instead.*
+**Embedding Models**: Vectorization uses HuggingFace sentence-transformers (default: `all-MiniLM-L6-v2`), downloaded automatically on first use — no manual installation needed. Ollama's own embedding models (e.g. `all-minilm`) are not used by the current implementation.
 
 ## Package Management
 
@@ -239,6 +217,30 @@ You can also run the linter with the `--fix` option to automatically fix some is
 uv run ruff check . --fix
 ```
 
+### Type Checking
+
+We run both [mypy](https://mypy-lang.org/) and [Pyrefly](https://pyrefly.org/) for static type checking. Both are enforced in CI (Continuous Integration), so run them locally before opening a pull request:
+
+```bash
+uv run mypy tapio
+uv run pyrefly check
+```
+
+### Pre-commit Hooks (prek)
+
+We use [prek](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, to run formatting and linting checks automatically before each commit. Install the git hook once after cloning:
+
+```bash
+uv run prek install
+```
+
+To run all hooks against the full codebase (useful before submitting a pull request, or if you haven't installed the git hook):
+
+```bash
+uv run prek run --all-files
+```
+
+These are the same checks enforced in CI (excluding mypy and Pyrefly, which CI runs as separate steps against the project's own virtual environment).
 
 ## Testing Guidelines
 
@@ -252,27 +254,13 @@ uv run pytest
 
 ### Code Coverage
 
-We aim for high test coverage (minimum 80%). When submitting code:
-
-1. Check your coverage with:
+We require at least 80% test coverage for new code. Check coverage with:
 
 ```bash
-uv run pytest --cov=tapio
+uv run pytest --cov=tapio                          # terminal summary
+uv run pytest --cov=tapio --cov-report=html        # HTML report in htmlcov/index.html
+uv run pytest --cov=tapio.utils tests/utils/        # for a specific module
 ```
-
-2. Generate HTML coverage reports for visual inspection:
-
-```bash
-uv run pytest --cov=tapio --cov-report=html
-```
-
-3. For specific module coverage:
-
-```bash
-uv run pytest --cov=tapio.utils tests/utils/
-```
-
-Aim for at least 80% coverage for new code. The HTML coverage report can be found in the `htmlcov` directory. Open `htmlcov/index.html` in your browser to view it.
 
 ### Test Categories
 
@@ -295,7 +283,7 @@ uv run pytest
 
 ### Test Fixtures
 
-Common mock fixtures are available in `tests/conftest.py`:
+`tests/conftest.py` provides these common mock fixtures:
 - `mock_embeddings` - Mocked HuggingFace embeddings
 - `mock_chroma_store` - Mocked ChromaDB vector store
 - `mock_llm_service` - Mocked LLM service
@@ -311,7 +299,7 @@ def test_my_feature(mock_rag_orchestrator):
 
 ## Project Structure
 
-The project has been designed with a clear separation of concerns:
+Tapio separates concerns across these modules:
 
 - `crawler/`: Module responsible for crawling websites and saving HTML content
 - `parsers/`: Module responsible for parsing HTML content into structured formats
@@ -416,7 +404,7 @@ DEFAULT_NUM_RESULTS = 5
 
 ## Site Configurations
 
-Site configurations define how to crawl and parse specific websites. They're stored in `tapio/config/site_configs.yaml` and used by both crawl and parse commands.
+Site configurations define how to crawl and parse specific websites. They're stored in `tapio/config/site_configs.yaml` and used by both crawl and parse commands. Selectors below use XPath, a query language for selecting elements in HTML/XML documents.
 
 ### Configuration Structure
 
@@ -463,21 +451,10 @@ sites:
 
 ### Adding New Sites
 
-1. Analyze the target website's structure
-2. Identify XPath selectors for content extraction
-3. Add configuration to `site_configs.yaml`:
+1. Analyze the target website's structure and identify XPath selectors for its content
+2. Add an entry to `site_configs.yaml` following the structure above — only `base_url` is required
+3. Run the workflow against the new site by name:
 
-```yaml
-sites:
-  my_site:
-    base_url: "https://example.com"
-    description: "Example site configuration"
-    parser_config:
-      content_selectors:
-        - '//div[@class="main-content"]'
-```
-
-4. Use with commands:
 ```bash
 uv run -m tapio.cli crawl my_site
 uv run -m tapio.cli parse my_site
@@ -485,42 +462,10 @@ uv run -m tapio.cli vectorize
 uv run -m tapio.cli tapio-app
 ```
 
-## Ollama for LLM Inference
-
-We use Ollama for local LLM inference.
-
-The following Ollama models are used in the project:
-- `llama3.2`: The base model for text generation.
-
-To query the Ollama models that are installed, use the command:
-
-```bash
-ollama list
-```
-
-To list all Ollama commands, use the command:
-
-```bash
-ollama help
-```
-
-To get help for a specific command, use the command:
-
-```bash
-ollama <command> --help
-```
-
-Ensure you have the required models installed:
-
-```bash
-ollama pull llama3.2
-```
-
 ## Pull Request Process
 
-1. Ensure any install or build dependencies are removed before the end of the layer when doing a build.
-2. Update the README.md with details of changes to the interface, if appropriate.
-3. Make sure all tests pass and code is properly formatted with Ruff.
-4. Check that code coverage meets our standards (minimum 80%).
-5. Submit your pull request with a clear description of the changes, related issue numbers, and any special considerations.
-6. The pull request will be merged once it receives approval from the maintainers.
+1. Update the README.md with details of changes to the interface, if appropriate.
+2. Run `uv run pytest`, `uv run prek run --all-files`, `uv run mypy tapio`, and `uv run pyrefly check` locally — these are all gated checks in CI, not just local conveniences.
+3. Check that code coverage meets our standards (minimum 80%).
+4. Submit your pull request with a clear description of the changes, related issue numbers, and any special considerations.
+5. The pull request will be merged once it receives approval from the maintainers and all CI checks pass.
