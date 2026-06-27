@@ -106,17 +106,17 @@ If the user edits, update and confirm again before proceeding.
 
 ## Step 3 — Create the issue
 
-Once confirmed, run:
+Once confirmed, write the issue body to a temp file (e.g. under the scratchpad directory), then run:
 
 ```bash
 gh issue create \
   --repo Finntegrate/tapio \
   --title "<title>" \
-  --body "<body>" \
+  --body-file "<path-to-temp-body-file>" \
   --label "<comma,separated,labels>"
 ```
 
-Print the returned issue URL.
+Using `--body-file` avoids breakage from newlines, quotes, or backticks in the issue body. Print the returned issue URL.
 
 ---
 

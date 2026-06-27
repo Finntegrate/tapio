@@ -33,7 +33,7 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.14 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer
 - [Ollama](https://ollama.ai/) - For local LLM inference
 

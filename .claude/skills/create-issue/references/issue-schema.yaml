@@ -4,8 +4,8 @@
 # GitHub is the source of truth; this file is a planning scratchpad.
 #
 # To create issues from this file:
-#   /project:create-issue docs/planned-issues.yaml   (Claude Code)
-#   mise run issues-create                           (if using the Python script)
+#   /create-issue docs/planned-issues.yaml   (Claude Code)
+#   mise run issues-create                   (if using the Python script)
 #
 # Fields
 # ------
