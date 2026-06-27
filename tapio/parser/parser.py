@@ -556,8 +556,8 @@ class Parser:
 
             # If there are multiple parts in the path, preserve the structure
             if len(parts) >= MIN_NESTED_PATH_PARTS:
-                # Preserve the original directory structure but replace .html extension
-                return str(rel_path).replace(".html", "")
+                # Preserve the original directory structure but strip the .html extension
+                return str(rel_path.with_suffix(""))
         except ValueError:
             # If the file is not in the input directory, just use its name
             return html_file_path.stem

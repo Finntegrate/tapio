@@ -51,6 +51,10 @@ def chunk_html_content(
     Returns:
         List of dictionaries with chunks and their metadata
     """
+    if chunk_overlap >= chunk_size:
+        msg = f"chunk_overlap ({chunk_overlap}) must be smaller than chunk_size ({chunk_size})"
+        raise ValueError(msg)
+
     # First, aggressively remove JavaScript code from HTML
     html_content = remove_javascript(html_content)
 

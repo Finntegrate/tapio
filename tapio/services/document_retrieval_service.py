@@ -53,7 +53,8 @@ class DocumentRetrievalService:
             List of retrieved documents
         """
         try:
-            logger.info("Retrieving documents for query: %s", query_text)
+            # Avoid logging raw query text, which may contain personal information
+            logger.info("Retrieving documents for query (%d chars)", len(query_text))
             retrieved_docs = self.vector_store.query(
                 query_text=query_text,
                 n_results=self.num_results,

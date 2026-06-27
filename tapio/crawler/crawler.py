@@ -331,7 +331,7 @@ class BaseCrawler:
         # Ensure the path stays within output_dir (security check for path traversal)
         abs_full_path = full_path.resolve()
         abs_output_dir = Path(self.output_dir).resolve()
-        if not str(abs_full_path).startswith(str(abs_output_dir)):
+        if not abs_full_path.is_relative_to(abs_output_dir):
             msg = f"Invalid URL results in path outside output directory: {url}"
             raise ValueError(msg)
 
