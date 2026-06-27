@@ -31,16 +31,19 @@ jobs:
       - name: Install package in development mode
         run: uv pip install -e .
 
-      - name: Lint and format with Ruff
-        uses: astral-sh/ruff-action@v3
+      - name: Cache prek hook environments
+        uses: actions/cache@v4
         with:
-          version: latest
+          path: ~/.cache/prek
+          key: prek-${{ runner.os }}-${{ hashFiles('.pre-commit-config.yaml') }}
 
-      - name: Run Ruff linter with fixes
-        run: uv run ruff check --fix .
-
-      - name: Run Ruff formatter
-        run: uv run ruff format .
+      # Runs the same checks as the local pre-commit hook (yaml/json/toml checks,
+      # pyupgrade, trailing commas, ruff lint+format, keep-sorted) so CI fails on
+      # anything a contributor's local hook would have caught. mypy and pyrefly are
+      # skipped here and run as separate steps below against the project's own venv,
+      # instead of letting prek build a second, duplicate dependency set for them.
+      - name: Run pre-commit checks (prek)
+        run: SKIP=mypy,pyrefly uv run prek run --all-files
 
       - name: Run type checking with Mypy
         run: uv run mypy tapio
