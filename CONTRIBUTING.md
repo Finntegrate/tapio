@@ -481,6 +481,40 @@ uv run -m tapio.cli vectorize
 uv run -m tapio.cli tapio-app
 ```
 
+## AI-assisted development with Claude Code
+
+This project ships Claude Code project commands that make issue management and backlog review available as slash commands inside any Claude Code session.
+
+### Claude Code Prerequisites
+
+Install Claude Code (the CLI) or the Claude Code extension for VS Code:
+
+```bash
+npm install -g @anthropic-ai/claude-code   # CLI
+```
+
+Or install the [Claude Code VS Code extension](https://marketplace.visualstudio.com/items?itemName=Anthropic.claude-code) from the marketplace.
+
+### How commands activate
+
+No manual configuration is needed. When you open this repository in Claude Code, it automatically discovers all files under `.claude/commands/` and registers them as `/project:<name>` slash commands. You should see them listed when you type `/project:` in the Claude Code chat pane.
+
+### Available commands
+
+| Command | Usage |
+|---|---|
+| `/project:create-issue <description>` | Draft and create a single GitHub issue from a free-form description. Claude scans the backlog for related issues first, derives labels and a checklist, and asks you to confirm before creating. |
+| `/project:create-issue <path/to/file.yaml>` | Batch-create issues from a YAML planning file (see `docs/issue-schema.yaml` for the schema). |
+| `/project:backlog` | Full backlog review grouped by area label. |
+| `/project:backlog <keyword>` | Search open issues for a topic and read related issue bodies. |
+| `/project:backlog <issue number>` | Deep dive on a single issue with related issues surfaced. |
+| `/project:backlog <label>` | Area review — all open issues for a given label with a PM-style summary. |
+| `/project:backlog gaps` | Coverage analysis — identify under-planned areas and potential consolidations. |
+
+### Planning new issues in YAML
+
+When you want to brainstorm a batch of issues before pushing them to GitHub, create a file following `docs/issue-schema.yaml` and pass it to `/project:create-issue`. GitHub is the source of truth; the YAML file is a temporary planning scratchpad and does not need to be committed.
+
 ## Pull Request Process
 
 1. Update the README.md with details of changes to the interface, if appropriate.
