@@ -49,13 +49,13 @@ We aim for >= 80% test coverage before merging any pull requests.
 uv run pytest --cov=tapio
 ```
 
-2. Generate HTML coverage reports for visual inspection:
+1. Generate HTML coverage reports for visual inspection:
 
 ```shell
 uv run pytest --cov=tapio --cov-report=html
 ```
 
-3. For specific module coverage:
+1. For specific module coverage:
 
 ```shell
 uv run pytest --cov=tapio.utils tests/utils/

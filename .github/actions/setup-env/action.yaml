@@ -1,0 +1,28 @@
+name: Set up Python environment
+description: Installs uv, Python, and project dependencies. Assumes the repo is already checked out.
+
+inputs:
+  python-version:
+    description: Python version to install
+    required: false
+    default: "3.14"
+
+runs:
+  using: composite
+  steps:
+    # enable-cache caches uv's package/wheel cache via GitHub's Actions cache,
+    # keyed on uv.lock's hash, so `uv sync` below reuses downloaded packages
+    # across runs instead of re-fetching them whenever the lockfile is unchanged.
+    - name: Install uv and set Python version
+      uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      with:
+        enable-cache: true
+        cache-dependency-glob: "uv.lock"
+        python-version: ${{ inputs.python-version }}
+
+    # pyproject.toml declares a build-system (hatchling), so `uv sync` builds and
+    # installs the project itself in editable mode -- no separate
+    # `uv pip install -e .` step needed.
+    - name: Install dependencies
+      shell: bash
+      run: uv sync --all-extras --dev

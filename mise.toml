@@ -1,5 +1,8 @@
 [tools]
+actionlint = "1.7.12"
 gh = "latest"
+markdownlint-cli2 = "0.22.1"
+node = "24"
 ollama = "latest"
 python = "3.14"
 uv = "latest"
