@@ -6,9 +6,7 @@
     // Prompt templates and partial docs legitimately don't start with a heading.
     "MD041": false,
     // Table column widths aren't worth enforcing a max line length for.
-    "MD060": false,
-    "MD041": false
-
+    "MD060": false
   },
   "ignores": [
     // Prompt templates fed to the LLM, not documentation.
