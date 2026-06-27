@@ -1,0 +1,72 @@
+# Finntegrate/tapio — Issue Planning Schema
+#
+# Use this file to draft a batch of issues before pushing them to GitHub.
+# GitHub is the source of truth; this file is a planning scratchpad.
+#
+# To create issues from this file:
+#   /create-issue docs/planned-issues.yaml   (Claude Code)
+#   mise run issues-create                   (if using the Python script)
+#
+# Fields
+# ------
+# title       (required)  Imperative sentence, sentence-case, no trailing period.
+# type        (required)  Bug | Feature | Task
+# area        (required)  One or more area labels. See label taxonomy below.
+# description (required)  2–4 sentences: what, why, any relevant context.
+# checklist   (optional)  Concrete implementation steps as plain strings.
+#                         The agent will render these as "- [ ] …" Markdown items.
+# help_wanted (optional)  true if community contributions are welcome. Default false.
+# good_first_issue (optional) true only for self-contained, well-scoped tasks that
+#                         require no deep knowledge of the agent topology or RAG
+#                         internals. Default false.
+# blocked_by  (optional)  GitHub issue numbers this issue depends on, e.g. [12, 17].
+#
+# Area label taxonomy
+# -------------------
+# rag          Retrieval pipeline: crawling, parsing, chunking, embedding, ChromaDB
+# agents       Multi-agent system: LangGraph, orchestrator, specialist agents, tools
+# auth         Authentication, authorization, usage quotas
+# platform     Infrastructure, deployment, hosting, CI/CD
+# ux           User-facing interface and experience
+# dx           Developer experience: Codespaces, tooling, local setup
+# ops          Observability, monitoring, alerting, logging
+# security     Security, compliance, GDPR, secrets management
+# safety       AI safety: guardrails, grounding, off-topic handling
+# partners     Partner organisation management and reporting
+# documentation  Docs, READMEs, guides
+
+issues:
+  - title: "Example: Add structured output validation to agent responses"
+    type: Feature
+    area:
+      - agents
+      - safety
+    description: >
+      Agent responses are currently unvalidated strings. Adding a Pydantic schema
+      layer at the LangGraph output node would catch malformed responses before
+      they reach the UI and make downstream parsing reliable.
+    checklist:
+      - Define a Pydantic response model covering the fields Tapio returns
+      - Add a validation node to the LangGraph graph after the final agent step
+      - Return a structured error if validation fails rather than a raw exception
+      - Add unit tests for valid and invalid response shapes
+    help_wanted: false
+    good_first_issue: false
+    blocked_by: []
+
+  - title: "Example: Document local development setup for Windows"
+    type: Task
+    area:
+      - dx
+      - documentation
+    description: >
+      The current setup guide assumes macOS or Linux. Windows users hit WSL2 and
+      Docker networking issues that are not documented. A Windows-specific guide
+      would lower the barrier for contributors on that platform.
+    checklist:
+      - Test the Codespaces path on Windows — document any differences
+      - Add a Windows section to CONTRIBUTING.md covering WSL2 setup
+      - Note any known limitations (e.g. Ollama GPU passthrough)
+    help_wanted: true
+    good_first_issue: true
+    blocked_by: []

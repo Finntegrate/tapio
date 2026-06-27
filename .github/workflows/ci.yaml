@@ -116,7 +116,7 @@ jobs:
         id: coverage
         continue-on-error: true
         run: |
-          coverage_result=$(uv run coverage report | tail -1 | awk '{print $NF}' | sed 's/%//')
+          coverage_result=$(uv run coverage report | tail -1 | awk '{print $NF}' | sed 's/%//') || coverage_result="unknown"
           echo "coverage_pct=$coverage_result" >> "$GITHUB_OUTPUT"
           echo "Coverage: $coverage_result%"
           if (( $(echo "$coverage_result < 80" | bc -l) )); then

@@ -481,6 +481,42 @@ uv run -m tapio.cli vectorize
 uv run -m tapio.cli tapio-app
 ```
 
+## AI-assisted development with Claude Code
+
+This project ships Claude Code project commands that make issue management and backlog review available as slash commands inside any Claude Code session.
+
+### Claude Code Prerequisites
+
+Install Claude Code (the CLI) or the Claude Code extension for VS Code:
+
+```bash
+npm install -g @anthropic-ai/claude-code   # CLI
+```
+
+Or install the [Claude Code VS Code extension](https://marketplace.visualstudio.com/items?itemName=Anthropic.claude-code) from the marketplace.
+
+### How commands activate
+
+No manual configuration is needed. When you open this repository in Claude Code, it automatically discovers skills under `.claude/skills/` and registers them as slash commands. If the commands don't appear immediately, **restart Claude Code once** — live change detection requires a restart when the watched directory is new.
+
+You can also let Claude invoke the `backlog` skill automatically: if you ask about what's planned or whether something already exists as an issue, Claude will use it without you typing a slash command.
+
+### Available commands
+
+| Command | Usage |
+|---|---|
+| `/create-issue <description>` | Draft and create a single GitHub issue from a free-form description. Claude scans the backlog for related issues first, derives labels and a checklist, and asks you to confirm before creating. |
+| `/create-issue <path/to/file.yaml>` | Batch-create issues from a YAML planning file (see `.claude/skills/create-issue/references/issue-schema.yaml` for the schema). |
+| `/backlog` | Full backlog review grouped by area label. |
+| `/backlog <keyword>` | Search open issues for a topic and read related issue bodies. |
+| `/backlog <issue number>` | Deep dive on a single issue with related issues surfaced. |
+| `/backlog <label>` | Area review — all open issues for a given label with a PM-style summary. |
+| `/backlog gaps` | Coverage analysis — identify under-planned areas and potential consolidations. |
+
+### Planning new issues in YAML
+
+When you want to brainstorm a batch of issues before pushing them to GitHub, create a file following `.claude/skills/create-issue/references/issue-schema.yaml` and pass it to `/create-issue`. GitHub is the source of truth; the YAML file is a temporary planning scratchpad and does not need to be committed.
+
 ## Pull Request Process
 
 1. Update the README.md with details of changes to the interface, if appropriate.
