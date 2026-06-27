@@ -6,6 +6,7 @@
 Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing, and querying information from websites like Migri.fi (Finnish Immigration Service). It provides complete workflow capabilities including web crawling, content parsing, vectorization, and an interactive chatbot interface.
 
 ## Features
+
 - **Multi-site support** - Configurable site-specific crawling and parsing
 - **End-to-end pipeline** - Crawl → Parse → Vectorize → Query workflow
 - **Local LLM integration** - Uses Ollama for private, local inference
@@ -17,18 +18,21 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 ## Target Use Cases
 
 **Primary Users:** EU and non-EU citizens navigating Finnish immigration processes
+
 - Students seeking education information
 - Workers exploring employment options
 - Families pursuing reunification
 - Refugees and asylum seekers needing guidance
 
 **Core Needs:**
+
 - Finding relevant, accurate information quickly
 - Practice conversations on specific topics (family reunification, work permits, etc.)
 
 ## Installation and Setup
 
 ### Prerequisites
+
 - Python 3.10 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer
 - [Ollama](https://ollama.ai/) - For local LLM inference
@@ -36,13 +40,15 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 ### Quick Start
 
 1. Clone and setup:
+
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
 uv sync
 ```
 
-2. Install required Ollama model:
+1. Install required Ollama model:
+
 ```bash
 ollama pull llama3.2
 ```
@@ -81,11 +87,13 @@ uv run -m tapio.cli tapio-app
 ### Available Sites
 
 To list configured sites:
+
 ```bash
 uv run -m tapio.cli list-sites
 ```
 
 To view detailed site configurations:
+
 ```bash
 uv run -m tapio.cli list-sites --verbose
 ```

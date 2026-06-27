@@ -9,31 +9,29 @@ on:
 
 permissions:
   contents: read
-  pull-requests: write # lets the coverage-comment step post/update a PR comment
 
 jobs:
-  test:
-    name: Test Python ${{ matrix.python-version }}
+  lint:
+    name: Lint (prek)
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ["3.14"]
-
+    outputs:
+      prek_outcome: ${{ steps.prek.outcome }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
-      - name: Install uv and set Python version
-        uses: astral-sh/setup-uv@d4b2f3b6ecc6e67c4457f6d3e41ec42d3d0fcb86 # v5.4.2
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-env
+
+      # actionlint and markdownlint-cli2 are mise-managed tools (see mise.toml) used
+      # by two of the prek hooks below; node is markdownlint-cli2's runtime, not
+      # used directly. Only install these three, not the full mise.toml set,
+      # since python/uv are already handled by setup-env above and gh/ollama
+      # aren't needed for linting. mise-action also puts mise's shims on PATH,
+      # so the hooks' `mise exec --` calls resolve correctly.
+      - name: Install mise tools for linting
+        uses: jdx/mise-action@e6a8b3978addb5a52f2b4cd9d91eafa7f0ab959d # v4.2.0
         with:
-          enable-cache: true
-          python-version: ${{ matrix.python-version }}
-
-      - name: Install dependencies
-        run: uv sync --all-extras --dev
-
-      - name: Install package in development mode
-        run: uv pip install -e .
+          install_args: "actionlint markdownlint-cli2 node"
 
       - name: Cache prek hook environments
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
@@ -50,17 +48,33 @@ jobs:
 
       # Runs the same checks as the local pre-commit hook (yaml/json/toml checks,
       # pyupgrade, trailing commas, ruff lint+format, keep-sorted) so CI fails on
-      # anything a contributor's local hook would have caught. mypy and pyrefly are
-      # skipped here and run as separate steps below against the project's own venv,
-      # instead of letting prek build a second, duplicate dependency set for them.
-      # continue-on-error lets every check below run even if this one fails, so a
-      # single push surfaces all problems instead of just the first one encountered;
-      # the "Fail if any check failed" step at the end still gates the job overall.
+      # anything a contributor's local hook would have caught. mypy and pyrefly run
+      # in the separate typecheck job instead of letting prek build a second,
+      # duplicate dependency set for them.
+      # continue-on-error here lets the report job see this job's outcome alongside
+      # typecheck/test's outcomes even if this fails -- the report job's gate step
+      # still enforces it via prek_outcome.
       - name: Run pre-commit checks (prek)
         id: prek
         continue-on-error: true
         run: SKIP=mypy,pyrefly uv run prek run --all-files
 
+  typecheck:
+    name: Type Checking
+    runs-on: ubuntu-latest
+    outputs:
+      mypy_outcome: ${{ steps.mypy.outcome }}
+      pyrefly_outcome: ${{ steps.pyrefly.outcome }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-env
+        with:
+          install-editable: "true"
+
+      # continue-on-error so a mypy failure doesn't prevent pyrefly from also
+      # reporting -- both outcomes surface in the report job's summary and gate.
       - name: Run type checking with Mypy
         id: mypy
         continue-on-error: true
@@ -71,6 +85,28 @@ jobs:
         continue-on-error: true
         run: uv run pyrefly check
 
+  test:
+    name: Test Python ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.14"]
+    outputs:
+      pytest_outcome: ${{ steps.pytest.outcome }}
+      coverage_outcome: ${{ steps.coverage.outcome }}
+      coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+
+      - name: Set up Python environment
+        uses: ./.github/actions/setup-env
+        with:
+          python-version: ${{ matrix.python-version }}
+          install-editable: "true"
+
+      # continue-on-error so the coverage-threshold step below still runs (and
+      # reports a percentage) even when a test fails, instead of skipping it.
       - name: Test with pytest and coverage
         id: pytest
         continue-on-error: true
@@ -90,21 +126,32 @@ jobs:
             echo "✅ Coverage threshold met: $coverage_result% is greater than or equal to 80%"
           fi
 
+  # Aggregates the three parallel jobs above. Runs even if they failed (if: always())
+  # so the summary/comment/gate below reflect every job's outcome, not just the first
+  # to fail.
+  report:
+    name: Report results
+    needs: [lint, typecheck, test]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write # only this job needs to post/update the coverage comment
+    steps:
       # Aggregated pass/fail dashboard rendered on the workflow run's Summary tab,
-      # so contributors don't need to open individual step logs to see what failed.
+      # so contributors don't need to open individual job logs to see what failed.
       - name: Write job summary
-        if: always()
         run: |
           {
             echo "## CI Results"
             echo
             echo "| Check | Result |"
             echo "|-------|--------|"
-            echo "| prek (lint, format, yaml/json/toml, etc.) | ${{ steps.prek.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
-            echo "| mypy | ${{ steps.mypy.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
-            echo "| pyrefly | ${{ steps.pyrefly.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
-            echo "| pytest | ${{ steps.pytest.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
-            echo "| coverage (≥80%) | ${{ steps.coverage.outcome == 'success' && '✅ Passed' || '❌ Failed' }} (${{ steps.coverage.outputs.coverage_pct }}%) |"
+            echo "| prek (lint, format, yaml/json/toml, etc.) | ${{ needs.lint.outputs.prek_outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| mypy | ${{ needs.typecheck.outputs.mypy_outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| pyrefly | ${{ needs.typecheck.outputs.pyrefly_outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| pytest | ${{ needs.test.outputs.pytest_outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
+            echo "| coverage (≥80%) | ${{ needs.test.outputs.coverage_outcome == 'success' && '✅ Passed' || '❌ Failed' }} (${{ needs.test.outputs.coverage_pct }}%) |"
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Posts a sticky comment directly in the PR conversation (not just the Summary
@@ -119,8 +166,8 @@ jobs:
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |
-            const coveragePct = '${{ steps.coverage.outputs.coverage_pct }}' || 'unknown';
-            const passed = '${{ steps.coverage.outcome }}' === 'success';
+            const coveragePct = '${{ needs.test.outputs.coverage_pct }}' || 'unknown';
+            const passed = '${{ needs.test.outputs.coverage_outcome }}' === 'success';
             const marker = '<!-- tapio-coverage-report -->';
             const body = [
               marker,
@@ -157,14 +204,13 @@ jobs:
             }
 
       - name: Fail if any check failed
-        if: always()
         run: |
-          if [ "${{ steps.prek.outcome }}" != "success" ] || \
-             [ "${{ steps.mypy.outcome }}" != "success" ] || \
-             [ "${{ steps.pyrefly.outcome }}" != "success" ] || \
-             [ "${{ steps.pytest.outcome }}" != "success" ] || \
-             [ "${{ steps.coverage.outcome }}" != "success" ]; then
-            echo "One or more checks failed. See the job summary above and the failing step's log for details."
+          if [ "${{ needs.lint.outputs.prek_outcome }}" != "success" ] || \
+             [ "${{ needs.typecheck.outputs.mypy_outcome }}" != "success" ] || \
+             [ "${{ needs.typecheck.outputs.pyrefly_outcome }}" != "success" ] || \
+             [ "${{ needs.test.outputs.pytest_outcome }}" != "success" ] || \
+             [ "${{ needs.test.outputs.coverage_outcome }}" != "success" ]; then
+            echo "One or more checks failed. See the job summary above and the failing job's log for details."
             exit 1
           fi
 

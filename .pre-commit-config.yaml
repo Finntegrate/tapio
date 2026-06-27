@@ -70,3 +70,27 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+      # actionlint and markdownlint-cli2 are installed via mise (see mise.toml)
+      # rather than as pre-commit-managed hook repos, since both already exist as
+      # mise tools used elsewhere in the project. Routed through `mise exec --`
+      # rather than calling the binary directly: git invokes hooks without
+      # sourcing the shell's `mise activate`, so mise's shims aren't guaranteed
+      # to be on PATH there even though they are in an interactive shell.
+      # actionlint only understands workflow files (it requires "on"/"jobs"
+      # sections), not composite action.yaml definitions under .github/actions/.
+      - id: actionlint
+        name: Lint GitHub Actions workflows
+        entry: mise exec -- actionlint
+        language: system
+        files: ^\.github/workflows/.*\.ya?ml$
+      # --fix covers structural rules (blanks-around-lists/fences, list markers,
+      # trailing spaces, etc.). MD013 (line length/prose wrap) has no fixer in
+      # markdownlint itself -- confirmed by testing --fix against a copy of
+      # README.md, which left every MD013 violation unchanged -- so it stays
+      # disabled in .markdownlint-cli2.jsonc rather than left as unfixable noise.
+      - id: markdownlint-cli2
+        name: Lint Markdown
+        entry: mise exec -- markdownlint-cli2
+        language: system
+        types: [markdown]
+        args: [--fix]

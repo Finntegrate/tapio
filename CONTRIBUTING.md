@@ -3,6 +3,7 @@
 Thank you for considering contributing to Tapio Assistant! This document provides guidelines and instructions for contributing to this project.
 
 ## Table of Contents
+
 - [Contributing to Tapio Assistant](#contributing-to-tapio-assistant)
   - [Table of Contents](#table-of-contents)
   - [Technical Architecture](#technical-architecture)
@@ -93,6 +94,7 @@ Before starting development, ensure you have the following system tools installe
 - **VS Code**: With the Dev Containers extension for dev container development
 
 First, clone the repository:
+
 ```bash
 git clone https://github.com/finntegrate/tapio.git
 cd tapio
@@ -107,13 +109,15 @@ This project includes a preconfigured development container that provides all ne
 If you're using VS Code:
 
 1. Open the project in VS Code:
+
 ```bash
 code .
 ```
 
-2. VS Code will automatically detect the dev container configuration and prompt you to "Reopen in Container". Click this button to set up the development environment automatically.
+1. VS Code will automatically detect the dev container configuration and prompt you to "Reopen in Container". Click this button to set up the development environment automatically.
 
 The dev container includes:
+
 - Python 3.14
 - `uv` package manager
 - Ollama for local LLM inference
@@ -130,17 +134,22 @@ For a completely cloud-based development environment that requires no local setu
 > **Critical: Always stop your Codespace when not in use!**
 >
 > GitHub provides free Codespaces hours per month (typically 60-120 hours, subject to change). To avoid wasting your free hours:
+>
 > - **Manually stop your Codespace** every time you finish working
 > - You can resume a stopped Codespace later, preserving all your work and changes
 > - [Resume your most recent Codespace](https://codespaces.new/finntegrate/tapio?quickstart=1) for this repository
 
+<!-- -->
+
 > [!TIP]
 > **How to stop your Codespace:**
+>
 > 1. Go to [github.com/codespaces](https://github.com/codespaces)
 > 2. Find your active Codespace for this repository
 > 3. Click the "..." menu and select "Stop codespace"
 
 The Codespace includes the same development environment as the local dev container:
+
 - Python 3.14, `uv` package manager, and Ollama
 - All required VS Code extensions pre-installed
 - Automatic dependency installation
@@ -150,11 +159,13 @@ The Codespace includes the same development environment as the local dev contain
 If you prefer not to use the dev container or are using a different editor:
 
 1. Install `uv` package manager:
+
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
 
-2. Create and activate a virtual environment with uv:
+1. Create and activate a virtual environment with uv:
+
 ```bash
 uv venv
 source .venv/bin/activate  # On Unix/macOS
@@ -162,12 +173,13 @@ source .venv/bin/activate  # On Unix/macOS
 .\.venv\Scripts\activate   # On Windows
 ```
 
-3. Install dependencies:
+1. Install dependencies:
+
 ```bash
 uv sync --dev
 ```
 
-4. Install Ollama for local LLM inference:
+1. Install Ollama for local LLM inference:
    - Follow the installation instructions at [ollama.ai](https://ollama.ai)
 
 ### Installing Required Models
@@ -267,16 +279,19 @@ uv run pytest --cov=tapio.utils tests/utils/        # for a specific module
 We maintain different types of tests:
 
 **Unit Tests** - Fast, isolated tests with mocked dependencies:
+
 ```bash
 uv run pytest -m "not integration"
 ```
 
 **Integration Tests** - Tests using real components (marked with `@pytest.mark.integration`):
+
 ```bash
 uv run pytest -m integration
 ```
 
 **All Tests**:
+
 ```bash
 uv run pytest
 ```
@@ -284,6 +299,7 @@ uv run pytest
 ### Test Fixtures
 
 `tests/conftest.py` provides these common mock fixtures:
+
 - `mock_embeddings` - Mocked HuggingFace embeddings
 - `mock_chroma_store` - Mocked ChromaDB vector store
 - `mock_llm_service` - Mocked LLM service
@@ -291,6 +307,7 @@ uv run pytest
 - `mock_rag_orchestrator` - Mocked RAG orchestrator
 
 Use these fixtures in your tests for consistent mocking:
+
 ```python
 def test_my_feature(mock_rag_orchestrator):
     # Test uses mocked orchestrator
@@ -436,9 +453,11 @@ sites:
 ### Required vs Optional Fields
 
 **Required:**
+
 - `base_url` - Base URL for the site (used for crawling and link resolution)
 
 **Optional (with defaults):**
+
 - `description` - Human-readable description
 - `parser_config` - Parser-specific settings (uses defaults if omitted)
   - `title_selector` - Page title XPath (default: "//title")
