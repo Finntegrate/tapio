@@ -7,13 +7,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
-permissions:
-  contents: read
-
 jobs:
   lint:
     name: Lint (prek)
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       prek_outcome: ${{ steps.prek.outcome }}
     steps:
@@ -62,6 +61,8 @@ jobs:
   typecheck:
     name: Type Checking
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     outputs:
       mypy_outcome: ${{ steps.mypy.outcome }}
       pyrefly_outcome: ${{ steps.pyrefly.outcome }}
@@ -88,6 +89,8 @@ jobs:
   test:
     name: Test Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
