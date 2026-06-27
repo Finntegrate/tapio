@@ -7,6 +7,10 @@ on:
     branches: [main]
   workflow_dispatch:
 
+permissions:
+  contents: read
+  pull-requests: write # lets the coverage-comment step post/update a PR comment
+
 jobs:
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -102,6 +106,55 @@ jobs:
             echo "| pytest | ${{ steps.pytest.outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
             echo "| coverage (≥80%) | ${{ steps.coverage.outcome == 'success' && '✅ Passed' || '❌ Failed' }} (${{ steps.coverage.outputs.coverage_pct }}%) |"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Posts a sticky comment directly in the PR conversation (not just the Summary
+      # tab) so a missed coverage threshold is impossible to miss. Updates the same
+      # comment on re-runs instead of piling up duplicates. continue-on-error because
+      # GITHUB_TOKEN is read-only for pull_request workflows triggered by forks, so
+      # this step is expected to fail for external contributions -- it must not block
+      # the "Fail if any check failed" gate below, which still enforces the threshold.
+      - name: Comment coverage on pull request
+        if: always() && github.event_name == 'pull_request'
+        continue-on-error: true
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const coveragePct = '${{ steps.coverage.outputs.coverage_pct }}' || 'unknown';
+            const passed = '${{ steps.coverage.outcome }}' === 'success';
+            const marker = '<!-- tapio-coverage-report -->';
+            const body = [
+              marker,
+              '## Test Coverage Report',
+              '',
+              `${passed ? '✅' : '❌'} **${coveragePct}%** coverage (required: ≥80%)`,
+              '',
+              passed
+                ? 'Coverage meets the project threshold. 🎉'
+                : '⚠️ Coverage is below the required 80% threshold. Please add tests for the new or changed code before this pull request can be merged.',
+            ].join('\n');
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((comment) => comment.body.includes(marker));
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              });
+            }
 
       - name: Fail if any check failed
         if: always()
