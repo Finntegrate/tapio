@@ -201,7 +201,7 @@ class TestChromaStore:
         # Check if citation URL was added
         doc, score = results[0]
         assert doc.metadata["citation_url"] == "https://example.com/doc"
-        assert score == 0.1
+        assert score == pytest.approx(0.1)
 
     @patch("tapio.vectorstore.chroma_store.Chroma")
     def test_get_document(self, mock_chroma, mock_embeddings):
