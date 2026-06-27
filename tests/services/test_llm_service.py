@@ -62,7 +62,7 @@ class TestLLMService:
         mock_list.assert_called_once()
 
     @pytest.mark.parametrize(
-        "requested_model,available_models,expected_result,expected_log_message",
+        ("requested_model", "available_models", "expected_result", "expected_log_message"),
         [
             # Exact matches
             (
@@ -281,6 +281,51 @@ class TestLLMService:
                 "num_predict": 1024,
             },
         )
+
+    @patch("tapio.services.llm_service.ollama.chat")
+    def test_generate_response_with_history(self, mock_chat):
+        """Test response generation includes prior conversation turns."""
+        mock_chat.return_value = {"message": {"content": "Sure, following up."}}
+
+        service = LLMService("llama3.2:latest")
+        history = [
+            {"role": "user", "content": "What is a residence permit?"},
+            {"role": "assistant", "content": "It's a document allowing you to live in Finland."},
+        ]
+        result = service.generate_response(
+            prompt="How do I apply for one?",
+            system_prompt="You are a helpful assistant.",
+            history=history,
+        )
+
+        assert result == "Sure, following up."
+        mock_chat.assert_called_once_with(
+            model="llama3.2:latest",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": "What is a residence permit?"},
+                {"role": "assistant", "content": "It's a document allowing you to live in Finland."},
+                {"role": "user", "content": "How do I apply for one?"},
+            ],
+            options={
+                "temperature": 0.7,
+                "num_predict": 1024,
+            },
+        )
+
+    @patch("tapio.services.llm_service.ollama.chat")
+    def test_generate_response_history_is_truncated(self, mock_chat):
+        """Test that only the most recent MAX_HISTORY_MESSAGES turns are kept."""
+        mock_chat.return_value = {"message": {"content": "ok"}}
+
+        service = LLMService("llama3.2:latest")
+        history = [{"role": "user", "content": f"message {i}"} for i in range(20)]
+        service.generate_response(prompt="latest question", history=history)
+
+        sent_messages = mock_chat.call_args[1]["messages"]
+        # All but the final appended user prompt should come from the tail of history
+        assert sent_messages[:-1] == history[-10:]
+        assert sent_messages[-1] == {"role": "user", "content": "latest question"}
 
     @patch("tapio.services.llm_service.ollama.chat")
     def test_generate_response_error(self, mock_chat):

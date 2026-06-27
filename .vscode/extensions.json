@@ -1,0 +1,9 @@
+{
+    "recommendations": [
+        "anthropic.claude-code",
+        "ms-vscode-remote.remote-containers",
+        "github.vscode-pull-request-github",
+        "ms-python.python",
+        "charliermarsh.ruff"
+    ]
+}

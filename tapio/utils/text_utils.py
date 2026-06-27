@@ -11,10 +11,14 @@ from langchain_text_splitters import (  # type: ignore[import-not-found]
     RecursiveCharacterTextSplitter,
 )
 
+logger = logging.getLogger(__name__)
+
+# Content shorter than this is treated as too small to be worth chunking
+MIN_CHUNKABLE_CONTENT_LENGTH = 100
+
 
 def is_pdf_url(url: str) -> bool:
-    """
-    Check if a URL points to a PDF file.
+    """Check if a URL points to a PDF file.
 
     Args:
         url: URL to check
@@ -22,15 +26,8 @@ def is_pdf_url(url: str) -> bool:
     Returns:
         True if the URL points to a PDF, False otherwise
     """
-    # Check if URL ends with .pdf (case insensitive)
-    if url.lower().endswith(".pdf"):
-        return True
-
-    # Check for PDF in the URL path
-    if "pdf" in url.split("/")[-1].lower():
-        return True
-
-    return False
+    # Check if URL ends with .pdf (case insensitive), or has "pdf" in the URL path
+    return url.lower().endswith(".pdf") or "pdf" in url.rsplit("/", maxsplit=1)[-1].lower()
 
 
 def chunk_html_content(
@@ -41,8 +38,7 @@ def chunk_html_content(
     splitter_type: str = "semantic",
     max_chunks: int = 50,  # Add a safety limit to prevent infinite chunking
 ) -> list[dict[str, Any]]:
-    """
-    Split HTML content into chunks using appropriate LangChain text splitters.
+    """Split HTML content into chunks using appropriate LangChain text splitters.
 
     Args:
         html_content: HTML content as string
@@ -55,12 +51,16 @@ def chunk_html_content(
     Returns:
         List of dictionaries with chunks and their metadata
     """
+    if chunk_overlap >= chunk_size:
+        msg = f"chunk_overlap ({chunk_overlap}) must be smaller than chunk_size ({chunk_size})"
+        raise ValueError(msg)
+
     # First, aggressively remove JavaScript code from HTML
     html_content = remove_javascript(html_content)
 
     # Sanity check for empty content
-    if not html_content or len(html_content.strip()) < 100:
-        logging.warning("Content is too short or empty, not chunking")
+    if not html_content or len(html_content.strip()) < MIN_CHUNKABLE_CONTENT_LENGTH:
+        logger.warning("Content is too short or empty, not chunking")
         return [{"content": html_content.strip(), "metadata": {}}]
 
     # Extract plain text for size estimation
@@ -69,16 +69,19 @@ def chunk_html_content(
 
     # If the content is already small, don't bother chunking
     if len(plain_text) <= chunk_size:
-        logging.info(
-            f"Content size ({len(plain_text)} chars) is smaller than chunk_size ({chunk_size}), skipping chunking",  # noqa: E501
+        logger.info(
+            "Content size (%d chars) is smaller than chunk_size (%d), skipping chunking",
+            len(plain_text),
+            chunk_size,
         )
         return [{"content": plain_text, "metadata": {}}]
 
     # Estimate reasonable number of chunks based on content size
     estimated_chunks = len(plain_text) // (chunk_size - chunk_overlap) + 1
     if estimated_chunks > max_chunks:
-        logging.warning(
-            f"Content would generate too many chunks ({estimated_chunks}). Using simpler chunking method.",  # noqa: E501
+        logger.warning(
+            "Content would generate too many chunks (%d). Using simpler chunking method.",
+            estimated_chunks,
         )
         # Fall back to simple text splitting for very large content
         return _chunk_text_safely(plain_text, chunk_size, chunk_overlap, max_chunks)
@@ -91,7 +94,7 @@ def chunk_html_content(
     try:
         if splitter_type == "header":
             # Use header-based chunking
-            logging.info("Using header-based HTML chunking")
+            logger.info("Using header-based HTML chunking")
             headers_to_split_on = [
                 ("h1", "Header 1"),
                 ("h2", "Header 2"),
@@ -104,7 +107,7 @@ def chunk_html_content(
 
         elif splitter_type == "section":
             # Use section-based chunking
-            logging.info("Using section-based HTML chunking")
+            logger.info("Using section-based HTML chunking")
             headers_to_split_on = [
                 ("h1", "Header 1"),
                 ("h2", "Header 2"),
@@ -113,12 +116,12 @@ def chunk_html_content(
                 ("h5", "Header 5"),
             ]
             # Using HTMLSectionSplitter but var type should match the interface
-            section_splitter: HTMLHeaderTextSplitter = HTMLSectionSplitter(headers_to_split_on)  # type: ignore
+            section_splitter: HTMLHeaderTextSplitter = HTMLSectionSplitter(headers_to_split_on)  # type: ignore[assignment]
             split_docs = section_splitter.split_text(html_content)
 
         else:
             # For semantic chunking, try simpler approach first for better reliability
-            logging.info("Using recursive character-based text chunking for HTML")
+            logger.info("Using recursive character-based text chunking for HTML")
             # Extract text and chunk it, preserving some basic HTML structure
             cleaned_html = _basic_clean_html(html_content)
             text_splitter = RecursiveCharacterTextSplitter(
@@ -130,25 +133,24 @@ def chunk_html_content(
 
         # Apply safety checks
         if len(split_docs) > max_chunks:
-            logging.warning(
-                f"HTML splitting produced too many chunks ({len(split_docs)}). Limiting to {max_chunks}.",  # noqa: E501
+            logger.warning(
+                "HTML splitting produced too many chunks (%d). Limiting to %d.",
+                len(split_docs),
+                max_chunks,
             )
             split_docs = split_docs[:max_chunks]
 
         # Convert to our expected format
         return [{"content": doc.page_content, "metadata": doc.metadata} for doc in split_docs]
 
-    except Exception as e:
-        logging.warning(
-            f"Error using HTML splitter: {str(e)}. Falling back to default chunker.",
-        )
+    except Exception:
+        logger.warning("Error using HTML splitter. Falling back to default chunker.", exc_info=True)
         # Fallback to basic text splitting
         return _chunk_text_safely(plain_text, chunk_size, chunk_overlap, max_chunks)
 
 
 def remove_javascript(html_content: str) -> str:
-    """
-    Aggressively remove all JavaScript code from HTML.
+    """Aggressively remove all JavaScript code from HTML.
 
     Args:
         html_content: HTML content as string
@@ -168,9 +170,7 @@ def remove_javascript(html_content: str) -> str:
     cleaned = re.sub(r"href='javascript:[^']*'", "href='#'", cleaned)
 
     # Remove inline JS that might have been missed
-    cleaned = re.sub(r"(\s)javascript:", r"\1", cleaned)
-
-    return cleaned
+    return re.sub(r"(\s)javascript:", r"\1", cleaned)
 
 
 def _chunk_text_safely(
@@ -179,7 +179,7 @@ def _chunk_text_safely(
     chunk_overlap: int = 200,
     max_chunks: int = 50,
 ) -> list[dict[str, Any]]:
-    """Safe text chunking with limits to prevent infinite loops"""
+    """Safe text chunking with limits to prevent infinite loops."""
     text_splitter = RecursiveCharacterTextSplitter(
         chunk_size=chunk_size,
         chunk_overlap=chunk_overlap,
@@ -191,14 +191,16 @@ def _chunk_text_safely(
 
         # Safety check for too many chunks
         if len(docs) > max_chunks:
-            logging.warning(
-                f"Generated too many chunks ({len(docs)}). Limiting to {max_chunks}.",
+            logger.warning(
+                "Generated too many chunks (%d). Limiting to %d.",
+                len(docs),
+                max_chunks,
             )
             docs = docs[:max_chunks]
 
         return [{"content": doc.page_content, "metadata": {}} for doc in docs]
-    except Exception as e:
-        logging.error(f"Error chunking text: {str(e)}")
+    except Exception:
+        logger.exception("Error chunking text")
         # Last resort: manual chunking
         chunks = []
         for i in range(0, len(text), chunk_size - chunk_overlap):
@@ -210,9 +212,9 @@ def _chunk_text_safely(
 
 
 def _basic_clean_html(html_content: str) -> str:
-    """
-    Perform basic HTML cleaning to make text chunking more reliable
-    while preserving important structural elements
+    """Perform basic HTML cleaning to make text chunking more reliable.
+
+    Preserves important structural elements.
     """
     # Remove script and style tags with their content
     cleaned = re.sub(r"<script[^>]*>.*?</script>", "", html_content, flags=re.DOTALL)

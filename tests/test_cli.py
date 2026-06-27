@@ -2,6 +2,7 @@
 
 import os
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -160,7 +161,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "Starting web crawler for migri" in result.stdout
-        assert "Error during crawling: Test error" in result.stdout
+        assert "Error during crawling: Test error" in result.output
 
     @patch("tapio.cli.ConfigManager")
     def test_crawl_command_invalid_site(self, mock_config_manager, runner):
@@ -269,7 +270,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "Starting HTML parsing" in result.stdout
-        assert "Error during parsing: Test error" in result.stdout
+        assert "Error during parsing: Test error" in result.output
 
         # Check that list_available_sites was called
         mock_config_instance.list_available_sites.assert_called_once()
@@ -339,7 +340,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "Starting vectorization" in result.stdout
-        assert "Error during vectorization: Test error" in result.stdout
+        assert "Error during vectorization: Test error" in result.output
 
     @patch("tapio.cli.tapio_app")
     def test_dev_command(self, mock_tapio_app, runner):
@@ -446,19 +447,19 @@ class TestCli:
         assert result.exit_code == 1
 
         # Check expected output in stdout
-        assert "Error listing site configurations: Test error" in result.stdout
+        assert "Error listing site configurations: Test error" in result.output
 
     @patch("tapio.cli.ConfigManager")
     @patch("tapio.cli.Parser")
-    @patch("os.path.exists")
-    @patch("os.listdir")
-    @patch("os.path.isdir")
-    @patch("os.walk")
+    @patch("pathlib.Path.exists", autospec=True)
+    @patch("pathlib.Path.iterdir", autospec=True)
+    @patch("pathlib.Path.is_dir", autospec=True)
+    @patch("pathlib.Path.rglob", autospec=True)
     def test_parse_command_no_site_specified(
         self,
-        mock_walk,
-        mock_isdir,
-        mock_listdir,
+        mock_rglob,
+        mock_is_dir,
+        mock_iterdir,
         mock_exists,
         mock_parser,
         mock_config_manager,
@@ -466,23 +467,22 @@ class TestCli:
     ):
         """Test the parse command when no site is specified - should parse all available sites with crawled content."""
         # Setup mocks for directory structure - new structure uses content/site_name/crawled/
-        mock_exists.side_effect = lambda path: (
-            path == DEFAULT_CONTENT_DIR or "migri/crawled" in path or "kela/crawled" in path or "vero/crawled" in path
-        )
-        mock_listdir.return_value = ["migri", "kela", "vero", "parsed"]
-        mock_isdir.side_effect = lambda path: not path.endswith(".json")
+        mock_exists.return_value = True
+        mock_iterdir.return_value = [Path("migri"), Path("kela"), Path("vero"), Path("parsed")]
+        mock_is_dir.side_effect = lambda self: not str(self).endswith(".json")
 
-        # Mock os.walk to return HTML files for each site's crawled directory
-        def mock_walk_side_effect(path):
-            if "migri/crawled" in path:
-                return [("/content/migri/crawled", [], ["page1.html", "page2.html"])]
-            elif "kela/crawled" in path:
-                return [("/content/kela/crawled", [], ["page3.html"])]
-            elif "vero/crawled" in path:
-                return [("/content/vero/crawled", [], ["page4.html", "page5.html"])]
-            return []
+        # Mock Path.rglob to return HTML files for each site's crawled directory
+        def mock_rglob_side_effect(self, _pattern):
+            path_str = str(self)
+            if "migri/crawled" in path_str:
+                return iter([Path("page1.html"), Path("page2.html")])
+            if "kela/crawled" in path_str:
+                return iter([Path("page3.html")])
+            if "vero/crawled" in path_str:
+                return iter([Path("page4.html"), Path("page5.html")])
+            return iter([])
 
-        mock_walk.side_effect = mock_walk_side_effect
+        mock_rglob.side_effect = mock_rglob_side_effect
 
         # Set up mock parser instances
         mock_parser_instances = []
@@ -532,7 +532,7 @@ class TestCli:
         assert "Parsed 3 sites: migri, kela, vero" in result.stdout
 
     @patch("tapio.cli.ConfigManager")
-    @patch("os.path.exists")
+    @patch("pathlib.Path.exists", autospec=True)
     def test_parse_command_no_site_crawled_dir_not_found(self, mock_exists, mock_config_manager, runner):
         """Test the parse command when no site is specified and crawled directory doesn't exist."""
         # Setup mocks
@@ -553,15 +553,15 @@ class TestCli:
         assert f"Content directory not found: {DEFAULT_CONTENT_DIR}" in result.stdout
 
     @patch("tapio.cli.ConfigManager")
-    @patch("os.path.exists")
-    @patch("os.listdir")
-    @patch("os.path.isdir")
-    @patch("os.walk")
+    @patch("pathlib.Path.exists", autospec=True)
+    @patch("pathlib.Path.iterdir", autospec=True)
+    @patch("pathlib.Path.is_dir", autospec=True)
+    @patch("pathlib.Path.rglob", autospec=True)
     def test_parse_command_no_site_no_crawled_content(
         self,
-        mock_walk,
-        mock_isdir,
-        mock_listdir,
+        mock_rglob,
+        mock_is_dir,
+        mock_iterdir,
         mock_exists,
         mock_config_manager,
         runner,
@@ -569,11 +569,11 @@ class TestCli:
         """Test the parse command when no site is specified and no crawled content is found."""
         # Setup mocks - directory exists but contains no HTML files
         mock_exists.return_value = True
-        mock_listdir.return_value = ["url_mappings.json", "empty_dir"]
-        mock_isdir.side_effect = lambda path: path.endswith("empty_dir")
+        mock_iterdir.return_value = [Path("url_mappings.json"), Path("empty_dir")]
+        mock_is_dir.side_effect = lambda self: not str(self).endswith(".json")
 
-        # Mock os.walk to return no HTML files
-        mock_walk.return_value = [("/content/crawled/empty_dir", [], ["text_file.txt"])]
+        # Mock Path.rglob to return no HTML files
+        mock_rglob.return_value = iter([])
 
         mock_config_instance = MagicMock()
         mock_config_instance.list_available_sites.return_value = ["migri", "kela"]
@@ -590,36 +590,35 @@ class TestCli:
         assert "No crawled content found to parse" in result.stdout
 
     @patch("tapio.cli.ConfigManager")
-    @patch("os.path.exists")
-    @patch("os.listdir")
-    @patch("os.path.isdir")
-    @patch("os.walk")
+    @patch("pathlib.Path.exists", autospec=True)
+    @patch("pathlib.Path.iterdir", autospec=True)
+    @patch("pathlib.Path.is_dir", autospec=True)
+    @patch("pathlib.Path.rglob", autospec=True)
     def test_parse_command_no_site_no_matching_configs(
         self,
-        mock_walk,
-        mock_isdir,
-        mock_listdir,
+        mock_rglob,
+        mock_is_dir,
+        mock_iterdir,
         mock_exists,
         mock_config_manager,
         runner,
     ):
         """Test the parse command when crawled content exists but no site configs match."""
         # Setup mocks for new directory structure - content/site_name/crawled/
-        mock_exists.side_effect = lambda path: (
-            path == DEFAULT_CONTENT_DIR or "unknown_site/crawled" in path or "another_unknown/crawled" in path
-        )
-        mock_listdir.return_value = ["unknown_site", "another_unknown"]
-        mock_isdir.side_effect = lambda path: not path.endswith(".json")
+        mock_exists.return_value = True
+        mock_iterdir.return_value = [Path("unknown_site"), Path("another_unknown")]
+        mock_is_dir.side_effect = lambda self: not str(self).endswith(".json")
 
-        # Mock os.walk to return HTML files for unknown sites
-        def mock_walk_side_effect(path):
-            if "unknown_site/crawled" in path:
-                return [("/content/unknown_site/crawled", [], ["page1.html"])]
-            elif "another_unknown/crawled" in path:
-                return [("/content/another_unknown/crawled", [], ["page2.html"])]
-            return []
+        # Mock Path.rglob to return HTML files for unknown sites
+        def mock_rglob_side_effect(self, _pattern):
+            path_str = str(self)
+            if "unknown_site/crawled" in path_str:
+                return iter([Path("page1.html")])
+            if "another_unknown/crawled" in path_str:
+                return iter([Path("page2.html")])
+            return iter([])
 
-        mock_walk.side_effect = mock_walk_side_effect
+        mock_rglob.side_effect = mock_rglob_side_effect
 
         # Set up mock config manager with sites that don't match the crawled sites
         mock_config_instance = MagicMock()
@@ -642,15 +641,15 @@ class TestCli:
 
     @patch("tapio.cli.ConfigManager")
     @patch("tapio.cli.Parser")
-    @patch("os.path.exists")
-    @patch("os.listdir")
-    @patch("os.path.isdir")
-    @patch("os.walk")
+    @patch("pathlib.Path.exists", autospec=True)
+    @patch("pathlib.Path.iterdir", autospec=True)
+    @patch("pathlib.Path.is_dir", autospec=True)
+    @patch("pathlib.Path.rglob", autospec=True)
     def test_parse_command_no_site_partial_match(
         self,
-        mock_walk,
-        mock_isdir,
-        mock_listdir,
+        mock_rglob,
+        mock_is_dir,
+        mock_iterdir,
         mock_exists,
         mock_parser,
         mock_config_manager,
@@ -658,26 +657,22 @@ class TestCli:
     ):
         """Test the parse command when only some crawled sites have matching site configs."""
         # Setup mocks for directory structure - new structure uses content/site_name/crawled/
-        mock_exists.side_effect = lambda path: (
-            path == DEFAULT_CONTENT_DIR
-            or "migri/crawled" in path
-            or "unknown/crawled" in path
-            or "kela/crawled" in path
-        )
-        mock_listdir.return_value = ["migri", "unknown", "kela"]
-        mock_isdir.side_effect = lambda path: not path.endswith(".json")
+        mock_exists.return_value = True
+        mock_iterdir.return_value = [Path("migri"), Path("unknown"), Path("kela")]
+        mock_is_dir.side_effect = lambda self: not str(self).endswith(".json")
 
-        # Mock os.walk to return HTML files
-        def mock_walk_side_effect(path):
-            if "migri/crawled" in path:
-                return [("/content/migri/crawled", [], ["page1.html"])]
-            elif "kela/crawled" in path:
-                return [("/content/kela/crawled", [], ["page2.html"])]
-            elif "unknown/crawled" in path:
-                return [("/content/unknown/crawled", [], ["page3.html"])]
-            return []
+        # Mock Path.rglob to return HTML files
+        def mock_rglob_side_effect(self, _pattern):
+            path_str = str(self)
+            if "migri/crawled" in path_str:
+                return iter([Path("page1.html")])
+            if "kela/crawled" in path_str:
+                return iter([Path("page2.html")])
+            if "unknown/crawled" in path_str:
+                return iter([Path("page3.html")])
+            return iter([])
 
-        mock_walk.side_effect = mock_walk_side_effect
+        mock_rglob.side_effect = mock_rglob_side_effect
 
         # Set up mock parser instances for 2 matching sites
         mock_parser_instances = []
@@ -711,15 +706,15 @@ class TestCli:
 
     @patch("tapio.cli.ConfigManager")
     @patch("tapio.cli.Parser")
-    @patch("os.path.exists")
-    @patch("os.listdir")
-    @patch("os.path.isdir")
-    @patch("os.walk")
+    @patch("pathlib.Path.exists", autospec=True)
+    @patch("pathlib.Path.iterdir", autospec=True)
+    @patch("pathlib.Path.is_dir", autospec=True)
+    @patch("pathlib.Path.rglob", autospec=True)
     def test_parse_command_no_site_with_exception(
         self,
-        mock_walk,
-        mock_isdir,
-        mock_listdir,
+        mock_rglob,
+        mock_is_dir,
+        mock_iterdir,
         mock_exists,
         mock_parser,
         mock_config_manager,
@@ -727,16 +722,16 @@ class TestCli:
     ):
         """Test handling of exceptions in parse command when parsing all sites."""
         # Setup mocks for directory structure - new structure uses content/site_name/crawled/
-        mock_exists.side_effect = lambda path: (path == DEFAULT_CONTENT_DIR or "migri/crawled" in path)
-        mock_listdir.return_value = ["migri"]
-        mock_isdir.side_effect = lambda path: not path.endswith(".json")
+        mock_exists.return_value = True
+        mock_iterdir.return_value = [Path("migri")]
+        mock_is_dir.side_effect = lambda self: not str(self).endswith(".json")
 
-        def mock_walk_side_effect(path):
-            if "migri/crawled" in path:
-                return [("/content/migri/crawled", [], ["page.html"])]
-            return []
+        def mock_rglob_side_effect(self, _pattern):
+            if "migri/crawled" in str(self):
+                return iter([Path("page.html")])
+            return iter([])
 
-        mock_walk.side_effect = mock_walk_side_effect
+        mock_rglob.side_effect = mock_rglob_side_effect
 
         # Set up mock parser that raises an exception
         mock_parser_instance = MagicMock()
@@ -757,13 +752,13 @@ class TestCli:
 
         # Check expected output in stdout
         assert "No site specified, parsing all available sites with crawled content" in result.stdout
-        assert "Error during parsing: Test parsing error" in result.stdout
+        assert "Error during parsing: Test parsing error" in result.output
 
     @patch("tapio.cli.MarkdownVectorizer")
     def test_vectorize_command_with_nonexistent_site(self, mock_vectorizer, runner):
         """Test the vectorize command with a non-existent site."""
-        # Mock os.path.exists to return False for the site directory
-        with patch("tapio.cli.os.path.exists", return_value=False):
+        # Mock Path.exists to return False for the site directory
+        with patch("pathlib.Path.exists", return_value=False):
             # Run the command with non-existent site
             result = runner.invoke(app, ["vectorize", "nonexistent"])
 

@@ -1,7 +1,6 @@
 """Utility functions for loading prompt templates from files."""
 
 import logging
-import os
 from pathlib import Path
 from string import Template
 from typing import Any
@@ -49,11 +48,12 @@ def load_prompt(prompt_name: str, **kwargs: Any) -> str:
     prompt_path = get_prompt_path(prompt_name)
 
     try:
-        if not os.path.exists(prompt_path):
-            logger.warning(f"Prompt template not found: {prompt_path}")
+        prompt_path_obj = Path(prompt_path)
+        if not prompt_path_obj.exists():
+            logger.warning("Prompt template not found: %s", prompt_path)
             return ""
 
-        with open(prompt_path, encoding="utf-8") as file:
+        with prompt_path_obj.open(encoding="utf-8") as file:
             prompt_template = file.read()
 
         # If kwargs are provided, substitute them in the template
@@ -61,8 +61,8 @@ def load_prompt(prompt_name: str, **kwargs: Any) -> str:
             template = Template(prompt_template)
             return template.safe_substitute(**kwargs)
 
-        return prompt_template
-
-    except Exception as e:
-        logger.error(f"Error loading prompt template {prompt_name}: {e}")
+    except Exception:
+        logger.exception("Error loading prompt template %s", prompt_name)
         return ""
+    else:
+        return prompt_template

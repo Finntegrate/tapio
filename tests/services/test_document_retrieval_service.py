@@ -11,11 +11,10 @@ from tapio.services.document_retrieval_service import DocumentRetrievalService
 def doc_retrieval_service(mock_chroma_store):
     """Create a document retrieval service with mocked dependencies for testing."""
     # Create DocumentRetrievalService with injected mock ChromaStore
-    service = DocumentRetrievalService(
+    return DocumentRetrievalService(
         vector_store=mock_chroma_store,
         num_results=3,
     )
-    return service
 
 
 def test_document_retrieval_service_retrieves_documents(doc_retrieval_service):
