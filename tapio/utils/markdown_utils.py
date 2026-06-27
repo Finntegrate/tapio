@@ -78,7 +78,7 @@ def find_markdown_files(directory: str, site_filter: str | None = None) -> list[
                             # Check if the first part of the path is the site name
                             if len(path_parts) > 0 and path_parts[0] == site_filter:
                                 markdown_files.append(file_path)
-                        except (ValueError, IndexError):
+                        except ValueError, IndexError:
                             # Skip files that don't match the site structure
                             pass
                     else:

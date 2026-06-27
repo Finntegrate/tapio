@@ -138,7 +138,8 @@ def test_document_retrieval_similarity_search(tmp_chroma_db, mock_embeddings):
             metadata={"source": "doc1.md", "topic": "residence"},
         ),
         Document(
-            page_content="Tourist visas allow short visits to Finland.", metadata={"source": "doc2.md", "topic": "visa"}
+            page_content="Tourist visas allow short visits to Finland.",
+            metadata={"source": "doc2.md", "topic": "visa"},
         ),
         Document(
             page_content="Permanent residence permits grant long-term stay rights.",

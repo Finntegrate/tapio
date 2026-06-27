@@ -89,7 +89,7 @@ class TapioAssistantApp:
         self,
         message: str,
         chat_history: list[dict[str, str]],
-    ) -> Generator[tuple[str, list[dict[str, str]], str], None, None]:
+    ) -> Generator[tuple[str, list[dict[str, str]], str]]:
         """Process user message and stream the response.
 
         Args:
@@ -235,7 +235,6 @@ class TapioAssistantApp:
                     chatbot = gr.Chatbot(
                         label="Conversation",
                         height=500,
-                        type="messages",
                     )
                     msg = gr.Textbox(
                         label="Your question",

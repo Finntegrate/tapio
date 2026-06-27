@@ -131,7 +131,7 @@ class LLMService:
                 f"Please check if Ollama is running with the {self.model_name} model."
             )
 
-    def generate_response_stream(self, prompt: str, system_prompt: str | None = None) -> Generator[str, None, None]:
+    def generate_response_stream(self, prompt: str, system_prompt: str | None = None) -> Generator[str]:
         """Generate a streaming response from the LLM model.
 
         Args:

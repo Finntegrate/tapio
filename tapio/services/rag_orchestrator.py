@@ -103,7 +103,7 @@ class RAGOrchestrator:
         self,
         query_text: str,
         history: list[dict[str, Any]] | None = None,
-    ) -> tuple[Generator[str, None, None], list[Any]]:
+    ) -> tuple[Generator[str], list[Any]]:
         """Generate a streaming response using RAG.
 
         Args:
@@ -136,7 +136,7 @@ class RAGOrchestrator:
             # Step 4: Create the streaming generator
             logger.info("Generating streaming response with LLM")
 
-            def stream_generator() -> Generator[str, None, None]:
+            def stream_generator() -> Generator[str]:
                 llm_response_stream = self.llm_service.generate_response_stream(
                     prompt=user_prompt,
                     system_prompt=system_prompt,
@@ -159,7 +159,7 @@ class RAGOrchestrator:
         except Exception:
             logger.exception("Error in query_stream setup")
 
-            def error_generator() -> Generator[str, None, None]:
+            def error_generator() -> Generator[str]:
                 yield "I encountered an error while processing your query. Please try again."
 
             return error_generator(), []

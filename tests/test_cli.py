@@ -160,7 +160,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "Starting web crawler for migri" in result.stdout
-        assert "Error during crawling: Test error" in result.stdout
+        assert "Error during crawling: Test error" in result.output
 
     @patch("tapio.cli.ConfigManager")
     def test_crawl_command_invalid_site(self, mock_config_manager, runner):
@@ -269,7 +269,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "Starting HTML parsing" in result.stdout
-        assert "Error during parsing: Test error" in result.stdout
+        assert "Error during parsing: Test error" in result.output
 
         # Check that list_available_sites was called
         mock_config_instance.list_available_sites.assert_called_once()
@@ -339,7 +339,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "Starting vectorization" in result.stdout
-        assert "Error during vectorization: Test error" in result.stdout
+        assert "Error during vectorization: Test error" in result.output
 
     @patch("tapio.cli.tapio_app")
     def test_dev_command(self, mock_tapio_app, runner):
@@ -446,7 +446,7 @@ class TestCli:
         assert result.exit_code == 1
 
         # Check expected output in stdout
-        assert "Error listing site configurations: Test error" in result.stdout
+        assert "Error listing site configurations: Test error" in result.output
 
     @patch("tapio.cli.ConfigManager")
     @patch("tapio.cli.Parser")
@@ -727,7 +727,7 @@ class TestCli:
     ):
         """Test handling of exceptions in parse command when parsing all sites."""
         # Setup mocks for directory structure - new structure uses content/site_name/crawled/
-        mock_exists.side_effect = lambda path: (path == DEFAULT_CONTENT_DIR or "migri/crawled" in path)
+        mock_exists.side_effect = lambda path: path == DEFAULT_CONTENT_DIR or "migri/crawled" in path
         mock_listdir.return_value = ["migri"]
         mock_isdir.side_effect = lambda path: not path.endswith(".json")
 
@@ -757,7 +757,7 @@ class TestCli:
 
         # Check expected output in stdout
         assert "No site specified, parsing all available sites with crawled content" in result.stdout
-        assert "Error during parsing: Test parsing error" in result.stdout
+        assert "Error during parsing: Test parsing error" in result.output
 
     @patch("tapio.cli.MarkdownVectorizer")
     def test_vectorize_command_with_nonexistent_site(self, mock_vectorizer, runner):

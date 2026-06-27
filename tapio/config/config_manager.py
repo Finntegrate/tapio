@@ -106,7 +106,7 @@ class ConfigManager:
         }
 
     @classmethod
-    def from_file(cls, config_path: str) -> "ConfigManager":
+    def from_file(cls, config_path: str) -> ConfigManager:
         """
         Create a ConfigManager instance from a specific configuration file.
 

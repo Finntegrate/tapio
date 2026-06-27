@@ -1,2 +1,5 @@
 [tools]
 gh = "latest"
+ollama = "latest"
+python = "3.14"
+uv = "latest"

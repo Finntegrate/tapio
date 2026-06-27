@@ -4,8 +4,8 @@ import logging
 import os
 from typing import Any
 
-from langchain.schema.document import Document  # type: ignore[import-not-found]
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
+from langchain_core.documents import Document
 from langchain_text_splitters import MarkdownTextSplitter  # type: ignore[import-not-found]
 
 from tapio.utils.markdown_utils import find_markdown_files, read_markdown_file

@@ -234,10 +234,14 @@ class TestParser(unittest.TestCase):
 
         # Prepare input/output directories for no_fallback site
         no_fallback_input_dir = os.path.join(
-            self.temp_dir, self.no_fallback_site_name, self.DEFAULT_DIRS["CRAWLED_DIR"]
+            self.temp_dir,
+            self.no_fallback_site_name,
+            self.DEFAULT_DIRS["CRAWLED_DIR"],
         )
         no_fallback_output_dir = os.path.join(
-            self.temp_dir, self.no_fallback_site_name, self.DEFAULT_DIRS["PARSED_DIR"]
+            self.temp_dir,
+            self.no_fallback_site_name,
+            self.DEFAULT_DIRS["PARSED_DIR"],
         )
         os.makedirs(no_fallback_input_dir, exist_ok=True)
         os.makedirs(no_fallback_output_dir, exist_ok=True)

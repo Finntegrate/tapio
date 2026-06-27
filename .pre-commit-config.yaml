@@ -1,3 +1,5 @@
+default_language_version:
+  python: python3.14
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v5.0.0
@@ -11,10 +13,10 @@ repos:
       - id: check-toml
       - id: check-merge-conflict
   - repo: https://github.com/asottile/pyupgrade
-    rev: v3.19.1
+    rev: v3.21.2
     hooks:
       - id: pyupgrade
-        args: [--py311-plus]
+        args: [--py313-plus]
   - repo: https://github.com/asottile/add-trailing-comma
     rev: v3.1.0
     hooks:
@@ -22,7 +24,7 @@ repos:
         args: [--py36-plus]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
-    rev: v0.9.8
+    rev: v0.15.20
     hooks:
       # Run the linter.
       - id: ruff
@@ -44,7 +46,7 @@ repos:
           - chromadb
           - langchain-chroma
           - langchain-core
-          - langchain-huggingface
+          - langchain-huggingface[full]
           - langchain-text-splitters
           - langchain-community
           - langchain

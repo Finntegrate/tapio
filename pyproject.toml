@@ -3,7 +3,7 @@ name = "tapio"
 version = "2.0.0"
 description = "An assistant for Finnish immigrants"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.14"
 license = "MIT"
 authors = [
     {name = "Finntegrate Team", email = "info@finntegrate.org"}
@@ -18,10 +18,10 @@ dependencies = [
     "langchain-community>=0.3.21",
     "langchain>=0.3.23",
     "langchain-chroma>=0.2.3",
-    "langchain-huggingface>=0.1.2",
-    "gradio>=5.25.2",
+    "langchain-huggingface[full]>=0.1.2",
+    "gradio>=6.0.0",
     "ollama>=0.4.8",
-    "pydantic>=2.11.3",
+    "pydantic>=2.13.4",
     "httpx>=0.28.1",
     "beautifulsoup4>=4.13.4",
 ]
@@ -35,7 +35,7 @@ python_files = "test_*.py"
 
 [tool.ruff]
 line-length = 120
-target-version = "py310"
+target-version = "py314"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP"]
@@ -49,12 +49,12 @@ line-ending = "auto"
 [dependency-groups]
 dev = [
     "mypy>=1.15.0",
-    "pre-commit>=4.2.0",
+    "prek>=0.2.3",
     "pyrefly>=0.17.0",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",
-    "ruff>=0.11.5",
+    "ruff>=0.13.1",
     "types-lxml>=2025.3.30",
     "types-pyyaml>=6.0.12.20250402",
 ]
