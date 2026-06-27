@@ -1,0 +1,39 @@
+name: Task / research spike
+description: Exploratory work, maintenance, or a task that doesn't fit a bug or feature
+title: "[Task]: "
+labels:
+  - task
+type: Task
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for maintenance work, exploratory research, or anything that isn't
+        squarely a bug fix or a new user-facing feature.
+
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What are we trying to learn, build, or clean up?
+    validations:
+      required: true
+
+  - type: textarea
+    id: checklist
+    attributes:
+      label: Checklist
+      description: Break the work into concrete, checkable steps if you can.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: false
+
+  - type: textarea
+    id: context
+    attributes:
+      label: Context / references
+      description: Links to related issues, discussions, or external resources.
+    validations:
+      required: false
