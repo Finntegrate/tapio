@@ -2758,7 +2758,7 @@ wheels = [
 [[package]]
 name = "tapio"
 version = "2.0.0"
-source = { virtual = "." }
+source = { editable = "." }
 dependencies = [
     { name = "beautifulsoup4" },
     { name = "gradio" },

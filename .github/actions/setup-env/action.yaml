@@ -6,10 +6,6 @@ inputs:
     description: Python version to install
     required: false
     default: "3.14"
-  install-editable:
-    description: Also run `uv pip install -e .` (needed by jobs that import the package, e.g. mypy/pytest)
-    required: false
-    default: "false"
 
 runs:
   using: composite
@@ -24,11 +20,9 @@ runs:
         cache-dependency-glob: "uv.lock"
         python-version: ${{ inputs.python-version }}
 
+    # pyproject.toml declares a build-system (hatchling), so `uv sync` builds and
+    # installs the project itself in editable mode -- no separate
+    # `uv pip install -e .` step needed.
     - name: Install dependencies
       shell: bash
       run: uv sync --all-extras --dev
-
-    - name: Install package in development mode
-      if: inputs.install-editable == 'true'
-      shell: bash
-      run: uv pip install -e .

@@ -71,8 +71,6 @@ jobs:
 
       - name: Set up Python environment
         uses: ./.github/actions/setup-env
-        with:
-          install-editable: "true"
 
       # continue-on-error so a mypy failure doesn't prevent pyrefly from also
       # reporting -- both outcomes surface in the report job's summary and gate.
@@ -106,7 +104,6 @@ jobs:
         uses: ./.github/actions/setup-env
         with:
           python-version: ${{ matrix.python-version }}
-          install-editable: "true"
 
       # continue-on-error so the coverage-threshold step below still runs (and
       # reports a percentage) even when a test fails, instead of skipping it.
@@ -183,12 +180,18 @@ jobs:
                 : '⚠️ Coverage is below the required 80% threshold. Please add tests for the new or changed code before this pull request can be merged.',
             ].join('\n');
 
-            const { data: comments } = await github.rest.issues.listComments({
+            // paginate() walks every page of comments, not just the first 30, so a
+            // long-lived PR's earlier sticky comment is never missed; restricting to
+            // github-actions[bot] avoids matching a human comment that happens to
+            // quote the marker text.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: context.issue.number,
             });
-            const existing = comments.find((comment) => comment.body.includes(marker));
+            const existing = comments.find(
+              (comment) => comment.user.login === 'github-actions[bot]' && comment.body.includes(marker),
+            );
 
             if (existing) {
               await github.rest.issues.updateComment({
