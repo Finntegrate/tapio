@@ -1,3 +1,11 @@
+---
+name: create-issue
+description: Create a GitHub issue for Finntegrate/tapio from a free-form description. Always searches the open backlog for related or duplicate issues before drafting. Use when the user wants to file, add, or create a new issue, or when given a YAML planning file to batch-create issues from.
+argument-hint: "[description] or [yaml-file]"
+disable-model-invocation: true
+compatibility: Requires Claude Code with gh CLI installed and authenticated to Finntegrate/tapio.
+---
+
 Create a well-formed GitHub issue for the Finntegrate/tapio project from the following description:
 
 $ARGUMENTS
@@ -88,7 +96,7 @@ Labels:  <comma-separated labels>
 Related: <#N — title, or "none">
 ---
 <issue body>
-```text
+```
 
 Ask: "Look right? (y to create / edit any field)"
 
@@ -106,7 +114,7 @@ gh issue create \
   --title "<title>" \
   --body "<body>" \
   --label "<comma,separated,labels>"
-```text
+```
 
 Print the returned issue URL.
 
@@ -116,7 +124,7 @@ Print the returned issue URL.
 
 If `$ARGUMENTS` is a path to a `.yaml` file (e.g. `docs/planned-issues.yaml`), process each issue entry in sequence. For each entry, run the backlog scan for that issue's title/description, then confirm and create as above.
 
-The YAML schema is at `docs/issue-schema.yaml`.
+The YAML schema is at [references/issue-schema.yaml](references/issue-schema.yaml).
 
 ---
 

@@ -71,21 +71,21 @@ The goal is to behave like a product manager who has read every open issue: awar
 
 ## Project commands
 
-Commands in `.claude/commands/` are automatically registered as `/project:<name>` slash commands when this repo is open in Claude Code — no manual setup required. Type `/project:` in the chat pane to see them.
+Skills in `.claude/skills/` are automatically available as slash commands when this repo is open in Claude Code — no manual setup required. If commands don't appear after opening the project, restart Claude Code once so it can watch the new directory.
 
 | Command | Purpose |
 | --- | --- |
-| `/project:create-issue <description or yaml path>` | Create a single issue (or batch from YAML) after a backlog scan |
-| `/project:backlog [keyword / number / label / gaps]` | Explore and review the open backlog |
+| `/create-issue <description or yaml path>` | Create a single issue (or batch from YAML) after a backlog scan |
+| `/backlog [keyword / number / label / gaps]` | Explore and review the open backlog |
 
 ## Key files
 
-| Path                               | Purpose                                                          |
-| ---------------------------------- | ---------------------------------------------------------------- |
-| `docs/issue-schema.yaml`           | YAML schema for drafting batches of issues                       |
-| `.claude/commands/create-issue.md` | Source for `/project:create-issue`                               |
-| `.claude/commands/backlog.md`      | Source for `/project:backlog`                                    |
-| `mise.toml`                        | Task runner targets (`mise run <task>`)                          |
+| Path                                      | Purpose                                                  |
+| ----------------------------------------- | -------------------------------------------------------- |
+| `.claude/skills/create-issue/references/issue-schema.yaml` | YAML schema for drafting batches of issues |
+| `.claude/skills/create-issue/SKILL.md`    | Source for `/create-issue`                               |
+| `.claude/skills/backlog/SKILL.md`         | Source for `/backlog`                                    |
+| `mise.toml`                               | Task runner targets (`mise run <task>`)                  |
 
 ## Conventions
 

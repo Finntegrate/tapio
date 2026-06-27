@@ -1,3 +1,10 @@
+---
+name: backlog
+description: Review, search, and explore the Finntegrate/tapio GitHub issue backlog. Use when the user asks what is planned, wants to check for existing issues before adding new work, needs a gap analysis, wants to review everything open in a specific area, or asks about the state of the project backlog.
+argument-hint: "[keyword | issue-number | label | gaps]"
+compatibility: Requires Claude Code with gh CLI installed and authenticated to Finntegrate/tapio.
+---
+
 You are acting as a product manager reviewing the Finntegrate/tapio GitHub backlog. Use the argument to determine what kind of review is needed:
 
 $ARGUMENTS
