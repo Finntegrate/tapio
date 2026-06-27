@@ -1,5 +1,7 @@
+"""Command-line interface for the Tapio Assistant pipeline."""
+
 import logging
-import os
+from pathlib import Path
 
 import typer
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
@@ -43,18 +45,18 @@ def find_sites_with_crawled_content(content_dir: str, crawled_subdir: str) -> li
     :return: List of site names that have crawled HTML content
     """
     crawled_sites: list[str] = []
-    if not os.path.exists(content_dir):
+    content_path = Path(content_dir)
+    if not content_path.exists():
         return crawled_sites
 
-    for item in os.listdir(content_dir):
-        item_path = os.path.join(content_dir, item)
-        if os.path.isdir(item_path):
-            crawled_path = os.path.join(item_path, crawled_subdir)
-            if os.path.exists(crawled_path) and os.path.isdir(crawled_path):
+    for item_path in content_path.iterdir():
+        if item_path.is_dir():
+            crawled_path = item_path / crawled_subdir
+            if crawled_path.is_dir():
                 # Check if the crawled directory contains any HTML files
-                has_html = any(f.endswith(".html") for root, _, files in os.walk(crawled_path) for f in files)
+                has_html = any(crawled_path.rglob("*.html"))
                 if has_html:
-                    crawled_sites.append(item)
+                    crawled_sites.append(item_path.name)
 
     return crawled_sites
 
@@ -84,8 +86,7 @@ def crawl(
         help="Enable verbose output",
     ),
 ) -> None:
-    """
-    Crawl a website to a configurable depth and save raw HTML content.
+    """Crawl a website to a configurable depth and save raw HTML content.
 
     This command takes a site identifier and uses the corresponding configuration
     from the site_configs.yaml file to determine the base URL for crawling.
@@ -112,8 +113,8 @@ def crawl(
         # Get the site configuration
         site_config = config_manager.get_site_config(site)
     except ValueError as e:
-        typer.echo(f"❌ Error loading site configuration: {str(e)}")
-        raise typer.Exit(code=1)
+        typer.echo(f"❌ Error loading site configuration: {e!s}")
+        raise typer.Exit(code=1) from None
 
     # Get the base URL from the site configuration
     url = site_config.base_url
@@ -126,7 +127,7 @@ def crawl(
         site_config.crawler_config.max_depth = depth
 
     # Construct the actual output directory path
-    crawled_dir = os.path.join(DEFAULT_CONTENT_DIR, site, DEFAULT_DIRS["CRAWLED_DIR"])
+    crawled_dir = str(Path(DEFAULT_CONTENT_DIR) / site / DEFAULT_DIRS["CRAWLED_DIR"])
 
     typer.echo(f"🕸️ Starting web crawler for {site} ({url}) with depth {site_config.crawler_config.max_depth}")
     typer.echo(f"💾 Saving HTML content to: {crawled_dir}")
@@ -153,8 +154,94 @@ def crawl(
         typer.echo("✅ Partial results have been saved")
         typer.echo(f"💾 Crawled content saved to {crawled_dir}")
     except Exception as e:
-        typer.echo(f"❌ Error during crawling: {str(e)}", err=True)
+        typer.echo(f"❌ Error during crawling: {e!s}", err=True)
+        raise typer.Exit(code=1) from None
+
+
+def _parse_single_site(config_manager: ConfigManager, site: str, available_sites: list[str]) -> None:
+    """Parse a single, named site.
+
+    Args:
+        config_manager: Site configuration manager
+        site: Name of the site to parse
+        available_sites: Names of sites with known configurations
+    """
+    if site not in available_sites:
+        typer.echo(f"❌ Unsupported site: {site}")
+        typer.echo(f"Available sites: {', '.join(available_sites)}")
         raise typer.Exit(code=1)
+
+    typer.echo(f"🔧 Using configuration for site: {site}")
+
+    site_config = config_manager.get_site_config(site)
+    input_dir = str(Path(DEFAULT_CONTENT_DIR) / site / DEFAULT_DIRS["CRAWLED_DIR"])
+    output_dir = str(Path(DEFAULT_CONTENT_DIR) / site / DEFAULT_DIRS["PARSED_DIR"])
+
+    parser = Parser(
+        site_name=site,
+        site_config=site_config,
+        input_dir=input_dir,
+        output_dir=output_dir,
+    )
+    results = parser.parse_all()
+
+    typer.echo(f"✅ Parsing completed! Processed {len(results)} files.")
+    parsed_dir = str(Path(DEFAULT_CONTENT_DIR) / site / DEFAULT_DIRS["PARSED_DIR"])
+    typer.echo(f"📝 Content saved as Markdown files in {parsed_dir}")
+    typer.echo(f"📝 Index created at {parsed_dir}/index.md")
+
+
+def _parse_all_crawled_sites(config_manager: ConfigManager, available_sites: list[str]) -> None:
+    """Parse every site that has crawled content and a matching configuration.
+
+    Args:
+        config_manager: Site configuration manager
+        available_sites: Names of sites with known configurations
+    """
+    typer.echo("🔧 No site specified, parsing all available sites with crawled content")
+
+    content_dir = DEFAULT_CONTENT_DIR
+    if not Path(content_dir).exists():
+        typer.echo(f"❌ Content directory not found: {content_dir}")
+        raise typer.Exit(code=1)
+
+    crawled_sites = find_sites_with_crawled_content(content_dir, DEFAULT_DIRS["CRAWLED_DIR"])
+    if not crawled_sites:
+        typer.echo("❌ No crawled content found to parse")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"📂 Found crawled content for sites: {', '.join(crawled_sites)}")
+
+    sites_to_parse = [site_name for site_name in available_sites if site_name in crawled_sites]
+    if not sites_to_parse:
+        typer.echo("❌ No site configurations found matching crawled content")
+        typer.echo(f"Available sites: {', '.join(available_sites)}")
+        typer.echo(f"Crawled sites: {', '.join(crawled_sites)}")
+        raise typer.Exit(code=1)
+
+    typer.echo(f"🎯 Parsing sites: {', '.join(sites_to_parse)}")
+
+    total_results = []
+    for site_name in sites_to_parse:
+        typer.echo(f"🔧 Parsing site: {site_name}")
+        site_config = config_manager.get_site_config(site_name)
+        input_dir = str(Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["CRAWLED_DIR"])
+        output_dir = str(Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["PARSED_DIR"])
+
+        parser = Parser(
+            site_name=site_name,
+            site_config=site_config,
+            input_dir=input_dir,
+            output_dir=output_dir,
+        )
+
+        site_results = parser.parse_all()
+        total_results.extend(site_results)
+        typer.echo(f"  ✅ {site_name}: Processed {len(site_results)} files")
+
+    typer.echo(f"✅ All parsing completed! Processed {len(total_results)} files total.")
+    typer.echo(f"📝 Content saved as Markdown files in {DEFAULT_CONTENT_DIR}")
+    typer.echo(f"📊 Parsed {len(sites_to_parse)} sites: {', '.join(sites_to_parse)}")
 
 
 @app.command()
@@ -176,8 +263,7 @@ def parse(
         help="Enable verbose output",
     ),
 ) -> None:
-    """
-    Parse HTML files previously crawled and convert to structured Markdown.
+    """Parse HTML files previously crawled and convert to structured Markdown.
 
     This command reads HTML files from the specified input directory, extracts meaningful content
     based on site-specific configurations, and saves it as Markdown files with YAML frontmatter.
@@ -198,104 +284,17 @@ def parse(
     typer.echo(f"📄 Saving parsed content to: {DEFAULT_DIRS['PARSED_DIR']}")
 
     try:
-        # Use ConfigManager for site configuration management
         config_manager = ConfigManager(config_path)
         available_sites = config_manager.list_available_sites()
 
         if site is not None:
-            # Parse a specific site
-            if site in available_sites:
-                typer.echo(f"🔧 Using configuration for site: {site}")
-
-                # Get site config from config manager
-                site_config = config_manager.get_site_config(site)
-
-                # Determine input and output directories
-                input_dir = os.path.join(DEFAULT_CONTENT_DIR, site, DEFAULT_DIRS["CRAWLED_DIR"])
-                output_dir = os.path.join(DEFAULT_CONTENT_DIR, site, DEFAULT_DIRS["PARSED_DIR"])
-
-                # Create parser with dependency injection
-                parser = Parser(
-                    site_name=site,
-                    site_config=site_config,
-                    input_dir=input_dir,
-                    output_dir=output_dir,
-                )
-                results = parser.parse_all()
-
-                # Output information
-                typer.echo(f"✅ Parsing completed! Processed {len(results)} files.")
-                parsed_dir = os.path.join(DEFAULT_CONTENT_DIR, site, DEFAULT_DIRS["PARSED_DIR"])
-                typer.echo(f"📝 Content saved as Markdown files in {parsed_dir}")
-                typer.echo(f"📝 Index created at {parsed_dir}/index.md")
-            else:
-                typer.echo(f"❌ Unsupported site: {site}")
-                typer.echo(f"Available sites: {', '.join(available_sites)}")
-                raise typer.Exit(code=1)
+            _parse_single_site(config_manager, site, available_sites)
         else:
-            # Parse all sites that have crawled content
-            typer.echo("🔧 No site specified, parsing all available sites with crawled content")
-
-            # Find which sites have crawled content by checking the content directory structure
-            content_dir = DEFAULT_CONTENT_DIR
-            if not os.path.exists(content_dir):
-                typer.echo(f"❌ Content directory not found: {content_dir}")
-                raise typer.Exit(code=1)
-
-            # Get site directories that contain crawled content
-            crawled_sites = find_sites_with_crawled_content(content_dir, DEFAULT_DIRS["CRAWLED_DIR"])
-
-            if not crawled_sites:
-                typer.echo("❌ No crawled content found to parse")
-                raise typer.Exit(code=1)
-
-            typer.echo(f"📂 Found crawled content for sites: {', '.join(crawled_sites)}")
-
-            # Match crawled sites to available site configurations
-            sites_to_parse: list[str] = []
-            for site_name in available_sites:
-                if site_name in crawled_sites:
-                    sites_to_parse.append(site_name)
-
-            if not sites_to_parse:
-                typer.echo("❌ No site configurations found matching crawled content")
-                typer.echo(f"Available sites: {', '.join(available_sites)}")
-                typer.echo(f"Crawled sites: {', '.join(crawled_sites)}")
-                raise typer.Exit(code=1)
-
-            typer.echo(f"🎯 Parsing sites: {', '.join(sites_to_parse)}")
-
-            # Parse each site
-            total_results = []
-            for site_name in sites_to_parse:
-                typer.echo(f"🔧 Parsing site: {site_name}")
-                # Get site configuration
-                site_config = config_manager.get_site_config(site_name)
-
-                # Build directory paths
-                input_dir = os.path.join(DEFAULT_CONTENT_DIR, site_name, DEFAULT_DIRS["CRAWLED_DIR"])
-                output_dir = os.path.join(DEFAULT_CONTENT_DIR, site_name, DEFAULT_DIRS["PARSED_DIR"])
-
-                # Create parser with injected dependencies
-                parser = Parser(
-                    site_name=site_name,
-                    site_config=site_config,
-                    input_dir=input_dir,
-                    output_dir=output_dir,
-                )
-
-                site_results = parser.parse_all()
-                total_results.extend(site_results)
-                typer.echo(f"  ✅ {site_name}: Processed {len(site_results)} files")
-
-            # Output summary information
-            typer.echo(f"✅ All parsing completed! Processed {len(total_results)} files total.")
-            typer.echo(f"📝 Content saved as Markdown files in {DEFAULT_CONTENT_DIR}")
-            typer.echo(f"📊 Parsed {len(sites_to_parse)} sites: {', '.join(sites_to_parse)}")
+            _parse_all_crawled_sites(config_manager, available_sites)
 
     except Exception as e:
-        typer.echo(f"❌ Error during parsing: {str(e)}", err=True)
-        raise typer.Exit(code=1)
+        typer.echo(f"❌ Error during parsing: {e!s}", err=True)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -323,8 +322,7 @@ def vectorize(
         help="Enable verbose output",
     ),
 ) -> None:
-    """
-    Vectorize parsed Markdown files and store in a vector database (ChromaDB).
+    """Vectorize parsed Markdown files and store in a vector database (ChromaDB).
 
     This command reads parsed Markdown files with frontmatter, generates embeddings,
     and stores them in ChromaDB with associated metadata from the original source.
@@ -343,8 +341,8 @@ def vectorize(
     # Determine input directory based on site parameter
     if site is not None:
         # Process a specific site
-        input_dir = os.path.join(DEFAULT_CONTENT_DIR, site, DEFAULT_DIRS["PARSED_DIR"])
-        if not os.path.exists(input_dir):
+        input_dir = str(Path(DEFAULT_CONTENT_DIR) / site / DEFAULT_DIRS["PARSED_DIR"])
+        if not Path(input_dir).exists():
             typer.echo(f"❌ No parsed content found for site: {site}")
             typer.echo(f"Expected directory: {input_dir}")
             raise typer.Exit(code=1)
@@ -391,8 +389,8 @@ def vectorize(
         typer.echo(f"🔍 Vector database is ready for similarity search in {db_dir}")
 
     except Exception as e:
-        typer.echo(f"❌ Error during vectorization: {str(e)}", err=True)
-        raise typer.Exit(code=1)
+        typer.echo(f"❌ Error during vectorization: {e!s}", err=True)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -472,8 +470,8 @@ def tapio_app(
 ) -> None:
     """Launch the Tapio web interface for RAG-powered chatbot."""
     try:
-        # Import the main function from the gradio_app module
-        from tapio.app import main as launch_app
+        # Deferred import: avoid loading gradio/torch unless this command actually runs
+        from tapio.app import main as launch_app  # noqa: PLC0415
 
         collection_name = DEFAULT_CHROMA_COLLECTION
         db_dir = DEFAULT_DIRS["CHROMA_DIR"]
@@ -505,12 +503,12 @@ def tapio_app(
         )
 
     except ImportError as e:
-        typer.echo(f"❌ Error importing Gradio: {str(e)}", err=True)
+        typer.echo(f"❌ Error importing Gradio: {e!s}", err=True)
         typer.echo("Make sure Gradio is installed with 'uv add gradio'")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
     except Exception as e:
-        typer.echo(f"❌ Error launching Gradio app: {str(e)}", err=True)
-        raise typer.Exit(code=1)
+        typer.echo(f"❌ Error launching Gradio app: {e!s}", err=True)
+        raise typer.Exit(code=1) from None
 
 
 @app.command()
@@ -539,8 +537,7 @@ def list_sites(
         help="Show detailed information about each site configuration",
     ),
 ) -> None:
-    """
-    List available site configurations for the parser.
+    """List available site configurations for the parser.
 
     This command lists all the available sites that can be used with the parse command.
     Use the --verbose flag to see detailed information about each site's configuration.
@@ -580,8 +577,8 @@ def list_sites(
         typer.echo(f"  $ python -m tapio.cli parse {available_sites[0]}")
 
     except Exception as e:
-        typer.echo(f"❌ Error listing site configurations: {str(e)}", err=True)
-        raise typer.Exit(code=1)
+        typer.echo(f"❌ Error listing site configurations: {e!s}", err=True)
+        raise typer.Exit(code=1) from None
 
 
 def run_tapio_app() -> None:

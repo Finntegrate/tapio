@@ -160,10 +160,11 @@ class TestBaseCrawler:
             },
         }
 
-        with patch("builtins.open", mock_open()) as mock_file:
+        with patch("pathlib.Path.open", mock_open()) as mock_file:
             crawler._save_url_mappings()
             expected_path = os.path.join(crawler.output_dir, "url_mappings.json")
-            mock_file.assert_called_once_with(expected_path, "w", encoding="utf-8")
+            assert crawler.mapping_file == expected_path
+            mock_file.assert_called_once_with("w", encoding="utf-8")
 
     def test_save_url_mappings_exception(self):
         """Test handling exceptions when saving URL mappings."""
@@ -179,11 +180,11 @@ class TestBaseCrawler:
         }
 
         with (
-            patch("builtins.open", side_effect=Exception("Test error")),
-            patch("logging.error") as mock_log,
+            patch("pathlib.Path.open", side_effect=Exception("Test error")),
+            patch("tapio.crawler.crawler.logger.exception") as mock_log,
         ):
             crawler._save_url_mappings()
-            mock_log.assert_called_once_with("Error saving URL mappings: Test error")
+            mock_log.assert_called_once_with("Error saving URL mappings")
 
     @pytest.mark.asyncio
     async def test_crawl_url_success(self):
@@ -245,7 +246,7 @@ class TestBaseCrawler:
         crawler._semaphore = mock_semaphore
 
         results = []
-        with patch("logging.warning") as mock_log:
+        with patch("tapio.crawler.crawler.logger.warning") as mock_log:
             await crawler._crawl_url(mock_client, "https://example.com/404", 0, results)
 
             mock_log.assert_called()
@@ -586,18 +587,20 @@ class TestBaseCrawler:
         mock_client_context.__aenter__ = AsyncMock(return_value=mock_client)
         mock_client_context.__aexit__ = AsyncMock(return_value=None)
 
-        with patch("httpx.AsyncClient", return_value=mock_client_context):
-            with patch.object(crawler, "_save_html_content"):
-                # Mock the _semaphore attribute to avoid async context issues
-                mock_semaphore = AsyncMock()
-                mock_semaphore.__aenter__ = AsyncMock(return_value=None)
-                mock_semaphore.__aexit__ = AsyncMock(return_value=None)
-                crawler._semaphore = mock_semaphore
+        with (
+            patch("httpx.AsyncClient", return_value=mock_client_context),
+            patch.object(crawler, "_save_html_content"),
+        ):
+            # Mock the _semaphore attribute to avoid async context issues
+            mock_semaphore = AsyncMock()
+            mock_semaphore.__aenter__ = AsyncMock(return_value=None)
+            mock_semaphore.__aexit__ = AsyncMock(return_value=None)
+            crawler._semaphore = mock_semaphore
 
-                results = await crawler.crawl()
+            results = await crawler.crawl()
 
-                assert len(results) > 0
-                assert results[0]["url"] == "https://example.com/"  # URLs are normalized
+            assert len(results) > 0
+            assert results[0]["url"] == "https://example.com/"  # URLs are normalized
 
     def test_get_file_path_from_url_path_traversal_protection(self):
         """Test that path traversal attacks are prevented."""

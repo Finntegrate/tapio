@@ -107,7 +107,8 @@ class SiteConfig(BaseModel):
         # Use hostname to strip any port, and ensure a non-empty result
         host = parsed.hostname
         if not host:
-            raise ValueError(f"Invalid base_url: {url_str!r}")
+            msg = f"Invalid base_url: {url_str!r}"
+            raise ValueError(msg)
         return host
 
     def get_content_selector(self, tree: Any) -> Any | None:

@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
+import pytest
 import yaml
 
 from tapio.config.config_manager import ConfigManager
@@ -188,7 +189,7 @@ class TestParser(unittest.TestCase):
     def test_init_with_invalid_site(self):
         """Test initialization with invalid site."""
         config_manager = ConfigManager(self.config_path)
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="nonexistent"):
             config_manager.get_site_config("nonexistent")
 
     def test_parse_html_with_main_content(self):

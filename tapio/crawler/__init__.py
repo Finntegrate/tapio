@@ -1,5 +1,4 @@
-"""
-Crawler module for migri-assistant.
+"""Crawler module for migri-assistant.
 
 This module contains the base crawler class and runner for crawling websites
 and saving HTML content. The crawler focuses solely on retrieving and saving

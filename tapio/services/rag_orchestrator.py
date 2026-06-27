@@ -89,11 +89,12 @@ class RAGOrchestrator:
             response = self.llm_service.generate_response(
                 prompt=user_prompt,
                 system_prompt=system_prompt,
+                history=history,
             )
 
             return str(response), retrieved_docs
-        except Exception as e:
-            logger.error(f"Error generating RAG response: {e}")
+        except Exception:
+            logger.exception("Error generating RAG response")
             return (
                 "I encountered an error while processing your query. Please try again.",
                 [],
@@ -140,6 +141,7 @@ class RAGOrchestrator:
                 llm_response_stream = self.llm_service.generate_response_stream(
                     prompt=user_prompt,
                     system_prompt=system_prompt,
+                    history=history,
                 )
                 try:
                     logger.info("Starting to consume LLM response stream")

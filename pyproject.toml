@@ -38,8 +38,99 @@ line-length = 120
 target-version = "py314"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP"]
-ignore = []
+select = [
+    "A",     # flake8-builtins
+    "ANN",   # flake8-annotations
+    "ARG",   # flake8-unused-arguments
+    "ASYNC", # flake8-async
+    "B",     # flake8-bugbear
+    "BLE",   # flake8-blind-except
+    "C4",    # flake8-comprehensions
+    "C90",   # mccabe complexity
+    "D",     # pydocstyle
+    "DTZ",   # flake8-datetimez
+    "E",     # pycodestyle errors
+    "EM",    # flake8-errmsg
+    "EXE",   # flake8-executable
+    "F",     # pyflakes
+    "FA",    # flake8-future-annotations
+    "FBT",   # flake8-boolean-trap
+    "FIX",   # flake8-fixme
+    "FLY",   # flynt
+    "FURB",  # refurb
+    "G",     # flake8-logging-format
+    "I",     # isort
+    "ICN",   # flake8-import-conventions
+    "INP",   # flake8-no-pep420
+    "ISC",   # flake8-implicit-str-concat
+    "LOG",   # flake8-logging
+    "N",     # pep8-naming
+    "PERF",  # perflint
+    "PGH",   # pygrep-hooks
+    "PIE",   # flake8-pie
+    "PL",    # pylint
+    "PT",    # flake8-pytest-style
+    "PTH",   # flake8-use-pathlib
+    "RET",   # flake8-return
+    "RSE",   # flake8-raise
+    "RUF",   # ruff-specific rules
+    "S",     # flake8-bandit
+    "SIM",   # flake8-simplify
+    "SLF",   # flake8-self
+    "SLOT",  # flake8-slots
+    "T10",   # flake8-debugger
+    "T20",   # flake8-print
+    "TC",    # flake8-type-checking
+    "TD",    # flake8-todos
+    "TID",   # flake8-tidy-imports
+    "TRY",   # tryceratops
+    "UP",    # pyupgrade
+    "W",     # pycodestyle warnings
+    "YTT",   # flake8-2020
+]
+ignore = [
+    "ANN401",  # Any is used intentionally for flexible metadata dicts
+    "BLE001",  # broad except-and-log-and-continue is intentional throughout the crawl/parse/vectorize pipelines
+    "COM812",  # trailing-comma rules conflict with the ruff formatter
+    "FBT001",  # bool positional params are idiomatic for typer.Option-based CLI flags
+    "FBT002",  # bool default params are idiomatic for typer.Option-based CLI flags
+    "ISC001",  # implicit-str-concat conflicts with the ruff formatter
+    "TC001",   # moving first-party imports behind TYPE_CHECKING breaks at runtime: no
+               # `from __future__ import annotations` here, and Python 3.14's deferred
+               # annotations (PEP 649) only postpone evaluation -- anything that actually
+               # resolves them (e.g. gradio's event-handler introspection, already hit a
+               # NameError on this) still needs the name to exist at call time
+    "TC002",   # same risk as TC001, for third-party imports
+    "TC003",   # same risk as TC001, for standard-library imports
+    "TRY301",  # raise typer.Exit(...) inside a try block is a deliberate CLI control-flow
+               # signal for validation failures, not an error needing a dedicated wrapper
+               # function -- tryceratops' heuristic doesn't fit this idiom
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = [
+    "ANN",     # tests are excluded from mypy and don't need type annotations
+    "ARG001",  # unused fixture/mock arguments are normal in tests
+    "ARG002",  # unused mock-override arguments are normal in tests
+    "D",       # docstrings aren't required on test functions
+    "INP001",  # tests intentionally use implicit namespace packages
+    "PLC0415", # local imports for mocking/patching timing are idiomatic in tests
+    "PLR0913", # test functions naturally take many fixture arguments
+    "PLR2004", # magic values in test assertions/fixtures are fine
+    "PT009",   # some test classes intentionally use unittest.TestCase-style assertions
+    "PTH",     # os.path-based temp file/dir handling in test fixtures is fine
+    "S101",    # assert is the standard pytest idiom
+    "SLF001",  # tests intentionally exercise private members
+]
+"tapio/cli.py" = [
+    "FBT003",  # typer.Option(False, ...) passes the default positionally by convention
+]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
+
+[tool.ruff.lint.pylint]
+max-args = 6
 
 [tool.ruff.format]
 quote-style = "double"
@@ -50,7 +141,7 @@ line-ending = "auto"
 dev = [
     "mypy>=1.15.0",
     "prek>=0.2.3",
-    "pyrefly>=0.17.0",
+    "pyrefly>=1.1.1",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",

@@ -3,7 +3,6 @@
 import logging
 from typing import Any
 
-from chromadb import GetResult, QueryResult  # type: ignore[import-not-found]
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
 from langchain_core.documents import Document  # type: ignore[import-not-found]
 from langchain_core.embeddings import Embeddings  # type: ignore[import-not-found]
@@ -49,23 +48,20 @@ class ChromaStore:
             persist_directory=persist_directory,
         )
 
-        logger.debug(f"Initialized ChromaStore with collection: {collection_name}")
+        logger.debug("Initialized ChromaStore with collection: %s", collection_name)
 
     def add_document(
         self,
         document_id: str,
-        embedding: list[float] | None = None,
         metadata: dict[str, Any] | None = None,
     ) -> None:
-        """
-        Add a document to the vector store.
+        """Add a document to the vector store.
 
         This method is maintained for backward compatibility but uses the langchain Chroma
         implementation internally.
 
         Args:
             document_id: Unique identifier for the document
-            embedding: Optional pre-computed embedding vector
             metadata: Document metadata
         """
         try:
@@ -82,7 +78,7 @@ class ChromaStore:
 
             # Ensure we have some text content
             if not document_text:
-                logger.warning(f"No content found for document {document_id}")
+                logger.warning("No content found for document %s", document_id)
                 document_text = f"Empty document: {document_id}"
 
             # Create document dictionary with IDs
@@ -93,15 +89,14 @@ class ChromaStore:
                 ids=[document_id],
             )
 
-            logger.debug(f"Added document {document_id} to vector store")
+            logger.debug("Added document %s to vector store", document_id)
 
-        except Exception as e:
-            logger.error(f"Failed to add document {document_id}: {e}")
+        except Exception:
+            logger.exception("Failed to add document %s", document_id)
             raise
 
     def query(self, query_text: str, n_results: int = 5) -> list[Document]:
-        """
-        Query the vector store by text.
+        """Query the vector store by text.
 
         Args:
             query_text: Text to search for
@@ -116,55 +111,43 @@ class ChromaStore:
             # Enhance results with citation information
             for doc in results:
                 self._enhance_document_with_citation(doc)
-
-            return results
-        except Exception as e:
-            logger.error(f"Failed to query vector store: {e}")
+        except Exception:
+            logger.exception("Failed to query vector store")
             return []
+        else:
+            return results
 
     def query_with_embedding(
         self,
         embedding: list[float],
         n_results: int = 5,
-    ) -> QueryResult | None:
-        """
-        Query the vector store by embedding.
+    ) -> list[tuple[Document, float]]:
+        """Query the vector store by embedding.
 
         Args:
             embedding: Embedding vector to search with
             n_results: Number of results to return
 
         Returns:
-            List of documents most similar to the query
+            List of (document, relevance score) pairs most similar to the query
         """
         try:
-            # Use the underlying Chroma client for this more specialized query
-            collection = self.vector_db._collection
-            results = collection.query(
-                query_embeddings=[embedding],  # type: ignore
-                n_results=n_results,
-                include=["documents", "metadatas", "distances"],  # type: ignore
+            results = self.vector_db.similarity_search_by_vector_with_relevance_scores(
+                embedding,
+                k=n_results,
             )
 
-            # Add source URLs to metadata if available
-            if results and "metadatas" in results and results.get("metadatas"):
-                metadatas = results["metadatas"]
-                if metadatas and len(metadatas) > 0:
-                    for metadata in metadatas[0]:
-                        if isinstance(metadata, dict):
-                            if "source_url" in metadata:
-                                metadata["citation_url"] = metadata["source_url"]  # type: ignore
-                            elif "url" in metadata:
-                                metadata["citation_url"] = metadata["url"]  # type: ignore
-
+            # Enhance results with citation information
+            for doc, _score in results:
+                self._enhance_document_with_citation(doc)
+        except Exception:
+            logger.exception("Failed to query vector store with embedding")
+            return []
+        else:
             return results
-        except Exception as e:
-            logger.error(f"Failed to query vector store with embedding: {e}")
-            return None
 
-    def get_document(self, document_id: str) -> GetResult | None:
-        """
-        Get a document by ID.
+    def get_document(self, document_id: str) -> dict[str, Any] | None:
+        """Get a document by ID.
 
         Args:
             document_id: ID of the document to retrieve
@@ -173,11 +156,9 @@ class ChromaStore:
             The document if found
         """
         try:
-            # Use the underlying Chroma collection
-            collection = self.vector_db._collection
-            result = collection.get(
+            result = self.vector_db.get(
                 ids=[document_id],
-                include=["documents", "metadatas"],  # type: ignore
+                include=["documents", "metadatas"],
             )
 
             # Add citation information
@@ -185,18 +166,18 @@ class ChromaStore:
                 for metadata in result["metadatas"]:
                     if isinstance(metadata, dict):
                         if "source_url" in metadata:
-                            metadata["citation_url"] = metadata["source_url"]  # type: ignore
+                            metadata["citation_url"] = metadata["source_url"]
                         elif "url" in metadata:
-                            metadata["citation_url"] = metadata["url"]  # type: ignore
+                            metadata["citation_url"] = metadata["url"]
 
-            return result
-        except Exception as e:
-            logger.error(f"Failed to get document {document_id}: {e}")
+        except Exception:
+            logger.exception("Failed to get document %s", document_id)
             return None
+        else:
+            return result
 
     def _enhance_document_with_citation(self, doc: Any) -> None:
-        """
-        Enhance a document with citation information.
+        """Enhance a document with citation information.
 
         Args:
             doc: LangChain document object to enhance

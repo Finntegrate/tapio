@@ -1,5 +1,4 @@
-"""
-Parser module for tapio.
+"""Parser module for tapio.
 
 This module contains the Parser class for extracting structured content
 from HTML files saved by the crawler module.

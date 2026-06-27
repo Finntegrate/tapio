@@ -1,7 +1,7 @@
 """Vectorize markdown content into ChromaDB using LangChain components."""
 
 import logging
-import os
+from pathlib import Path
 from typing import Any
 
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
@@ -57,8 +57,7 @@ class MarkdownVectorizer:
         site_filter: str | None = None,
         batch_size: int = 20,
     ) -> int:
-        """
-        Process all markdown files in a directory.
+        """Process all markdown files in a directory.
 
         Args:
             input_dir: Directory containing markdown files
@@ -72,7 +71,7 @@ class MarkdownVectorizer:
         markdown_files = find_markdown_files(input_dir, site_filter)
         total_files = len(markdown_files)
 
-        logger.info(f"Found {total_files} markdown files to process")
+        logger.info("Found %d markdown files to process", total_files)
 
         # Process files in batches
         processed_count = 0
@@ -83,14 +82,16 @@ class MarkdownVectorizer:
             processed_count += len(batch)
             chunk_count += new_chunks
             logger.info(
-                f"Processed {processed_count}/{total_files} files ({chunk_count} chunks)",
+                "Processed %d/%d files (%d chunks)",
+                processed_count,
+                total_files,
+                chunk_count,
             )
 
         return processed_count
 
     def _process_batch(self, file_paths: list[str]) -> int:
-        """
-        Process a batch of markdown files.
+        """Process a batch of markdown files.
 
         Args:
             file_paths: List of paths to markdown files
@@ -106,7 +107,7 @@ class MarkdownVectorizer:
                 metadata, content = read_markdown_file(file_path)
 
                 if not content:
-                    logger.warning(f"Empty content in {file_path}")
+                    logger.warning("Empty content in %s", file_path)
                     continue
 
                 # Create a LangChain Document with metadata
@@ -126,11 +127,12 @@ class MarkdownVectorizer:
                 all_documents.extend(chunks)
 
                 logger.debug(
-                    f"Added document {os.path.basename(file_path)} with embeddings",
+                    "Added document %s with embeddings",
+                    Path(file_path).name,
                 )
 
-            except Exception as e:
-                logger.error(f"Error processing file {file_path}: {e}")
+            except Exception:
+                logger.exception("Error processing file %s", file_path)
 
         # Add all documents to the vector store
         if all_documents:
@@ -143,8 +145,7 @@ class MarkdownVectorizer:
         metadata: dict[str, Any],
         file_path: str,
     ) -> dict[str, Any]:
-        """
-        Prepare metadata for the document.
+        """Prepare metadata for the document.
 
         Args:
             metadata: Original metadata from the markdown file
@@ -154,7 +155,7 @@ class MarkdownVectorizer:
             Enhanced metadata dictionary
         """
         # Extract document ID from filename
-        doc_id = os.path.splitext(os.path.basename(file_path))[0]
+        doc_id = Path(file_path).stem
 
         # Start with the metadata from the markdown frontmatter
         enriched_metadata = metadata.copy()
@@ -162,7 +163,7 @@ class MarkdownVectorizer:
         # Add additional useful metadata
         enriched_metadata["source_id"] = doc_id
         enriched_metadata["source_path"] = file_path
-        enriched_metadata["file_name"] = os.path.basename(file_path)
+        enriched_metadata["file_name"] = Path(file_path).name
 
         # Ensure source URL is preserved for citation purposes
         if "source_url" in metadata:
@@ -182,8 +183,7 @@ class MarkdownVectorizer:
         return enriched_metadata
 
     def process_file(self, file_path: str) -> int:
-        """
-        Process a single markdown file.
+        """Process a single markdown file.
 
         Args:
             file_path: Path to markdown file
@@ -196,7 +196,7 @@ class MarkdownVectorizer:
             metadata, content = read_markdown_file(file_path)
 
             if not content:
-                logger.warning(f"Empty content in {file_path}")
+                logger.warning("Empty content in %s", file_path)
                 return 0
 
             # Create a LangChain Document
@@ -218,11 +218,12 @@ class MarkdownVectorizer:
             # No need to explicitly persist as ChromaDB 0.4.x+ automatically persists documents
 
             logger.debug(
-                f"Added document {os.path.basename(file_path)} with embeddings",
+                "Added document %s with embeddings",
+                Path(file_path).name,
             )
 
             return len(chunks)
 
-        except Exception as e:
-            logger.error(f"Error processing file {file_path}: {e}")
+        except Exception:
+            logger.exception("Error processing file %s", file_path)
             return 0

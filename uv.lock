@@ -2813,7 +2813,7 @@ requires-dist = [
 dev = [
     { name = "mypy", specifier = ">=1.15.0" },
     { name = "prek", specifier = ">=0.2.3" },
-    { name = "pyrefly", specifier = ">=0.17.0" },
+    { name = "pyrefly", specifier = ">=1.1.1" },
     { name = "pytest", specifier = ">=8.3.5" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
     { name = "pytest-cov", specifier = ">=6.1.1" },

@@ -3,6 +3,7 @@
 from unittest.mock import Mock, patch
 
 import pytest
+from langchain_core.documents import Document
 
 from tapio.vectorstore.chroma_store import ChromaStore
 
@@ -176,14 +177,9 @@ class TestChromaStore:
     def test_query_with_embedding(self, mock_chroma, mock_embeddings):
         """Test querying the vector store with embedding."""
         # Set up mocks
-        mock_collection = Mock()
-        mock_collection.query.return_value = {
-            "documents": [["Test content"]],
-            "metadatas": [[{"source_url": "https://example.com/doc"}]],
-            "distances": [[0.1]],
-        }
+        mock_doc = Document(page_content="Test content", metadata={"source_url": "https://example.com/doc"})
         mock_vector_db = Mock()
-        mock_vector_db._collection = mock_collection
+        mock_vector_db.similarity_search_by_vector_with_relevance_scores.return_value = [(mock_doc, 0.1)]
         mock_chroma.return_value = mock_vector_db
 
         # Initialize ChromaStore with injected embeddings
@@ -196,28 +192,26 @@ class TestChromaStore:
         embedding = [0.1, 0.2, 0.3]
         results = store.query_with_embedding(embedding=embedding, n_results=3)
 
-        # Check if query was called with correct arguments
-        mock_collection.query.assert_called_once_with(
-            query_embeddings=[embedding],
-            n_results=3,
-            include=["documents", "metadatas", "distances"],
+        # Check if the public similarity search API was called with correct arguments
+        mock_vector_db.similarity_search_by_vector_with_relevance_scores.assert_called_once_with(
+            embedding,
+            k=3,
         )
 
         # Check if citation URL was added
-        assert "citation_url" in results["metadatas"][0][0]
-        assert results["metadatas"][0][0]["citation_url"] == "https://example.com/doc"
+        doc, score = results[0]
+        assert doc.metadata["citation_url"] == "https://example.com/doc"
+        assert score == 0.1
 
     @patch("tapio.vectorstore.chroma_store.Chroma")
     def test_get_document(self, mock_chroma, mock_embeddings):
         """Test getting a document by ID."""
         # Set up mocks
-        mock_collection = Mock()
-        mock_collection.get.return_value = {
+        mock_vector_db = Mock()
+        mock_vector_db.get.return_value = {
             "documents": ["Test content"],
             "metadatas": [{"url": "https://example.com/doc"}],
         }
-        mock_vector_db = Mock()
-        mock_vector_db._collection = mock_collection
         mock_chroma.return_value = mock_vector_db
 
         # Initialize ChromaStore with injected embeddings
@@ -229,8 +223,8 @@ class TestChromaStore:
         # Test get document
         result = store.get_document(document_id="test_doc")
 
-        # Check if get was called with correct arguments
-        mock_collection.get.assert_called_once_with(
+        # Check if the public get API was called with correct arguments
+        mock_vector_db.get.assert_called_once_with(
             ids=["test_doc"],
             include=["documents", "metadatas"],
         )

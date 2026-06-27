@@ -211,7 +211,7 @@ class TestTextUtils:
 
             # Mock the manual chunking as well to ensure we get results
             with patch(
-                "tapio.utils.text_utils.logging.error",
+                "tapio.utils.text_utils.logger.exception",
             ) as mock_logging:
                 # Create long enough text to trigger chunking
                 text = "Test content " * 100

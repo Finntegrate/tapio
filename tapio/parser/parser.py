@@ -7,7 +7,7 @@ configurations and extracts content from HTML pages accordingly.
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
@@ -21,18 +21,19 @@ from tapio.config import (
 )
 from tapio.config.config_models import SiteConfig
 
+# Minimum path parts (subdir + filename) to preserve directory structure in output
+MIN_NESTED_PATH_PARTS = 2
+
 
 class DirectoryScope:
-    """
-    Context manager for temporarily changing directory context without modifying instance state.
+    """Context manager for temporarily changing directory context without modifying instance state.
 
     This provides a thread-safe way to create a scoped directory context without
     directly modifying the instance's state.
     """
 
-    def __init__(self, original_path: str, scoped_path: str):
-        """
-        Initialize the directory scope context manager.
+    def __init__(self, original_path: str, scoped_path: str) -> None:
+        """Initialize the directory scope context manager.
 
         Args:
             original_path: The original directory path to preserve
@@ -51,20 +52,17 @@ class DirectoryScope:
         exc_val: BaseException | None,
         exc_tb: object,
     ) -> None:
-        """
-        Exit the context, no cleanup needed as we don't modify state.
+        """Exit the context, no cleanup needed as we don't modify state.
 
         Args:
             exc_type: The exception type if an exception was raised in the context
             exc_val: The exception value if an exception was raised in the context
             exc_tb: The traceback if an exception was raised in the context
         """
-        pass
 
 
 class Parser:
-    """
-    HTML content parser that uses site-specific configurations.
+    """HTML content parser that uses site-specific configurations.
 
     This parser loads configurations for different websites and extracts
     content using the appropriate selectors for each site. Configuration
@@ -111,12 +109,12 @@ class Parser:
         self._load_url_mappings()
 
         # Create output directory if it doesn't exist
-        os.makedirs(self.output_dir, exist_ok=True)
+        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
 
-        self.logger.info(f"Initialized Parser for {self.site}")
+        self.logger.info("Initialized Parser for %s", self.site)
 
     def setup_logging(self) -> None:
-        """Set up logging configuration"""
+        """Set up logging configuration."""
         logging.basicConfig(
             level=logging.INFO,
             format="%(asctime)s [%(levelname)s] %(message)s",
@@ -124,22 +122,21 @@ class Parser:
         )
 
     def _load_url_mappings(self) -> None:
-        """Load URL mappings from the JSON file"""
-        mapping_file = os.path.join(self.input_dir, "url_mappings.json")
-        if os.path.exists(mapping_file):
+        """Load URL mappings from the JSON file."""
+        mapping_file = Path(self.input_dir) / "url_mappings.json"
+        if mapping_file.exists():
             try:
-                with open(mapping_file, encoding="utf-8") as f:
+                with mapping_file.open(encoding="utf-8") as f:
                     self.url_mappings = json.load(f)
-                self.logger.info(f"Loaded {len(self.url_mappings)} URL mappings")
-            except Exception as e:
-                self.logger.error(f"Error loading URL mappings: {str(e)}")
+                self.logger.info("Loaded %d URL mappings", len(self.url_mappings))
+            except Exception:
+                self.logger.exception("Error loading URL mappings")
         else:
-            self.logger.warning(f"URL mapping file not found: {mapping_file}")
+            self.logger.warning("URL mapping file not found: %s", mapping_file)
             # Still continue processing - URL mappings are optional
 
     def _get_original_url(self, file_path: str | Path) -> str | None:
-        """
-        Get the original URL for a file path from the URL mappings.
+        """Get the original URL for a file path from the URL mappings.
 
         Args:
             file_path: Path to the HTML file
@@ -157,12 +154,11 @@ class Parser:
         )
 
         if not url:
-            self.logger.debug(f"No URL mapping found for {file_path}")
+            self.logger.debug("No URL mapping found for %s", file_path)
         return url
 
     def _try_exact_match(self, file_path_str: str) -> str | None:
-        """
-        Try exact match in URL mappings.
+        """Try exact match in URL mappings.
 
         Args:
             file_path_str: String representation of the file path
@@ -176,8 +172,7 @@ class Parser:
         return None
 
     def _try_relative_path_match(self, file_path_str: str) -> str | None:
-        """
-        Try relative path matching with OS compatibility.
+        """Try relative path matching with OS compatibility.
 
         Args:
             file_path_str: String representation of the file path
@@ -192,12 +187,11 @@ class Parser:
                 if path_variant in self.url_mappings:
                     return self.url_mappings[path_variant].get("url")
         except Exception as e:
-            self.logger.debug(f"Error in relative path matching: {e}")
+            self.logger.debug("Error in relative path matching: %s", e)
         return None
 
     def _try_filename_match(self, file_path_str: str) -> str | None:
-        """
-        Try matching by filename only.
+        """Try matching by filename only.
 
         Args:
             file_path_str: String representation of the file path
@@ -206,20 +200,19 @@ class Parser:
             Original URL or None if not found
         """
         try:
-            filename = os.path.basename(file_path_str)
+            filename = Path(file_path_str).name
             for key, value in self.url_mappings.items():
                 if key.endswith(filename):
                     return value.get("url")
         except Exception as e:
-            self.logger.debug(f"Error in filename matching: {e}")
+            self.logger.debug("Error in filename matching: %s", e)
         return None
 
     # The _load_site_config and _load_config_registry methods have been replaced
     # by using the ConfigManager from tapio.config
 
     def _parse_html(self, html_content: str) -> tuple[str, str]:
-        """
-        Parse HTML content using site-specific selectors.
+        """Parse HTML content using site-specific selectors.
 
         Args:
             html_content: Raw HTML content
@@ -265,11 +258,11 @@ class Parser:
             # Convert HTML to Markdown using site-specific settings
             markdown_content = self._html_to_markdown(content_html)
 
-            return title, markdown_content
-
         except Exception as e:
-            self.logger.error(f"Error parsing HTML: {str(e)}")
-            return "Error Parsing Page", f"Error parsing the HTML content: {str(e)}"
+            self.logger.exception("Error parsing HTML")
+            return "Error Parsing Page", f"Error parsing the HTML content: {e!s}"
+        else:
+            return title, markdown_content
 
     @staticmethod
     def _convert_element_link_to_absolute(
@@ -278,8 +271,7 @@ class Parser:
         base_url: str,
         absolute_prefixes: tuple[str, ...],
     ) -> bool:
-        """
-        Convert a single element's link attribute to absolute URL if it's relative.
+        """Convert a single element's link attribute to absolute URL if it's relative.
 
         Args:
             element: HTML element to process
@@ -299,8 +291,7 @@ class Parser:
         return True
 
     def _convert_relative_links_to_absolute(self, html_content: str) -> str:
-        """
-        Convert relative links in HTML content to absolute URLs.
+        """Convert relative links in HTML content to absolute URLs.
 
         Args:
             html_content: HTML content with potentially relative links
@@ -339,13 +330,12 @@ class Parser:
 
             # Convert back to string
             return html.tostring(tree, encoding="unicode", pretty_print=True)
-        except Exception as e:
-            self.logger.error(f"Error converting relative links: {str(e)}")
+        except Exception:
+            self.logger.exception("Error converting relative links")
             return html_content  # Return original content if there's an error
 
     def _html_to_markdown(self, html_content: str) -> str:
-        """
-        Convert HTML to Markdown using site-specific configuration.
+        """Convert HTML to Markdown using site-specific configuration.
 
         Args:
             html_content: HTML content to convert
@@ -364,13 +354,10 @@ class Parser:
         text_maker.ignore_tables = config.ignore_tables
 
         # Convert HTML to Markdown
-        markdown_text = text_maker.handle(html_content)
-
-        return markdown_text
+        return text_maker.handle(html_content)
 
     def _construct_base_url_from_path(self, file_path: str) -> str:
-        """
-        Construct base URL from file path when no URL mapping exists.
+        """Construct base URL from file path when no URL mapping exists.
 
         Args:
             file_path: Path to the HTML file
@@ -384,7 +371,7 @@ class Parser:
 
             if rel_path.startswith(".."):
                 # File is outside input directory
-                self.logger.info(f"File outside input dir, using base URL: {self.config.base_url}")
+                self.logger.info("File outside input dir, using base URL: %s", self.config.base_url)
                 return str(self.config.base_url)
 
             # Normalize path and construct URL
@@ -392,18 +379,19 @@ class Parser:
             # Convert HttpUrl to string for urljoin
             base_url_str = str(self.config.base_url)
             constructed_url = urljoin(base_url_str, normalized_path)
-            self.logger.info(f"Constructed base URL: {constructed_url}")
-            return constructed_url
+            self.logger.info("Constructed base URL: %s", constructed_url)
 
         except ValueError:
             self.logger.warning(
-                f"Error constructing URL from path, using base URL: {self.config.base_url}",
-            )  # noqa: E501
+                "Error constructing URL from path, using base URL: %s",
+                self.config.base_url,
+            )
             return str(self.config.base_url)
+        else:
+            return constructed_url
 
     def _extract_domain_from_path(self, file_path: str | Path) -> str:
-        """
-        Extract the first part of the path (typically a domain or language directory).
+        """Extract the first part of the path (typically a domain or language directory).
 
         Args:
             file_path: Path to the HTML file
@@ -415,17 +403,14 @@ class Parser:
             # Get the path relative to the input directory
             rel_path = Path(file_path).relative_to(Path(self.input_dir))
             path_parts = rel_path.parts
-            if len(path_parts) > 0:
-                first_part = path_parts[0]
-            else:
-                first_part = "unknown"
-            return first_part
+            first_part = path_parts[0] if len(path_parts) > 0 else "unknown"
         except ValueError:
             return "unknown"
+        else:
+            return first_part
 
     def _create_directory_scope(self) -> DirectoryScope:
-        """
-        Create a directory scope for operations on the input directory.
+        """Create a directory scope for operations on the input directory.
 
         Returns:
             A DirectoryScope context manager that can be used in a with statement
@@ -440,8 +425,7 @@ class Parser:
         self,
         html_file: str | Path,
     ) -> dict[str, Any] | None:
-        """
-        Parse a single file with URL context preservation.
+        """Parse a single file with URL context preservation.
 
         Args:
             html_file: Path to the HTML file to parse
@@ -453,8 +437,8 @@ class Parser:
             # Parse the file with URL context preservation
             return self.parse_file(html_file, preserve_url_context=True)
 
-        except Exception as e:
-            self.logger.error(f"Error parsing {html_file} with context: {str(e)}")
+        except Exception:
+            self.logger.exception("Error parsing %s with context", html_file)
             return None
 
     def parse_file(
@@ -462,8 +446,7 @@ class Parser:
         html_file: str | Path,
         preserve_url_context: bool = False,
     ) -> dict[str, Any] | None:
-        """
-        Parse a single HTML file from the configured domain.
+        """Parse a single HTML file from the configured domain.
 
         Args:
             html_file: Path to the HTML file
@@ -473,7 +456,6 @@ class Parser:
         Returns:
             Dictionary containing information about the parsed file
         """
-
         # Get the original URL of this file from URL mappings if available
         original_url = self._get_original_url(html_file)
 
@@ -490,11 +472,11 @@ class Parser:
 
         # Parse the file
         html_file_path = Path(html_file)
-        self.logger.info(f"Parsing {html_file_path}")
+        self.logger.info("Parsing %s", html_file_path)
 
         try:
             # Read the HTML content
-            with open(html_file_path, encoding="utf-8") as f:
+            with html_file_path.open(encoding="utf-8") as f:
                 html_content = f.read()
 
             # Extract the domain from the file path
@@ -519,8 +501,8 @@ class Parser:
                 "domain": domain,
             }
 
-        except Exception as e:
-            self.logger.error(f"Error parsing {html_file_path}: {str(e)}")
+        except Exception:
+            self.logger.exception("Error parsing %s", html_file_path)
             return None
         finally:
             # Restore the original base URL only if not preserving context
@@ -528,8 +510,7 @@ class Parser:
                 self.current_base_url = original_base_url
 
     def _create_metadata(self, file_path: str | Path, title: str) -> dict[str, Any]:
-        """
-        Create metadata for the markdown file including the original URL.
+        """Create metadata for the markdown file including the original URL.
 
         Args:
             file_path: Path to the HTML file
@@ -546,7 +527,7 @@ class Parser:
             "source_file": str(file_path),
             "title": title,
             "domain": domain,
-            "parse_timestamp": datetime.now().isoformat(),
+            "parse_timestamp": datetime.now(UTC).isoformat(),
             "parser": self.__class__.__name__,
         }
 
@@ -558,8 +539,8 @@ class Parser:
         return metadata
 
     def _get_output_filename(self, html_file_path: Path) -> str:
-        """
-        Generate an output filename for the parsed markdown file.
+        """Generate an output filename for the parsed markdown file.
+
         Preserves the directory structure from the input directory.
 
         Args:
@@ -574,15 +555,14 @@ class Parser:
             parts = rel_path.parts
 
             # If there are multiple parts in the path, preserve the structure
-            if len(parts) >= 2:
+            if len(parts) >= MIN_NESTED_PATH_PARTS:
                 # Preserve the original directory structure but replace .html extension
-                rel_output_path = str(rel_path).replace(".html", "")
-                return rel_output_path
-            else:
-                # Just use filename if there's only one part
-                return html_file_path.stem
+                return str(rel_path).replace(".html", "")
         except ValueError:
             # If the file is not in the input directory, just use its name
+            return html_file_path.stem
+        else:
+            # Just use filename if there's only one part
             return html_file_path.stem
 
     def _save_markdown(
@@ -592,8 +572,7 @@ class Parser:
         content: str,
         metadata: dict[str, Any],
     ) -> str:
-        """
-        Save content as a markdown file with YAML frontmatter.
+        """Save content as a markdown file with YAML frontmatter.
 
         Args:
             filename: Base filename (without extension)
@@ -609,25 +588,24 @@ class Parser:
             filename = f"{filename}.md"
 
         # Create the full output path
-        output_path = os.path.join(self.output_dir, filename)
+        output_path = Path(self.output_dir) / filename
 
         # Create parent directories if needed
-        os.makedirs(os.path.dirname(output_path), exist_ok=True)
+        output_path.parent.mkdir(parents=True, exist_ok=True)
 
         # Prepare the markdown content with frontmatter
         frontmatter = yaml.dump(metadata, default_flow_style=False)
         markdown_content = f"---\n{frontmatter}---\n\n# {title}\n\n{content}\n"
 
         # Save the file
-        with open(output_path, "w", encoding="utf-8") as f:
+        with output_path.open("w", encoding="utf-8") as f:
             f.write(markdown_content)
 
-        self.logger.info(f"Saved markdown to {output_path}")
-        return output_path
+        self.logger.info("Saved markdown to %s", output_path)
+        return str(output_path)
 
     def parse_all(self) -> list[dict[str, Any]]:
-        """
-        Parse all HTML files in the configured site's directory.
+        """Parse all HTML files in the configured site's directory.
 
         This parser is focused on processing only files within the specific
         domain directory defined in the configuration.
@@ -636,7 +614,9 @@ class Parser:
             List of dictionaries containing information about parsed files
         """
         self.logger.info(
-            f"Parsing HTML files for site '{self.site}' from directory '{self.input_dir}'",
+            "Parsing HTML files for site '%s' from directory '%s'",
+            self.site,
+            self.input_dir,
         )
 
         # Create a directory scope for processing only files in the site's directory
@@ -647,13 +627,9 @@ class Parser:
             html_dir = scoped_dir
 
             # Find all HTML files recursively
-            html_files = []
-            for root, _, files in os.walk(html_dir):
-                for file in files:
-                    if file.endswith(".html"):
-                        html_files.append(os.path.join(root, file))
+            html_files = list(Path(html_dir).rglob("*.html"))
 
-            self.logger.info(f"Found {len(html_files)} HTML files to parse")
+            self.logger.info("Found %d HTML files to parse", len(html_files))
 
             # Parse each file with URL context preservation
             for html_file in html_files:
@@ -661,19 +637,18 @@ class Parser:
                     result = self._parse_file_with_context(html_file)
                     if result:
                         results.append(result)
-                except Exception as e:
-                    self.logger.error(f"Error parsing {html_file}: {str(e)}")
+                except Exception:
+                    self.logger.exception("Error parsing %s", html_file)
 
             # Create an index file for all parsed files
             if results:
                 self._create_index(results)
 
-            self.logger.info(f"Parsed {len(results)} files")
+            self.logger.info("Parsed %d files", len(results))
             return results
 
     def _create_index(self, results: list[dict[str, Any]]) -> str:
-        """
-        Create an index markdown file for all parsed content.
+        """Create an index markdown file for all parsed content.
 
         Args:
             results: List of parsing results
@@ -681,9 +656,9 @@ class Parser:
         Returns:
             Path to the index file
         """
-        index_path = os.path.join(self.output_dir, "index.md")
+        index_path = Path(self.output_dir) / "index.md"
 
-        with open(index_path, "w", encoding="utf-8") as f:
+        with index_path.open("w", encoding="utf-8") as f:
             f.write(f"# {self.site or 'Site'} Parsed Content Index\n\n")
             f.write(f"Total pages parsed: {len(results)}\n\n")
             f.write("| Title | Source File | Output File |\n")
@@ -691,19 +666,18 @@ class Parser:
 
             for result in results:
                 title = result.get("title", "Untitled")
-                source = os.path.basename(result.get("source_file", ""))
-                output = os.path.basename(result.get("output_file", ""))
+                source = Path(result.get("source_file", "")).name
+                output = Path(result.get("output_file", "")).name
 
                 # Create relative links to the files
                 f.write(f"| {title} | {source} | [{output}]({output}) |\n")
 
-        self.logger.info(f"Created index at {index_path}")
-        return index_path
+        self.logger.info("Created index at %s", index_path)
+        return str(index_path)
 
     @classmethod
     def list_available_site_configs(cls, config_path: str | None = None) -> list[str]:
-        """
-        List all available site configurations.
+        """List all available site configurations.
 
         Args:
             config_path: Optional path to custom config file
@@ -720,8 +694,7 @@ class Parser:
         site: str,
         config_path: str | None = None,
     ) -> SiteConfig | None:
-        """
-        Get detailed information about a specific site configuration.
+        """Get detailed information about a specific site configuration.
 
         Args:
             site: Site to get configuration for
