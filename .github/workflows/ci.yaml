@@ -325,13 +325,31 @@ jobs:
             const passed = '${{ needs.test.outputs.coverage_outcome }}' === 'success';
             const marker = '<!-- tapio-coverage-report -->';
             const contributingUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CONTRIBUTING.md`;
+            const author = context.payload.pull_request.user.login;
 
             const failures = [
-              { outcome: '${{ needs.lint.outputs.prek_outcome }}', name: 'prek', output: process.env.PREK_OUTPUT, fix: 'uv run prek run --all-files', docs: `${contributingUrl}#pre-commit-hooks-prek`, docsLabel: 'Pre-commit Hooks (prek)' },
-              { outcome: '${{ needs.typecheck.outputs.mypy_outcome }}', name: 'mypy', output: process.env.MYPY_OUTPUT, fix: 'uv run mypy tapio', docs: `${contributingUrl}#type-checking`, docsLabel: 'Type Checking' },
-              { outcome: '${{ needs.typecheck.outputs.pyrefly_outcome }}', name: 'pyrefly', output: process.env.PYREFLY_OUTPUT, fix: 'uv run pyrefly check', docs: `${contributingUrl}#type-checking`, docsLabel: 'Type Checking' },
-              { outcome: '${{ needs.test.outputs.pytest_outcome }}', name: 'pytest', output: process.env.PYTEST_OUTPUT, fix: 'uv run pytest', docs: `${contributingUrl}#running-tests`, docsLabel: 'Running Tests' },
+              { outcome: '${{ needs.lint.outputs.prek_outcome }}', name: 'prek', label: 'Lint (prek)', output: process.env.PREK_OUTPUT, fix: 'uv run prek run --all-files', docs: `${contributingUrl}#pre-commit-hooks-prek`, docsLabel: 'Pre-commit Hooks (prek)' },
+              { outcome: '${{ needs.typecheck.outputs.mypy_outcome }}', name: 'mypy', label: 'Type Checking (mypy)', output: process.env.MYPY_OUTPUT, fix: 'uv run mypy tapio', docs: `${contributingUrl}#type-checking`, docsLabel: 'Type Checking' },
+              { outcome: '${{ needs.typecheck.outputs.pyrefly_outcome }}', name: 'pyrefly', label: 'Type Checking (pyrefly)', output: process.env.PYREFLY_OUTPUT, fix: 'uv run pyrefly check', docs: `${contributingUrl}#type-checking`, docsLabel: 'Type Checking' },
+              { outcome: '${{ needs.test.outputs.pytest_outcome }}', name: 'pytest', label: 'Tests (pytest)', output: process.env.PYTEST_OUTPUT, fix: 'uv run pytest', docs: `${contributingUrl}#running-tests`, docsLabel: 'Running Tests' },
             ].filter((check) => check.outcome !== 'success');
+
+            const failedLabels = failures.map((check) => check.label);
+            if (!passed) {
+              failedLabels.push('Coverage');
+            }
+
+            // Mentioning the author only happens once per PR in practice: GitHub notifies
+            // on comment creation, and this step updates the same sticky comment on
+            // reruns rather than creating a new one, so re-running CI doesn't re-ping them.
+            const greeting = failedLabels.length
+              ? [
+                  `👋 Hi @${author}, thanks for the pull request! Before this can be merged, please address: **${failedLabels.join(', ')}**.`,
+                  '',
+                  'Details and local reproduction commands are below, with links to the relevant CONTRIBUTING.md section for each.',
+                  '',
+                ]
+              : [];
 
             const failuresSection = failures.length
               ? [
@@ -353,6 +371,7 @@ jobs:
 
             const body = [
               marker,
+              ...greeting,
               ...failuresSection,
               '## Test Coverage Report',
               '',
