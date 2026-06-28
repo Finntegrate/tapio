@@ -1,0 +1,80 @@
+name: Comment CI results on PR
+
+# Posting PR comments needs write access, but the CI workflow's "report" job runs
+# with a read-only GITHUB_TOKEN whenever the PR comes from a fork -- there's no way
+# to grant that job write access without also handing the fork's code an elevated
+# token. Instead, "report" builds the comment body and uploads it as an artifact
+# (see ci.yaml), and this separate workflow, triggered by workflow_run once CI
+# finishes, downloads that artifact and posts it. workflow_run always runs using
+# this file as committed on the default branch and with the base repo's own
+# permissions, regardless of which branch or fork triggered the original run, which
+# is what makes this safe: nothing from the PR branch ever executes here.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+permissions:
+  contents: read
+  actions: read # needed to download an artifact from another workflow run
+  pull-requests: write
+
+jobs:
+  comment:
+    name: Post PR comment
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.event == 'pull_request'
+    steps:
+      # No artifact means the triggering run wasn't a pull_request run, or its
+      # "Build PR comment" step didn't execute (e.g. an earlier job setup failure) --
+      # continue-on-error skips the rest of this job via the next step's `if` rather
+      # than failing it.
+      - name: Download PR comment artifact
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: pr-comment
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          path: .
+
+      # pr_number comes from the artifact, which "report" populated from its own
+      # run's trusted event context -- not from this event's workflow_run.pull_requests
+      # field, which GitHub doesn't reliably populate for fork-triggered runs.
+      - name: Post or update PR comment
+        if: steps.download.outcome == 'success'
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const { pr_number, marker, body } = JSON.parse(fs.readFileSync('pr-comment.json', 'utf8'));
+
+            // paginate() walks every page of comments, not just the first 30, so a
+            // long-lived PR's earlier sticky comment is never missed; restricting to
+            // github-actions[bot] avoids matching a human comment that happens to
+            // quote the marker text.
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr_number,
+            });
+            const existing = comments.find(
+              (comment) => comment.user.login === 'github-actions[bot]' && comment.body.includes(marker),
+            );
+
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr_number,
+                body,
+              });
+            }
