@@ -27,3 +27,4 @@ def test_when_tzdata_missing(monkeypatch):
     result = get_current_datetime.invoke({})
     assert isinstance(result, str)
     assert len(result) > 0
+    assert "UTC" in result
