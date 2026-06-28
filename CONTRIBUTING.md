@@ -121,8 +121,9 @@ The dev container includes:
 - Python 3.14
 - `uv` package manager
 - Ollama for local LLM inference
+- [`mise`](https://mise.jdx.dev/), which manages `actionlint` and `markdownlint-cli2` (used by two of the prek hooks below)
 - All required VS Code extensions (Python, Ruff, GitHub Copilot, etc.)
-- Automatic dependency installation via `uv sync --dev`
+- Automatic dependency installation (`uv sync --dev`) and tool installation (`mise install`)
 
 ### Using GitHub Codespaces (Cloud Alternative)
 
@@ -150,9 +151,9 @@ For a completely cloud-based development environment that requires no local setu
 
 The Codespace includes the same development environment as the local dev container:
 
-- Python 3.14, `uv` package manager, and Ollama
+- Python 3.14, `uv` package manager, Ollama, and `mise`
 - All required VS Code extensions pre-installed
-- Automatic dependency installation
+- Automatic dependency and tool installation
 
 ### Manual Setup (Alternative)
 
@@ -181,6 +182,13 @@ uv sync --dev
 
 1. Install Ollama for local LLM inference:
    - Follow the installation instructions at [ollama.ai](https://ollama.ai)
+
+1. Install [`mise`](https://mise.jdx.dev/), which manages the versions of `actionlint` and `markdownlint-cli2` used by two of the prek hooks below (without it, those two hooks fail with "command not found"):
+
+```bash
+curl https://mise.run | sh
+mise install   # installs the tool versions pinned in mise.toml
+```
 
 ### Installing Required Models
 
@@ -252,7 +260,7 @@ To run all hooks against the full codebase (useful before submitting a pull requ
 uv run prek run --all-files
 ```
 
-These are the same checks enforced in CI (excluding mypy and Pyrefly, which CI runs as separate steps against the project's own virtual environment).
+These are the same checks enforced in CI (excluding mypy and Pyrefly, which CI runs as separate steps against the project's own virtual environment). Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it.
 
 ## Testing Guidelines
 
