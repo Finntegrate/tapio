@@ -255,13 +255,15 @@ jobs:
             echo "| coverage (≥80%) | ${{ needs.test.outputs.coverage_outcome == 'success' && '✅ Passed' || '❌ Failed' }} (${{ needs.test.outputs.coverage_pct }}%) |"
             echo
 
+            contributing_url="https://github.com/${{ github.repository }}/blob/main/CONTRIBUTING.md"
+
             if [ "${{ needs.lint.outputs.prek_outcome }}" != "success" ]; then
               echo "<details><summary>prek output</summary>"
               echo
               echo '```'
               echo "$PREK_OUTPUT"
               echo '```'
-              echo "Run \`uv run prek run --all-files\` locally to reproduce and fix."
+              echo "Run \`uv run prek run --all-files\` locally to reproduce and fix. See [Pre-commit Hooks (prek)]($contributing_url#pre-commit-hooks-prek) in CONTRIBUTING.md."
               echo "</details>"
             fi
             if [ "${{ needs.typecheck.outputs.mypy_outcome }}" != "success" ]; then
@@ -270,7 +272,7 @@ jobs:
               echo '```'
               echo "$MYPY_OUTPUT"
               echo '```'
-              echo "Run \`uv run mypy tapio\` locally to reproduce and fix."
+              echo "Run \`uv run mypy tapio\` locally to reproduce and fix. See [Type Checking]($contributing_url#type-checking) in CONTRIBUTING.md."
               echo "</details>"
             fi
             if [ "${{ needs.typecheck.outputs.pyrefly_outcome }}" != "success" ]; then
@@ -279,7 +281,7 @@ jobs:
               echo '```'
               echo "$PYREFLY_OUTPUT"
               echo '```'
-              echo "Run \`uv run pyrefly check\` locally to reproduce and fix."
+              echo "Run \`uv run pyrefly check\` locally to reproduce and fix. See [Type Checking]($contributing_url#type-checking) in CONTRIBUTING.md."
               echo "</details>"
             fi
             if [ "${{ needs.test.outputs.pytest_outcome }}" != "success" ]; then
@@ -288,8 +290,11 @@ jobs:
               echo '```'
               echo "$PYTEST_OUTPUT"
               echo '```'
-              echo "Run \`uv run pytest\` locally to reproduce and fix."
+              echo "Run \`uv run pytest\` locally to reproduce and fix. See [Running Tests]($contributing_url#running-tests) in CONTRIBUTING.md."
               echo "</details>"
+            fi
+            if [ "${{ needs.test.outputs.coverage_outcome }}" != "success" ]; then
+              echo "See [Code Coverage]($contributing_url#code-coverage) in CONTRIBUTING.md for how to check coverage locally."
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
@@ -319,13 +324,32 @@ jobs:
             const coveragePct = '${{ needs.test.outputs.coverage_pct }}' || 'unknown';
             const passed = '${{ needs.test.outputs.coverage_outcome }}' === 'success';
             const marker = '<!-- tapio-coverage-report -->';
+            const contributingUrl = `https://github.com/${context.repo.owner}/${context.repo.repo}/blob/main/CONTRIBUTING.md`;
+            const author = context.payload.pull_request.user.login;
 
             const failures = [
-              { outcome: '${{ needs.lint.outputs.prek_outcome }}', name: 'prek', output: process.env.PREK_OUTPUT, fix: 'uv run prek run --all-files' },
-              { outcome: '${{ needs.typecheck.outputs.mypy_outcome }}', name: 'mypy', output: process.env.MYPY_OUTPUT, fix: 'uv run mypy tapio' },
-              { outcome: '${{ needs.typecheck.outputs.pyrefly_outcome }}', name: 'pyrefly', output: process.env.PYREFLY_OUTPUT, fix: 'uv run pyrefly check' },
-              { outcome: '${{ needs.test.outputs.pytest_outcome }}', name: 'pytest', output: process.env.PYTEST_OUTPUT, fix: 'uv run pytest' },
+              { outcome: '${{ needs.lint.outputs.prek_outcome }}', name: 'prek', label: 'Lint (prek)', output: process.env.PREK_OUTPUT, fix: 'uv run prek run --all-files', docs: `${contributingUrl}#pre-commit-hooks-prek`, docsLabel: 'Pre-commit Hooks (prek)' },
+              { outcome: '${{ needs.typecheck.outputs.mypy_outcome }}', name: 'mypy', label: 'Type Checking (mypy)', output: process.env.MYPY_OUTPUT, fix: 'uv run mypy tapio', docs: `${contributingUrl}#type-checking`, docsLabel: 'Type Checking' },
+              { outcome: '${{ needs.typecheck.outputs.pyrefly_outcome }}', name: 'pyrefly', label: 'Type Checking (pyrefly)', output: process.env.PYREFLY_OUTPUT, fix: 'uv run pyrefly check', docs: `${contributingUrl}#type-checking`, docsLabel: 'Type Checking' },
+              { outcome: '${{ needs.test.outputs.pytest_outcome }}', name: 'pytest', label: 'Tests (pytest)', output: process.env.PYTEST_OUTPUT, fix: 'uv run pytest', docs: `${contributingUrl}#running-tests`, docsLabel: 'Running Tests' },
             ].filter((check) => check.outcome !== 'success');
+
+            const failedLabels = failures.map((check) => check.label);
+            if (!passed) {
+              failedLabels.push('Coverage');
+            }
+
+            // Mentioning the author only happens once per PR in practice: GitHub notifies
+            // on comment creation, and this step updates the same sticky comment on
+            // reruns rather than creating a new one, so re-running CI doesn't re-ping them.
+            const greeting = failedLabels.length
+              ? [
+                  `👋 Hi @${author}, thanks for the pull request! Before this can be merged, please address: **${failedLabels.join(', ')}**.`,
+                  '',
+                  'Details and local reproduction commands are below, with links to the relevant CONTRIBUTING.md section for each.',
+                  '',
+                ]
+              : [];
 
             const failuresSection = failures.length
               ? [
@@ -338,7 +362,7 @@ jobs:
                     check.output || '(no output captured)',
                     '```',
                     '',
-                    `Run \`${check.fix}\` locally to reproduce and fix.`,
+                    `Run \`${check.fix}\` locally to reproduce and fix. See [${check.docsLabel}](${check.docs}) in CONTRIBUTING.md.`,
                     '</details>',
                     '',
                   ]),
@@ -347,6 +371,7 @@ jobs:
 
             const body = [
               marker,
+              ...greeting,
               ...failuresSection,
               '## Test Coverage Report',
               '',
@@ -354,7 +379,7 @@ jobs:
               '',
               passed
                 ? 'Coverage meets the project threshold. 🎉'
-                : '⚠️ Coverage is below the required 80% threshold. Please add tests for the new or changed code before this pull request can be merged.',
+                : `⚠️ Coverage is below the required 80% threshold. Please add tests for the new or changed code before this pull request can be merged. See [Code Coverage](${contributingUrl}#code-coverage) in CONTRIBUTING.md.`,
             ].join('\n');
 
             // paginate() walks every page of comments, not just the first 30, so a
