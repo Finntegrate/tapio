@@ -1,8 +1,6 @@
 name: Task / research spike
 description: Exploratory work, maintenance, or a task that doesn't fit a bug or feature
 title: "[Task]: "
-labels:
-  - task
 type: Task
 body:
   - type: markdown
