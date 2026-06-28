@@ -55,20 +55,29 @@ jobs:
       # the job directly makes the "Lint (prek)" check in the PR's checks list show
       # red when prek fails, instead of staying green while the report job's gate
       # silently catches the failure via prek_outcome.
+      # set -o pipefail: the default shell (bash -e {0}, no pipefail) only checks
+      # the last command in a pipeline, so without this the `| tee` below would
+      # swallow prek's real exit code and the job would always report success.
       - name: Run pre-commit checks (prek)
         id: prek
-        run: SKIP=mypy,pyrefly uv run prek run --all-files 2>&1 | tee /tmp/prek-output.txt
+        run: |
+          set -o pipefail
+          SKIP=mypy,pyrefly uv run prek run --all-files 2>&1 | tee /tmp/prek-output.txt
 
       # Truncated copy of prek's own output, surfaced later by the report job's PR
-      # comment so a failure is readable without opening this job's log.
+      # comment so a failure is readable without opening this job's log. The
+      # delimiter is randomized because a fixed one could appear in the captured
+      # output and prematurely terminate the heredoc, letting injected lines be
+      # parsed as additional (attacker-controlled) GITHUB_OUTPUT entries.
       - name: Capture prek output for summary
         id: prek-summary
         if: always()
         run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
           {
-            echo "output<<PREK_OUTPUT_EOF"
+            echo "output<<$delimiter"
             tail -c 6000 /tmp/prek-output.txt
-            echo "PREK_OUTPUT_EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
   typecheck:
@@ -89,10 +98,15 @@ jobs:
 
       # continue-on-error so a mypy failure doesn't prevent pyrefly from also
       # reporting -- both outcomes surface in the report job's summary and gate.
+      # set -o pipefail: the default shell (bash -e {0}, no pipefail) only checks
+      # the last command in a pipeline, so without this the `| tee` below would
+      # swallow mypy's real exit code.
       - name: Run type checking with Mypy
         id: mypy
         continue-on-error: true
-        run: uv run mypy --show-column-numbers tapio 2>&1 | tee /tmp/mypy-output.txt
+        run: |
+          set -o pipefail
+          uv run mypy --show-column-numbers tapio 2>&1 | tee /tmp/mypy-output.txt
 
       # mypy has no built-in annotation format, but its text output is the stable
       # "file:line:col: error: message" form, so it can be converted to inline
@@ -111,16 +125,20 @@ jobs:
         id: mypy-summary
         if: always()
         run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
           {
-            echo "output<<MYPY_OUTPUT_EOF"
+            echo "output<<$delimiter"
             tail -c 6000 /tmp/mypy-output.txt
-            echo "MYPY_OUTPUT_EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
+      # set -o pipefail: see the mypy step above for why this is needed with tee.
       - name: Run Pyrefly code check
         id: pyrefly
         continue-on-error: true
-        run: uv run pyrefly check 2>&1 | tee /tmp/pyrefly-output.txt
+        run: |
+          set -o pipefail
+          uv run pyrefly check 2>&1 | tee /tmp/pyrefly-output.txt
 
       # Pyrefly has a native GitHub Actions annotation format, unlike mypy, so this
       # re-run (cheap -- pyrefly is fast) just asks for that format directly instead
@@ -134,10 +152,11 @@ jobs:
         id: pyrefly-summary
         if: always()
         run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
           {
-            echo "output<<PYREFLY_OUTPUT_EOF"
+            echo "output<<$delimiter"
             tail -c 6000 /tmp/pyrefly-output.txt
-            echo "PYREFLY_OUTPUT_EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
   test:
@@ -164,10 +183,14 @@ jobs:
 
       # continue-on-error so the coverage-threshold step below still runs (and
       # reports a percentage) even when a test fails, instead of skipping it.
+      # set -o pipefail: see the mypy step in the typecheck job above for why this
+      # is needed with tee.
       - name: Test with pytest and coverage
         id: pytest
         continue-on-error: true
-        run: uv run pytest --cov=tapio --cov-report=xml --cov-report=term 2>&1 | tee /tmp/pytest-output.txt
+        run: |
+          set -o pipefail
+          uv run pytest --cov=tapio --cov-report=xml --cov-report=term 2>&1 | tee /tmp/pytest-output.txt
 
       # Tail rather than head: pytest's own failure summary ("FAILED tests/...")
       # is printed at the very end, so the tail is what's actually actionable.
@@ -175,10 +198,11 @@ jobs:
         id: pytest-summary
         if: always()
         run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
           {
-            echo "output<<PYTEST_OUTPUT_EOF"
+            echo "output<<$delimiter"
             tail -c 6000 /tmp/pytest-output.txt
-            echo "PYTEST_OUTPUT_EOF"
+            echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
       - name: Check coverage threshold
