@@ -15,6 +15,7 @@ jobs:
       contents: read
     outputs:
       prek_outcome: ${{ steps.prek.outcome }}
+      prek_output: ${{ steps.prek-summary.outputs.output }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -50,13 +51,25 @@ jobs:
       # anything a contributor's local hook would have caught. mypy and pyrefly run
       # in the separate typecheck job instead of letting prek build a second,
       # duplicate dependency set for them.
-      # continue-on-error here lets the report job see this job's outcome alongside
-      # typecheck/test's outcomes even if this fails -- the report job's gate step
-      # still enforces it via prek_outcome.
+      # No continue-on-error: prek is the only step in this job, so letting it fail
+      # the job directly makes the "Lint (prek)" check in the PR's checks list show
+      # red when prek fails, instead of staying green while the report job's gate
+      # silently catches the failure via prek_outcome.
       - name: Run pre-commit checks (prek)
         id: prek
-        continue-on-error: true
-        run: SKIP=mypy,pyrefly uv run prek run --all-files
+        run: SKIP=mypy,pyrefly uv run prek run --all-files 2>&1 | tee /tmp/prek-output.txt
+
+      # Truncated copy of prek's own output, surfaced later by the report job's PR
+      # comment so a failure is readable without opening this job's log.
+      - name: Capture prek output for summary
+        id: prek-summary
+        if: always()
+        run: |
+          {
+            echo "output<<PREK_OUTPUT_EOF"
+            tail -c 6000 /tmp/prek-output.txt
+            echo "PREK_OUTPUT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
   typecheck:
     name: Type Checking
@@ -66,6 +79,8 @@ jobs:
     outputs:
       mypy_outcome: ${{ steps.mypy.outcome }}
       pyrefly_outcome: ${{ steps.pyrefly.outcome }}
+      mypy_output: ${{ steps.mypy-summary.outputs.output }}
+      pyrefly_output: ${{ steps.pyrefly-summary.outputs.output }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -77,12 +92,53 @@ jobs:
       - name: Run type checking with Mypy
         id: mypy
         continue-on-error: true
-        run: uv run mypy tapio
+        run: uv run mypy --show-column-numbers tapio 2>&1 | tee /tmp/mypy-output.txt
+
+      # mypy has no built-in annotation format, but its text output is the stable
+      # "file:line:col: error: message" form, so it can be converted to inline
+      # ::error annotations on the "Files changed" tab directly.
+      - name: Annotate Mypy findings
+        if: always()
+        continue-on-error: true
+        run: |
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^([^:]+):([0-9]+):([0-9]+):\ error:\ (.*)$ ]]; then
+              echo "::error file=${BASH_REMATCH[1]},line=${BASH_REMATCH[2]},col=${BASH_REMATCH[3]}::${BASH_REMATCH[4]}"
+            fi
+          done < /tmp/mypy-output.txt
+
+      - name: Capture mypy output for summary
+        id: mypy-summary
+        if: always()
+        run: |
+          {
+            echo "output<<MYPY_OUTPUT_EOF"
+            tail -c 6000 /tmp/mypy-output.txt
+            echo "MYPY_OUTPUT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Run Pyrefly code check
         id: pyrefly
         continue-on-error: true
-        run: uv run pyrefly check
+        run: uv run pyrefly check 2>&1 | tee /tmp/pyrefly-output.txt
+
+      # Pyrefly has a native GitHub Actions annotation format, unlike mypy, so this
+      # re-run (cheap -- pyrefly is fast) just asks for that format directly instead
+      # of parsing text output.
+      - name: Annotate Pyrefly findings
+        if: always()
+        continue-on-error: true
+        run: uv run pyrefly check --output-format=github
+
+      - name: Capture pyrefly output for summary
+        id: pyrefly-summary
+        if: always()
+        run: |
+          {
+            echo "output<<PYREFLY_OUTPUT_EOF"
+            tail -c 6000 /tmp/pyrefly-output.txt
+            echo "PYREFLY_OUTPUT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
   test:
     name: Test Python ${{ matrix.python-version }}
@@ -97,6 +153,7 @@ jobs:
       pytest_outcome: ${{ steps.pytest.outcome }}
       coverage_outcome: ${{ steps.coverage.outcome }}
       coverage_pct: ${{ steps.coverage.outputs.coverage_pct }}
+      pytest_output: ${{ steps.pytest-summary.outputs.output }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
 
@@ -110,7 +167,19 @@ jobs:
       - name: Test with pytest and coverage
         id: pytest
         continue-on-error: true
-        run: uv run pytest --cov=tapio --cov-report=xml --cov-report=term
+        run: uv run pytest --cov=tapio --cov-report=xml --cov-report=term 2>&1 | tee /tmp/pytest-output.txt
+
+      # Tail rather than head: pytest's own failure summary ("FAILED tests/...")
+      # is printed at the very end, so the tail is what's actually actionable.
+      - name: Capture pytest output for summary
+        id: pytest-summary
+        if: always()
+        run: |
+          {
+            echo "output<<PYTEST_OUTPUT_EOF"
+            tail -c 6000 /tmp/pytest-output.txt
+            echo "PYTEST_OUTPUT_EOF"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Check coverage threshold
         id: coverage
@@ -140,7 +209,15 @@ jobs:
     steps:
       # Aggregated pass/fail dashboard rendered on the workflow run's Summary tab,
       # so contributors don't need to open individual job logs to see what failed.
+      # Failure output is read from env vars (set below), not interpolated via
+      # ${{ }}, because it's tool output derived from PR file contents -- treating
+      # it as a shell string keeps a crafted file/error message from being executed.
       - name: Write job summary
+        env:
+          PREK_OUTPUT: ${{ needs.lint.outputs.prek_output }}
+          MYPY_OUTPUT: ${{ needs.typecheck.outputs.mypy_output }}
+          PYREFLY_OUTPUT: ${{ needs.typecheck.outputs.pyrefly_output }}
+          PYTEST_OUTPUT: ${{ needs.test.outputs.pytest_output }}
         run: |
           {
             echo "## CI Results"
@@ -152,25 +229,101 @@ jobs:
             echo "| pyrefly | ${{ needs.typecheck.outputs.pyrefly_outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
             echo "| pytest | ${{ needs.test.outputs.pytest_outcome == 'success' && '✅ Passed' || '❌ Failed' }} |"
             echo "| coverage (≥80%) | ${{ needs.test.outputs.coverage_outcome == 'success' && '✅ Passed' || '❌ Failed' }} (${{ needs.test.outputs.coverage_pct }}%) |"
+            echo
+
+            if [ "${{ needs.lint.outputs.prek_outcome }}" != "success" ]; then
+              echo "<details><summary>prek output</summary>"
+              echo
+              echo '```'
+              echo "$PREK_OUTPUT"
+              echo '```'
+              echo "Run \`uv run prek run --all-files\` locally to reproduce and fix."
+              echo "</details>"
+            fi
+            if [ "${{ needs.typecheck.outputs.mypy_outcome }}" != "success" ]; then
+              echo "<details><summary>mypy output</summary>"
+              echo
+              echo '```'
+              echo "$MYPY_OUTPUT"
+              echo '```'
+              echo "Run \`uv run mypy tapio\` locally to reproduce and fix."
+              echo "</details>"
+            fi
+            if [ "${{ needs.typecheck.outputs.pyrefly_outcome }}" != "success" ]; then
+              echo "<details><summary>pyrefly output</summary>"
+              echo
+              echo '```'
+              echo "$PYREFLY_OUTPUT"
+              echo '```'
+              echo "Run \`uv run pyrefly check\` locally to reproduce and fix."
+              echo "</details>"
+            fi
+            if [ "${{ needs.test.outputs.pytest_outcome }}" != "success" ]; then
+              echo "<details><summary>pytest output (tail)</summary>"
+              echo
+              echo '```'
+              echo "$PYTEST_OUTPUT"
+              echo '```'
+              echo "Run \`uv run pytest\` locally to reproduce and fix."
+              echo "</details>"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       # Posts a sticky comment directly in the PR conversation (not just the Summary
-      # tab) so a missed coverage threshold is impossible to miss. Updates the same
-      # comment on re-runs instead of piling up duplicates. continue-on-error because
-      # GITHUB_TOKEN is read-only for pull_request workflows triggered by forks, so
-      # this step is expected to fail for external contributions -- it must not block
-      # the "Fail if any check failed" gate below, which still enforces the threshold.
-      - name: Comment coverage on pull request
+      # tab) so a missed coverage threshold, or a failure hidden behind continue-on-error,
+      # is impossible to miss without opening a job log. Updates the same comment on
+      # re-runs instead of piling up duplicates. continue-on-error because GITHUB_TOKEN
+      # is read-only for pull_request workflows triggered by forks, so this step is
+      # expected to fail for external contributions -- it must not block the "Fail if
+      # any check failed" gate below, which still enforces the threshold.
+      #
+      # Failure output is passed via env vars, not interpolated with ${{ }} into the
+      # script, because it's tool output derived from PR file contents -- a crafted
+      # file name or error message could otherwise break out of the JS template
+      # literal and run arbitrary code in a job with pull-requests: write permission.
+      - name: Comment CI results on pull request
         if: always() && github.event_name == 'pull_request'
         continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          PREK_OUTPUT: ${{ needs.lint.outputs.prek_output }}
+          MYPY_OUTPUT: ${{ needs.typecheck.outputs.mypy_output }}
+          PYREFLY_OUTPUT: ${{ needs.typecheck.outputs.pyrefly_output }}
+          PYTEST_OUTPUT: ${{ needs.test.outputs.pytest_output }}
         with:
           script: |
             const coveragePct = '${{ needs.test.outputs.coverage_pct }}' || 'unknown';
             const passed = '${{ needs.test.outputs.coverage_outcome }}' === 'success';
             const marker = '<!-- tapio-coverage-report -->';
+
+            const failures = [
+              { outcome: '${{ needs.lint.outputs.prek_outcome }}', name: 'prek', output: process.env.PREK_OUTPUT, fix: 'uv run prek run --all-files' },
+              { outcome: '${{ needs.typecheck.outputs.mypy_outcome }}', name: 'mypy', output: process.env.MYPY_OUTPUT, fix: 'uv run mypy tapio' },
+              { outcome: '${{ needs.typecheck.outputs.pyrefly_outcome }}', name: 'pyrefly', output: process.env.PYREFLY_OUTPUT, fix: 'uv run pyrefly check' },
+              { outcome: '${{ needs.test.outputs.pytest_outcome }}', name: 'pytest', output: process.env.PYTEST_OUTPUT, fix: 'uv run pytest' },
+            ].filter((check) => check.outcome !== 'success');
+
+            const failuresSection = failures.length
+              ? [
+                  '## CI Failures',
+                  '',
+                  ...failures.flatMap((check) => [
+                    `<details><summary>❌ ${check.name}</summary>`,
+                    '',
+                    '```',
+                    check.output || '(no output captured)',
+                    '```',
+                    '',
+                    `Run \`${check.fix}\` locally to reproduce and fix.`,
+                    '</details>',
+                    '',
+                  ]),
+                ]
+              : [];
+
             const body = [
               marker,
+              ...failuresSection,
               '## Test Coverage Report',
               '',
               `${passed ? '✅' : '❌'} **${coveragePct}%** coverage (required: ≥80%)`,
