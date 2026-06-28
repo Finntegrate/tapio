@@ -229,7 +229,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      pull-requests: write # only this job needs to post/update the coverage comment
     steps:
       # Aggregated pass/fail dashboard rendered on the workflow run's Summary tab,
       # so contributors don't need to open individual job logs to see what failed.
@@ -298,21 +297,21 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      # Posts a sticky comment directly in the PR conversation (not just the Summary
-      # tab) so a missed coverage threshold, or a failure hidden behind continue-on-error,
-      # is impossible to miss without opening a job log. Updates the same comment on
-      # re-runs instead of piling up duplicates. continue-on-error because GITHUB_TOKEN
-      # is read-only for pull_request workflows triggered by forks, so this step is
-      # expected to fail for external contributions -- it must not block the "Fail if
-      # any check failed" gate below, which still enforces the threshold.
+      # Builds a sticky PR comment and writes it to an artifact
+      # instead of posting it directly. GITHUB_TOKEN is read-only here for
+      # pull_request runs triggered by forks (this job has no pull-requests: write
+      # permission at all now), so this job can never post to the PR itself. The
+      # actual posting happens in comment-on-pr.yml, triggered by workflow_run,
+      # which runs with the base repo's permissions regardless of where the PR
+      # came from -- the standard, GitHub-recommended pattern for commenting on
+      # fork PRs without handing the fork's code an elevated token.
       #
       # Failure output is passed via env vars, not interpolated with ${{ }} into the
       # script, because it's tool output derived from PR file contents -- a crafted
       # file name or error message could otherwise break out of the JS template
-      # literal and run arbitrary code in a job with pull-requests: write permission.
-      - name: Comment CI results on pull request
+      # literal and run arbitrary code.
+      - name: Build PR comment
         if: always() && github.event_name == 'pull_request'
-        continue-on-error: true
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           PREK_OUTPUT: ${{ needs.lint.outputs.prek_output }}
@@ -382,34 +381,22 @@ jobs:
                 : `⚠️ Coverage is below the required 80% threshold. Please add tests for the new or changed code before this pull request can be merged. See [Code Coverage](${contributingUrl}#code-coverage) in CONTRIBUTING.md.`,
             ].join('\n');
 
-            // paginate() walks every page of comments, not just the first 30, so a
-            // long-lived PR's earlier sticky comment is never missed; restricting to
-            // github-actions[bot] avoids matching a human comment that happens to
-            // quote the marker text.
-            const comments = await github.paginate(github.rest.issues.listComments, {
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-            });
-            const existing = comments.find(
-              (comment) => comment.user.login === 'github-actions[bot]' && comment.body.includes(marker),
+            // comment-on-pr.yml reads this file by name ("pr-comment.json") out of
+            // the artifact -- the PR number is recorded here, from this run's own
+            // trusted event context, rather than trusted from the workflow_run
+            // event later (whose `pull_requests` field is unreliable for fork PRs).
+            require('fs').writeFileSync(
+              'pr-comment.json',
+              JSON.stringify({ pr_number: context.issue.number, marker, body }),
             );
 
-            if (existing) {
-              await github.rest.issues.updateComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                comment_id: existing.id,
-                body,
-              });
-            } else {
-              await github.rest.issues.createComment({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: context.issue.number,
-                body,
-              });
-            }
+      - name: Upload PR comment artifact
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-comment
+          path: pr-comment.json
+          retention-days: 1
 
       - name: Fail if any check failed
         run: |
