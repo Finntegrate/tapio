@@ -22,7 +22,8 @@ runs:
 
     # pyproject.toml declares a build-system (hatchling), so `uv sync` builds and
     # installs the project itself in editable mode -- no separate
-    # `uv pip install -e .` step needed.
+    # `uv pip install -e .` step needed. --locked fails fast if uv.lock is out
+    # of sync with pyproject.toml instead of silently re-resolving.
     - name: Install dependencies
       shell: bash
-      run: uv sync --all-extras --dev
+      run: uv sync --locked --all-extras --dev
