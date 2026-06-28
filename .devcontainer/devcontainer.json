@@ -5,9 +5,10 @@
 	},
 	"features": {
 		"ghcr.io/va-h/devcontainers-features/uv:1": {},
-		"ghcr.io/prulloac/devcontainer-features/ollama:1": {}
+		"ghcr.io/prulloac/devcontainer-features/ollama:1": {},
+		"ghcr.io/devcontainers-extra/features/mise:1": {}
 	},
-	"postCreateCommand": "uv sync --dev && uv run prek install",
+	"postCreateCommand": "uv sync --dev && mise install && uv run prek install",
 	"customizations": {
 		"vscode": {
 			"extensions": [
