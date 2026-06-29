@@ -1,0 +1,18 @@
+{
+  "config": {
+    "default": true,
+    // Project prose isn't hard-wrapped; line length isn't a useful signal here.
+    "MD013": false,
+    // Prompt templates and partial docs legitimately don't start with a heading.
+    "MD041": false,
+    // Table column widths aren't worth enforcing a max line length for.
+    "MD060": false
+  },
+  "ignores": [
+    // Prompt templates fed to the LLM, not documentation.
+    "tapio/prompts/**",
+    // Not project-owned; only relevant when running this glob outside prek/CI,
+    // since prek/CI only ever lint git-tracked files.
+    ".venv/**"
+  ]
+}

@@ -218,14 +218,6 @@ class TestRelativeLinks(unittest.TestCase):
         # Parse the file
         result = parser.parse_file(domain_file_path)
 
-        # Debug: If result is None, print file path and parser input_dir for troubleshooting
-        if result is None:
-            print(f"parse_file returned None for {domain_file_path}")
-            print(f"parser.input_dir: {parser.input_dir}")
-            print(f"File exists: {os.path.exists(domain_file_path)}")
-            print(f"Files in domain dir: {os.listdir(os.path.dirname(domain_file_path))}")
-            print(f"parser.config: {parser.config}")
-            return  # Stop test here to avoid further errors
         self.assertIsNotNone(result, f"parse_file returned None for {domain_file_path}")
         self.assertIsNotNone(parser.current_base_url, "current_base_url is None after parsing")
         self.assertTrue(parser.current_base_url and parser.current_base_url.startswith(f"https://{self.domain}"))

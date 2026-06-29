@@ -1,2 +1,11 @@
 [tools]
+actionlint = "1.7.12"
+claude-code = "latest"
+dasel = "latest"
 gh = "latest"
+jq = "latest"
+markdownlint-cli2 = "0.22.1"
+node = "24"
+ollama = "latest"
+python = "3.14"
+uv = "latest"

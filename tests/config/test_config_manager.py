@@ -89,7 +89,7 @@ class TestConfigManager:
     def test_init_default_path(self, basic_config_yaml):
         """Test initialization with default config path."""
         with patch(
-            "tapio.config.config_manager.open",
+            "pathlib.Path.open",
             mock_open(read_data=basic_config_yaml),
         ) as mock_file:
             config_manager = ConfigManager()
@@ -116,9 +116,9 @@ class TestConfigManager:
         """Test initialization with custom config path."""
         test_config_path = "/path/to/custom/config.yaml"
 
-        with patch("tapio.config.config_manager.open", mock_open(read_data=custom_site_config_yaml)) as mock_file:
+        with patch("pathlib.Path.open", mock_open(read_data=custom_site_config_yaml)) as mock_file:
             config_manager = ConfigManager(config_path=test_config_path)
-            mock_file.assert_called_with(test_config_path, encoding="utf-8")
+            mock_file.assert_called_with(encoding="utf-8")
 
             # Test the loaded site data
             assert "custom_site" in config_manager.list_available_sites()
@@ -127,34 +127,34 @@ class TestConfigManager:
         """Test the from_file class method."""
         test_config_path = "/path/to/custom/config.yaml"
 
-        with patch("tapio.config.config_manager.open", mock_open(read_data=basic_config_yaml)):
+        with patch("pathlib.Path.open", mock_open(read_data=basic_config_yaml)):
             config_manager = ConfigManager.from_file(test_config_path)
             assert isinstance(config_manager, ConfigManager)
             assert "test_site" in config_manager.list_available_sites()
 
     def test_file_not_found(self):
         """Test handling of non-existent configuration file."""
-        with patch("tapio.config.config_manager.open", side_effect=FileNotFoundError()):
-            with pytest.raises(FileNotFoundError):
-                ConfigManager(config_path="nonexistent_file.yaml")
+        with patch("pathlib.Path.open", side_effect=FileNotFoundError()), pytest.raises(FileNotFoundError):
+            ConfigManager(config_path="nonexistent_file.yaml")
 
     def test_invalid_yaml(self):
         """Test handling of invalid YAML file."""
-        with patch("tapio.config.config_manager.open", mock_open(read_data=": invalid: yaml: content")):
-            with patch("yaml.safe_load", side_effect=yaml.YAMLError("Invalid YAML")):
-                with pytest.raises(yaml.YAMLError):
-                    ConfigManager(config_path="invalid_yaml.yaml")
+        with (
+            patch("pathlib.Path.open", mock_open(read_data=": invalid: yaml: content")),
+            patch("yaml.safe_load", side_effect=yaml.YAMLError("Invalid YAML")),
+            pytest.raises(yaml.YAMLError),
+        ):
+            ConfigManager(config_path="invalid_yaml.yaml")
 
     def test_invalid_config_structure(self):
         """Test handling of invalid configuration structure."""
-        with patch("tapio.config.config_manager.open", mock_open(read_data="not_sites: {}")):
-            with pytest.raises(ValidationError):
-                ConfigManager(config_path="invalid_structure.yaml")
+        with patch("pathlib.Path.open", mock_open(read_data="not_sites: {}")), pytest.raises(ValidationError):
+            ConfigManager(config_path="invalid_structure.yaml")
 
     def test_get_site_config(self, basic_config_yaml):
         """Test retrieving a specific site configuration."""
         with patch(
-            "tapio.config.config_manager.open",
+            "pathlib.Path.open",
             mock_open(read_data=basic_config_yaml),
         ):
             config_manager = ConfigManager()
@@ -166,7 +166,7 @@ class TestConfigManager:
     def test_get_nonexistent_site_config(self, basic_config_yaml):
         """Test retrieving a non-existent site configuration."""
         with patch(
-            "tapio.config.config_manager.open",
+            "pathlib.Path.open",
             mock_open(read_data=basic_config_yaml),
         ):
             config_manager = ConfigManager()
@@ -175,17 +175,16 @@ class TestConfigManager:
 
     def test_get_site_with_invalid_url(self, invalid_url_config_yaml):
         """Test retrieving site configuration with invalid base_url."""
-        with patch(
-            "tapio.config.config_manager.open",
-            mock_open(read_data=invalid_url_config_yaml),
+        # Now the validation happens at model creation time via Pydantic
+        with (
+            patch("pathlib.Path.open", mock_open(read_data=invalid_url_config_yaml)),
+            pytest.raises(ValidationError),
         ):
-            # Now the validation happens at model creation time via Pydantic
-            with pytest.raises(ValidationError):
-                _ = ConfigManager()
+            _ = ConfigManager()
 
     def test_list_available_sites(self, multi_site_config_yaml):
         """Test listing all available site configurations."""
-        with patch("tapio.config.config_manager.open", mock_open(read_data=multi_site_config_yaml)):
+        with patch("pathlib.Path.open", mock_open(read_data=multi_site_config_yaml)):
             config_manager = ConfigManager()
             available_sites = config_manager.list_available_sites()
             assert len(available_sites) == 3
@@ -195,7 +194,7 @@ class TestConfigManager:
 
     def test_get_site_descriptions(self, site_with_descriptions_yaml):
         """Test getting descriptions for all site configurations."""
-        with patch("tapio.config.config_manager.open", mock_open(read_data=site_with_descriptions_yaml)):
+        with patch("pathlib.Path.open", mock_open(read_data=site_with_descriptions_yaml)):
             config_manager = ConfigManager()
             site_descriptions = config_manager.get_site_descriptions()
 

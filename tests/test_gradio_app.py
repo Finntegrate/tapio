@@ -41,6 +41,22 @@ class TestGradioApp:
         assert response == "Test response"
         assert formatted_docs == "Formatted docs"
 
+    def test_respond_stream_passes_prior_history_only(self, test_app):
+        """Test that respond_stream excludes the just-added current message from history."""
+        prior_turns = [
+            {"role": "user", "content": "What is a residence permit?"},
+            {"role": "assistant", "content": "It's a document allowing you to live in Finland."},
+        ]
+        chat_history = list(prior_turns)
+
+        # Consume the generator to trigger the call to the orchestrator
+        list(test_app.respond_stream("How do I apply for one?", chat_history))
+
+        test_app.rag_orchestrator.query_stream.assert_called_once_with(
+            query_text="How do I apply for one?",
+            history=prior_turns,
+        )
+
     def test_generate_rag_response_with_error(self, test_app):
         """Test error handling in generate_rag_response."""
         # Setup

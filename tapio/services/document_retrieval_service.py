@@ -53,16 +53,18 @@ class DocumentRetrievalService:
             List of retrieved documents
         """
         try:
-            logger.info(f"Retrieving documents for query: {query_text}")
+            # Avoid logging raw query text, which may contain personal information
+            logger.info("Retrieving documents for query (%d chars)", len(query_text))
             retrieved_docs = self.vector_store.query(
                 query_text=query_text,
                 n_results=self.num_results,
             )
-            logger.info(f"Retrieved {len(retrieved_docs)} documents")
-            return retrieved_docs
-        except Exception as e:
-            logger.error(f"Error retrieving documents: {e}")
+            logger.info("Retrieved %d documents", len(retrieved_docs))
+        except Exception:
+            logger.exception("Error retrieving documents")
             return []
+        else:
+            return retrieved_docs
 
     def format_documents_as_context(self, documents: list[Any]) -> str:
         """Format retrieved documents as context for LLM input.
@@ -76,11 +78,7 @@ class DocumentRetrievalService:
         if not documents:
             return ""
 
-        context_docs = []
-        for doc in documents:
-            # Extract content for context
-            if hasattr(doc, "page_content"):
-                context_docs.append(doc.page_content)
+        context_docs = [doc.page_content for doc in documents if hasattr(doc, "page_content")]
 
         return "\n\n".join(context_docs)
 

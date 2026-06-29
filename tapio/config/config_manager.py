@@ -5,7 +5,7 @@ from YAML files, providing a centralized interface for configuration data throug
 """
 
 import logging
-import os
+from pathlib import Path
 
 import yaml
 
@@ -13,16 +13,14 @@ from tapio.config.config_models import ParserConfigRegistry, SiteConfig
 
 
 class ConfigManager:
-    """
-    Manages configuration for the Tapio application.
+    """Manages configuration for the Tapio application.
 
     Loads site-specific configurations from YAML files and provides
     an interface to access them.
     """
 
-    def __init__(self, config_path: str | None = None):
-        """
-        Initialize the configuration manager.
+    def __init__(self, config_path: str | None = None) -> None:
+        """Initialize the configuration manager.
 
         Args:
             config_path: Optional path to a custom configuration file.
@@ -32,8 +30,7 @@ class ConfigManager:
         self._config_registry = self._load_config_registry(config_path)
 
     def _load_config_registry(self, config_path: str | None = None) -> ParserConfigRegistry:
-        """
-        Load site configuration registry from YAML.
+        """Load site configuration registry from YAML.
 
         Args:
             config_path: Optional path to a custom configuration file.
@@ -49,26 +46,25 @@ class ConfigManager:
         """
         # Default config path is in the same directory as this file
         if not config_path:
-            config_dir = os.path.dirname(os.path.abspath(__file__))
-            config_path = os.path.join(config_dir, "site_configs.yaml")
+            config_dir = Path(__file__).resolve().parent
+            config_path = str(config_dir / "site_configs.yaml")
 
         try:
-            with open(config_path, encoding="utf-8") as file:
+            with Path(config_path).open(encoding="utf-8") as file:
                 config_data = yaml.safe_load(file)
                 return ParserConfigRegistry(**config_data)
         except FileNotFoundError:
-            self.logger.error(f"Configuration file not found: {config_path}")
+            self.logger.exception("Configuration file not found: %s", config_path)
             raise
-        except yaml.YAMLError as e:
-            self.logger.error(f"Invalid YAML in configuration file: {e}")
+        except yaml.YAMLError:
+            self.logger.exception("Invalid YAML in configuration file")
             raise
-        except ValueError as e:
-            self.logger.error(f"Invalid configuration: {e}")
+        except ValueError:
+            self.logger.exception("Invalid configuration")
             raise
 
     def get_site_config(self, site: str) -> SiteConfig:
-        """
-        Get configuration for a specific site.
+        """Get configuration for a specific site.
 
         Args:
             site: Site identifier to get configuration for
@@ -80,13 +76,13 @@ class ConfigManager:
             ValueError: If the site doesn't exist in the configuration
         """
         if site not in self._config_registry.sites:
-            raise ValueError(f"Site '{site}' not found in configuration")
+            msg = f"Site '{site}' not found in configuration"
+            raise ValueError(msg)
 
         return self._config_registry.sites[site]
 
     def list_available_sites(self) -> list[str]:
-        """
-        List all available site configurations.
+        """List all available site configurations.
 
         Returns:
             List of site identifiers
@@ -94,8 +90,7 @@ class ConfigManager:
         return list(self._config_registry.sites.keys())
 
     def get_site_descriptions(self) -> dict[str, str]:
-        """
-        Get descriptions for all available sites.
+        """Get descriptions for all available sites.
 
         Returns:
             Dictionary mapping site identifiers to their descriptions
@@ -106,9 +101,8 @@ class ConfigManager:
         }
 
     @classmethod
-    def from_file(cls, config_path: str) -> "ConfigManager":
-        """
-        Create a ConfigManager instance from a specific configuration file.
+    def from_file(cls, config_path: str) -> ConfigManager:
+        """Create a ConfigManager instance from a specific configuration file.
 
         Args:
             config_path: Path to the configuration file

@@ -234,13 +234,8 @@ class TestMarkdownVectorizer:
         # Verify correct number of chunks was returned
         assert chunk_count == 2
 
-    @patch("tapio.vectorstore.vectorizer.os.path.basename")
-    @patch("tapio.vectorstore.vectorizer.os.path.splitext")
-    def test_prepare_metadata(self, mock_splitext, mock_basename):
+    def test_prepare_metadata(self):
         """Test preparing metadata for a document."""
-        # Set up mocks
-        mock_basename.return_value = "file.md"
-        mock_splitext.return_value = ("file", ".md")
         mock_vector_db = Mock()
         mock_text_splitter = Mock()
 

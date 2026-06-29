@@ -17,13 +17,10 @@ from tapio.utils.text_utils import (
 )
 
 __all__ = [
-    # Embedding utilities
     "EmbeddingGenerator",
-    # Markdown utilities
-    "read_markdown_file",
-    "find_markdown_files",
-    # Text utilities
     "chunk_html_content",
+    "find_markdown_files",
     "is_pdf_url",
+    "read_markdown_file",
     "remove_javascript",
 ]

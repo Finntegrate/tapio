@@ -5,7 +5,7 @@ for the RAG system, making it easy to create properly configured service
 instances without tight coupling.
 """
 
-from langchain_core.embeddings import Embeddings  # type: ignore[import-not-found]
+from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from tapio.config.config_models import RAGConfig

@@ -71,14 +71,16 @@ def test_load_prompt_without_variables():
 
 def test_load_nonexistent_prompt():
     """Test loading a nonexistent prompt file returns empty string."""
-    with mock.patch("os.path.exists", return_value=False):
+    with mock.patch("pathlib.Path.exists", return_value=False):
         result = load_prompt("nonexistent_prompt")
         assert result == ""
 
 
 def test_load_prompt_file_error():
     """Test handling of file errors when loading prompt."""
-    with mock.patch("os.path.exists", return_value=True):
-        with mock.patch("builtins.open", side_effect=OSError("Mock error")):
-            result = load_prompt("error_prompt")
-            assert result == ""
+    with (
+        mock.patch("pathlib.Path.exists", return_value=True),
+        mock.patch("pathlib.Path.open", side_effect=OSError("Mock error")),
+    ):
+        result = load_prompt("error_prompt")
+        assert result == ""

@@ -77,19 +77,20 @@ class TapioAssistantApp:
                 retrieved_docs,
             )
 
-            return response, formatted_docs
-        except Exception as e:
-            logger.error(f"Error generating response: {e}")
+        except Exception:
+            logger.exception("Error generating response")
             return (
                 "I encountered an error while processing your query. Please try again.",
                 "Error retrieving documents.",
             )
+        else:
+            return response, formatted_docs
 
     def respond_stream(
         self,
         message: str,
         chat_history: list[dict[str, str]],
-    ) -> Generator[tuple[str, list[dict[str, str]], str], None, None]:
+    ) -> Generator[tuple[str, list[dict[str, str]], str]]:
         """Process user message and stream the response.
 
         Args:
@@ -112,9 +113,10 @@ class TapioAssistantApp:
 
         try:
             # Get streaming response and retrieved docs from the RAG orchestrator
+            # Exclude the just-appended current message; history should hold prior turns only
             response_stream, retrieved_docs = self.rag_orchestrator.query_stream(
                 query_text=message,
-                history=chat_history,
+                history=chat_history[:-1],
             )
 
             # Start building the assistant response and immediately start streaming
@@ -134,7 +136,7 @@ class TapioAssistantApp:
 
             # Stream the response - start consuming immediately
             for chunk in response_stream:
-                logger.debug(f"App received chunk: '{chunk}'")
+                logger.debug("App received chunk: '%s'", chunk)
                 # Replace the ellipsis with actual content on first meaningful chunk
                 if first_chunk and chunk.strip():  # Only replace if chunk has content
                     logger.info(
@@ -174,8 +176,8 @@ class TapioAssistantApp:
 
             yield "", chat_history, formatted_docs
 
-        except Exception as e:
-            logger.error(f"Error in streaming response: {e}")
+        except Exception:
+            logger.exception("Error in streaming response")
             error_message = "I encountered an error while processing your query. Please try again."
             chat_history.append(
                 {"role": "assistant", "content": error_message},
@@ -235,7 +237,6 @@ class TapioAssistantApp:
                     chatbot = gr.Chatbot(
                         label="Conversation",
                         height=500,
-                        type="messages",
                     )
                     msg = gr.Textbox(
                         label="Your question",

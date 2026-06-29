@@ -21,7 +21,7 @@ source_url: https://example.com/page.html
 
 This is test content.
 """
-        with patch("builtins.open", mock_open(read_data=mock_file_content)):
+        with patch("pathlib.Path.open", mock_open(read_data=mock_file_content)):
             metadata, content = read_markdown_file("test_file.md")
 
         assert metadata["title"] == "Test Document"
@@ -39,7 +39,7 @@ source_file: {DEFAULT_DIRS["CRAWLED_DIR"]}/example.com/page.html
 
 This is test content.
 """
-        with patch("builtins.open", mock_open(read_data=mock_file_content)):
+        with patch("pathlib.Path.open", mock_open(read_data=mock_file_content)):
             metadata, content = read_markdown_file("test_file.md")
 
         assert metadata["title"] == "Test Document"
@@ -49,7 +49,7 @@ This is test content.
 
     def test_read_markdown_file_error(self):
         """Test error handling when reading a markdown file."""
-        with patch("builtins.open", side_effect=FileNotFoundError("File not found")):
+        with patch("pathlib.Path.open", side_effect=FileNotFoundError("File not found")):
             metadata, content = read_markdown_file("non_existent.md")
 
         assert metadata == {}
@@ -143,7 +143,7 @@ title: - [Invalid YAML
 
     def test_find_markdown_files_error(self):
         """Test error handling when finding markdown files."""
-        with patch("os.walk", side_effect=PermissionError("Permission denied")):
+        with patch("pathlib.Path.rglob", side_effect=PermissionError("Permission denied")):
             markdown_files = find_markdown_files("non_existent_dir")
 
         assert markdown_files == []

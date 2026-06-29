@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from unittest.mock import MagicMock
 
+import pytest
 import yaml
 
 from tapio.config.config_manager import ConfigManager
@@ -188,7 +189,7 @@ class TestParser(unittest.TestCase):
     def test_init_with_invalid_site(self):
         """Test initialization with invalid site."""
         config_manager = ConfigManager(self.config_path)
-        with self.assertRaises(ValueError):
+        with pytest.raises(ValueError, match="nonexistent"):
             config_manager.get_site_config("nonexistent")
 
     def test_parse_html_with_main_content(self):
@@ -234,10 +235,14 @@ class TestParser(unittest.TestCase):
 
         # Prepare input/output directories for no_fallback site
         no_fallback_input_dir = os.path.join(
-            self.temp_dir, self.no_fallback_site_name, self.DEFAULT_DIRS["CRAWLED_DIR"]
+            self.temp_dir,
+            self.no_fallback_site_name,
+            self.DEFAULT_DIRS["CRAWLED_DIR"],
         )
         no_fallback_output_dir = os.path.join(
-            self.temp_dir, self.no_fallback_site_name, self.DEFAULT_DIRS["PARSED_DIR"]
+            self.temp_dir,
+            self.no_fallback_site_name,
+            self.DEFAULT_DIRS["PARSED_DIR"],
         )
         os.makedirs(no_fallback_input_dir, exist_ok=True)
         os.makedirs(no_fallback_output_dir, exist_ok=True)

@@ -1,8 +1,11 @@
+"""Async web crawler for fetching and saving site content."""
+
 import asyncio
 import json
 import logging
 import os
-from datetime import datetime
+from datetime import UTC, datetime
+from pathlib import Path
 from typing import TypedDict
 from urllib.parse import urljoin, urlparse
 
@@ -11,6 +14,8 @@ from bs4 import BeautifulSoup
 
 from tapio.config.config_models import SiteConfig
 from tapio.config.settings import DEFAULT_CONTENT_DIR, DEFAULT_CRAWLER_TIMEOUT, DEFAULT_DIRS
+
+logger = logging.getLogger(__name__)
 
 
 class UrlMappingData(TypedDict):
@@ -32,8 +37,7 @@ class CrawlResult(TypedDict):
 
 
 class BaseCrawler:
-    """
-    Base crawler implementation for web scraping using httpx and BeautifulSoup.
+    """Base crawler implementation for web scraping using httpx and BeautifulSoup.
 
     This crawler is responsible for fetching web pages, storing their content,
     and following links up to a specified depth using async/await patterns.
@@ -44,8 +48,7 @@ class BaseCrawler:
         site_name: str,
         site_config: SiteConfig,
     ) -> None:
-        """
-        Initialize the crawler with site configuration.
+        """Initialize the crawler with site configuration.
 
         Args:
             site_name: Name/identifier of the site being crawled.
@@ -71,8 +74,8 @@ class BaseCrawler:
         self.timeout = DEFAULT_CRAWLER_TIMEOUT
 
         # Create output directory using centralized settings
-        self.output_dir = os.path.join(DEFAULT_CONTENT_DIR, self.site_name, DEFAULT_DIRS["CRAWLED_DIR"])
-        os.makedirs(self.output_dir, exist_ok=True)
+        self.output_dir = str(Path(DEFAULT_CONTENT_DIR) / self.site_name / DEFAULT_DIRS["CRAWLED_DIR"])
+        Path(self.output_dir).mkdir(parents=True, exist_ok=True)
 
         # Track visited URLs to avoid duplicates
         self.visited_urls: set[str] = set()
@@ -81,26 +84,28 @@ class BaseCrawler:
         self.url_mappings: dict[str, UrlMappingData] = {}
 
         # Path for the URL mapping file
-        self.mapping_file = os.path.join(self.output_dir, "url_mappings.json")
+        self.mapping_file = str(Path(self.output_dir) / "url_mappings.json")
 
         # Semaphore will be created in async context
         self._semaphore: asyncio.Semaphore | None = None
 
         # Load existing mappings if they exist
-        if os.path.exists(self.mapping_file):
+        if Path(self.mapping_file).exists():
             try:
-                with open(self.mapping_file, encoding="utf-8") as f:
+                with Path(self.mapping_file).open(encoding="utf-8") as f:
                     self.url_mappings = json.load(f)
-                logging.info(f"Loaded {len(self.url_mappings)} existing URL mappings")
-            except Exception as e:
-                logging.error(f"Error loading URL mappings: {str(e)}")
+                logger.info("Loaded %d existing URL mappings", len(self.url_mappings))
+            except Exception:
+                logger.exception("Error loading URL mappings")
 
-        logging.info(
-            f"Starting crawler for site '{site_name}' with max depth {self.max_depth}",
+        logger.info(
+            "Starting crawler for site '%s' with max depth %s",
+            site_name,
+            self.max_depth,
         )
-        logging.info(f"Base URL: {base_url_str}")
-        logging.info(f"Allowed domains: {self.allowed_domains}")
-        logging.info(f"Output directory: {self.output_dir}")
+        logger.info("Base URL: %s", base_url_str)
+        logger.info("Allowed domains: %s", self.allowed_domains)
+        logger.info("Output directory: %s", self.output_dir)
 
     @property
     def semaphore(self) -> asyncio.Semaphore:
@@ -110,8 +115,7 @@ class BaseCrawler:
         return self._semaphore
 
     async def crawl(self) -> list[CrawlResult]:
-        """
-        Start the crawling process and return the results.
+        """Start the crawling process and return the results.
 
         Returns:
             List of CrawlResult dictionaries containing page data.
@@ -130,9 +134,79 @@ class BaseCrawler:
 
         # Save final URL mappings
         self._save_url_mappings()
-        logging.info(f"Crawling completed. Processed {len(results)} pages.")
+        logger.info("Crawling completed. Processed %d pages.", len(results))
 
         return results
+
+    async def _fetch_and_process(
+        self,
+        client: httpx.AsyncClient,
+        url: str,
+        current_depth: int,
+        results: list[CrawlResult],
+    ) -> list[str]:
+        """Fetch a URL, save its content, and report which child links to follow next.
+
+        Args:
+            client: httpx async client for making requests.
+            url: URL to fetch.
+            current_depth: Current crawling depth.
+            results: List to append the crawl result to.
+
+        Returns:
+            Links discovered on the page that should be crawled next. Empty on any
+            handled fetch/parse error.
+        """
+        try:
+            # Make HTTP request
+            response = await client.get(url)
+            response.raise_for_status()
+
+            # Check content type
+            content_type = response.headers.get("content-type", "").lower()
+            if "text/html" not in content_type:
+                logger.info("Skipping non-HTML content type '%s' at %s", content_type, url)
+                return []
+
+            # Parse HTML content
+            html_content = response.text
+            soup = BeautifulSoup(html_content, "lxml")
+
+            # Save the HTML content and store URL mapping
+            file_path = self._save_html_content(url, html_content)
+            rel_path = os.path.relpath(file_path, self.output_dir)  # noqa: ASYNC240 (pure string computation, no I/O)
+
+            self.url_mappings[rel_path] = UrlMappingData(
+                url=url,
+                timestamp=datetime.now(UTC).isoformat(),
+                content_type=content_type,
+            )
+
+            # Create crawl result
+            crawl_result: CrawlResult = {
+                "url": url,
+                "html": html_content,
+                "depth": current_depth,
+                "crawl_timestamp": datetime.now(UTC).isoformat(),
+                "content_type": content_type,
+            }
+            results.append(crawl_result)
+
+            # Save URL mappings periodically
+            self._save_url_mappings()
+
+            # Extract links for following if we haven't reached max depth
+            if current_depth < self.max_depth:
+                links = self._extract_links(soup, url)
+                return [link for link in links if link not in self.visited_urls]
+        except httpx.HTTPStatusError as e:
+            logger.warning("HTTP error for %s: %s", url, e.response.status_code)
+        except httpx.RequestError as e:
+            logger.warning("Request error for %s: %s", url, e)
+        except Exception:
+            logger.exception("Error processing %s", url)
+
+        return []
 
     async def _crawl_url(
         self,
@@ -141,8 +215,7 @@ class BaseCrawler:
         current_depth: int,
         results: list[CrawlResult],
     ) -> None:
-        """
-        Crawl a single URL and recursively crawl linked pages.
+        """Crawl a single URL and recursively crawl linked pages.
 
         Args:
             client: httpx async client for making requests.
@@ -160,73 +233,21 @@ class BaseCrawler:
 
         # Check domain restrictions
         if not self._is_allowed_domain(url):
-            logging.debug(f"Skipping URL outside allowed domains: {url}")
+            logger.debug("Skipping URL outside allowed domains: %s", url)
             return
 
         # Use semaphore to limit concurrent requests
         async with self.semaphore:
-            try:
-                logging.info(f"Processing {url} at depth {current_depth}/{self.max_depth}")
+            logger.info("Processing %s at depth %s/%s", url, current_depth, self.max_depth)
 
-                # Add delay between requests to avoid rate limiting
-                if self.delay_between_requests > 0:
-                    await asyncio.sleep(self.delay_between_requests)
+            # Add delay between requests to avoid rate limiting
+            if self.delay_between_requests > 0:
+                await asyncio.sleep(self.delay_between_requests)
 
-                # Mark URL as visited
-                self.visited_urls.add(url)
+            # Mark URL as visited
+            self.visited_urls.add(url)
 
-                # Make HTTP request
-                response = await client.get(url)
-                response.raise_for_status()
-
-                # Check content type
-                content_type = response.headers.get("content-type", "").lower()
-                if "text/html" not in content_type:
-                    logging.info(f"Skipping non-HTML content type '{content_type}' at {url}")
-                    return
-
-                # Parse HTML content
-                html_content = response.text
-                soup = BeautifulSoup(html_content, "lxml")
-
-                # Save the HTML content and store URL mapping
-                file_path = self._save_html_content(url, html_content)
-                rel_path = os.path.relpath(file_path, self.output_dir)
-
-                self.url_mappings[rel_path] = UrlMappingData(
-                    url=url,
-                    timestamp=datetime.now().isoformat(),
-                    content_type=content_type,
-                )
-
-                # Create crawl result
-                crawl_result: CrawlResult = {
-                    "url": url,
-                    "html": html_content,
-                    "depth": current_depth,
-                    "crawl_timestamp": datetime.now().isoformat(),
-                    "content_type": content_type,
-                }
-                results.append(crawl_result)
-
-                # Save URL mappings periodically
-                self._save_url_mappings()
-
-                # Extract links for following if we haven't reached max depth
-                links_to_follow = []
-                if current_depth < self.max_depth:
-                    links = self._extract_links(soup, url)
-                    links_to_follow = [link for link in links if link not in self.visited_urls]
-
-            except httpx.HTTPStatusError as e:
-                logging.warning(f"HTTP error for {url}: {e.response.status_code}")
-                return
-            except httpx.RequestError as e:
-                logging.warning(f"Request error for {url}: {str(e)}")
-                return
-            except Exception as e:
-                logging.error(f"Error processing {url}: {str(e)}")
-                return
+            links_to_follow = await self._fetch_and_process(client, url, current_depth, results)
 
         # Process child links OUTSIDE the semaphore context to avoid deadlock
         if links_to_follow:
@@ -235,8 +256,7 @@ class BaseCrawler:
             await asyncio.gather(*link_tasks, return_exceptions=True)
 
     def _is_allowed_domain(self, url: str) -> bool:
-        """
-        Check if a URL belongs to an allowed domain.
+        """Check if a URL belongs to an allowed domain.
 
         Args:
             url: URL to check.
@@ -251,8 +271,7 @@ class BaseCrawler:
         return parsed_url.netloc in self.allowed_domains
 
     def _save_html_content(self, url: str, html_content: str) -> str:
-        """
-        Save the HTML content to a file.
+        """Save the HTML content to a file.
 
         Args:
             url: The URL of the page.
@@ -265,19 +284,18 @@ class BaseCrawler:
         file_path = self._get_file_path_from_url(url)
 
         # Create parent directories if needed
-        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
 
         # Save the HTML content
-        with open(file_path, "w", encoding="utf-8") as f:
+        with Path(file_path).open("w", encoding="utf-8") as f:
             f.write(html_content)
 
-        logging.info(f"Saved HTML content to {file_path}")
+        logger.info("Saved HTML content to %s", file_path)
 
         return file_path
 
     def _get_file_path_from_url(self, url: str) -> str:
-        """
-        Convert a URL to a file path.
+        """Convert a URL to a file path.
 
         Args:
             url: The URL to convert.
@@ -308,34 +326,35 @@ class BaseCrawler:
         # Create full path with domain subdirectory for organization
         parsed_url = urlparse(url)
         domain = parsed_url.netloc
-        full_path = os.path.join(self.output_dir, domain, path.lstrip("/"))
+        full_path = Path(self.output_dir) / domain / path.lstrip("/")
 
         # Ensure the path stays within output_dir (security check for path traversal)
-        abs_full_path = os.path.abspath(full_path)
-        abs_output_dir = os.path.abspath(self.output_dir)
-        if not abs_full_path.startswith(abs_output_dir):
-            raise ValueError(f"Invalid URL results in path outside output directory: {url}")
+        abs_full_path = full_path.resolve()
+        abs_output_dir = Path(self.output_dir).resolve()
+        if not abs_full_path.is_relative_to(abs_output_dir):
+            msg = f"Invalid URL results in path outside output directory: {url}"
+            raise ValueError(msg)
 
-        return full_path
+        return str(full_path)
 
     def _save_url_mappings(self) -> None:
-        """
-        Save the URL mappings to a JSON file.
+        """Save the URL mappings to a JSON file.
 
         This allows future reference of which file corresponds to which URL.
         """
         try:
-            with open(self.mapping_file, "w", encoding="utf-8") as f:
+            with Path(self.mapping_file).open("w", encoding="utf-8") as f:
                 json.dump(self.url_mappings, f, indent=2, ensure_ascii=False)
-            logging.debug(
-                f"Saved {len(self.url_mappings)} URL mappings to {self.mapping_file}",
+            logger.debug(
+                "Saved %d URL mappings to %s",
+                len(self.url_mappings),
+                self.mapping_file,
             )
-        except Exception as e:
-            logging.error(f"Error saving URL mappings: {str(e)}")
+        except Exception:
+            logger.exception("Error saving URL mappings")
 
     def _extract_links(self, soup: BeautifulSoup, base_url: str) -> list[str]:
-        """
-        Extract valid links to follow from a BeautifulSoup object.
+        """Extract valid links to follow from a BeautifulSoup object.
 
         Args:
             soup: BeautifulSoup object of the parsed HTML.
@@ -361,10 +380,12 @@ class BaseCrawler:
             # Convert relative URLs to absolute URLs
             absolute_url = urljoin(base_url, href)
 
-            # Filter out non-http(s) schemes and fragments
-            if absolute_url.startswith(("http://", "https://")) and "#" not in absolute_url:
-                # Check if the domain is allowed
-                if self._is_allowed_domain(absolute_url):
-                    links.append(absolute_url)
+            # Filter out non-http(s) schemes and fragments, and check if the domain is allowed
+            if (
+                absolute_url.startswith(("http://", "https://"))
+                and "#" not in absolute_url
+                and self._is_allowed_domain(absolute_url)
+            ):
+                links.append(absolute_url)
 
         return links
