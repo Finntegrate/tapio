@@ -6,6 +6,9 @@ sites:
     crawler_config:
       delay_between_requests: 1.0
       max_concurrent: 3
+      limit: 100
+      render: true
+      source: "all"
     parser_config:
       title_selector: "//title"
       content_selectors:
@@ -29,6 +32,9 @@ sites:
     crawler_config:
       delay_between_requests: 1.5
       max_concurrent: 3
+      limit: 100
+      render: true
+      source: "all"
     parser_config:
       title_selector: "//title"
       content_selectors:
@@ -45,6 +51,9 @@ sites:
     crawler_config:
       delay_between_requests: 1.2
       max_concurrent: 4
+      limit: 100
+      render: false
+      source: "all"
     parser_config:
       title_selector: "//h1 | //title"
       content_selectors:
@@ -60,6 +69,9 @@ sites:
     crawler_config:
       delay_between_requests: 1.0
       max_concurrent: 4
+      limit: 100
+      render: false
+      source: "all"
     parser_config:
       title_selector: "//h1 | //title"
       content_selectors:
@@ -75,6 +87,9 @@ sites:
     crawler_config:
       delay_between_requests: 1.0
       max_concurrent: 4
+      limit: 100
+      render: false
+      source: "all"
     parser_config:
       title_selector: "//h1 | //title"
       content_selectors:
