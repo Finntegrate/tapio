@@ -4,6 +4,7 @@ This module handles loading and accessing configurations
 from YAML files, providing a centralized interface for configuration data throughout the application.
 """
 
+from __future__ import annotations
 import logging
 from pathlib import Path
 
