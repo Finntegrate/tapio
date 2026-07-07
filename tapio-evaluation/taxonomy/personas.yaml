@@ -1,0 +1,66 @@
+personas:
+  - id: tech_specialist_non_eu
+    name: "Aditya (Software Engineer)"
+    nationality_type: "third-country"
+    origin: "India"
+    family_status: "Married with one child"
+    goal: "Wants to relocate to Helsinki for a high-skilled role using the 14-day fast-track service."
+    pain_points:
+      - Navigating simultaneous fast-track applications for spouse and child.
+      - Calculating income sufficiency for a family of three.
+      - Proving qualification criteria for the specialist permit.
+
+  - id: international_student
+    name: "Mei (University Student)"
+    nationality_type: "third-country"
+    origin: "China"
+    family_status: "Single"
+    goal: "Admitted to a Master's degree program in Tampere. Wants to apply for a residence permit for studies and work part-time."
+    pain_points:
+      - Proving the €9,600 annual income requirement (or €800/month).
+      - Sourcing compliant private health insurance.
+      - Understanding the average 30-hour-per-week working limit during terms.
+
+  - id: foreign_spouse
+    name: "Carlos (Family Reunification)"
+    nationality_type: "third-country"
+    origin: "Brazil"
+    family_status: "Married to a Finnish citizen"
+    goal: "Moving to Finland to live with his Finnish wife. Wants to register, get a Finnish personal identity code, and start working."
+    pain_points:
+      - Waiting times for family-tie residence permits.
+      - Unrestricted right to work and how to prove it to local employers.
+      - Enrolling in local integration programs and Finnish language classes.
+
+  - id: temporary_protection_seeker
+    name: "Olena (Displaced Person)"
+    nationality_type: "ukrainian"
+    origin: "Ukraine"
+    family_status: "Single mother with a school-aged child"
+    goal: "Fleeing conflict, seeking safety in Finland. Wants to register for Temporary Protection, secure accommodation, and find immediate work."
+    pain_points:
+      - Receiving the 'certificate of pending application' to start working.
+      - Registering a municipality of residence (kotikunta) with DVV.
+      - Accessing local social benefits (Kela) and school placement for her child.
+
+  - id: long_term_resident
+    name: "Amara (Citizenship Applicant)"
+    nationality_type: "third-country"
+    origin: "Nigeria"
+    family_status: "Single"
+    goal: "Has lived in Finland on a continuous residence permit (A-permit) for 5 years. Wants to apply for Finnish citizenship."
+    pain_points:
+      - Proving language proficiency (YKI test level B1 / satisfactory).
+      - Accounting for days spent outside Finland (residence period requirement).
+      - Verifying that her income source remains stable and compliant.
+
+  - id: eu_citizen
+    name: "Jan (EU Citizen)"
+    nationality_type: "EU"
+    origin: "Poland"
+    family_status: "Single"
+    goal: "Moving to Finland to work in construction. Needs to register his right of residence as an EU citizen."
+    pain_points:
+      - Understanding the 3-month limit before registration is mandatory.
+      - Scheduling an appointment at Migri vs. using Enter Finland.
+      - Obtaining a personal identity code via DVV.

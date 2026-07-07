@@ -1,0 +1,58 @@
+domains:
+  - id: residence_permits
+    name: "Residence Permits"
+    description: "First, extended, and permanent residence permits for third-country nationals entering or staying in Finland."
+    subcategories:
+      - studies
+      - employment
+      - entrepreneurship
+      - seasonal_work
+      - permanent_residence
+      - remigration
+
+  - id: work_rights
+    name: "Work Rights & Employment"
+    description: "The conditions and limits under which third-country nationals, students, and asylum seekers can work in Finland."
+    subcategories:
+      - general_right_to_work
+      - student_work_hours
+      - asylum_seeker_work_rights
+      - professional_specialists
+      - fast_track
+
+  - id: family_reunification
+    name: "Family Reunification"
+    description: "Residence permits applied on the basis of family ties with a sponsor residing in Finland."
+    subcategories:
+      - spouse_or_partner
+      - child_or_minor
+      - other_relatives
+      - student_family_members
+
+  - id: citizenship
+    name: "Finnish Citizenship"
+    description: "Acquiring Finnish citizenship by application or declaration, including residency and language criteria."
+    subcategories:
+      - citizenship_by_application
+      - citizenship_by_declaration
+      - language_skills_requirement
+      - period_of_residence
+
+  - id: integration_and_welfare
+    name: "Integration and Public Services"
+    description: "Broader settlement administration, interfacing with municipal and national registers."
+    subcategories:
+      - kela: "Social security benefits, student grants, and national health insurance"
+      - dvv: "Population register, municipality of residence (kotikunta), and personal identity codes"
+      - taxes: "Vero / Tax cards, tax numbers for foreign workers, and progressive taxation"
+      - housing: "Rental regulations, housing allowances, and municipal address registration"
+      - healthcare: "Public healthcare rights, municipal clinics, and dental care"
+
+  - id: humanitarian_protection
+    name: "Humanitarian & International Protection"
+    description: "Asylum processes, temporary protection pathways, and reception center operations."
+    subcategories:
+      - asylum_procedures
+      - temporary_protection
+      - refugee_status
+      - reception_services
