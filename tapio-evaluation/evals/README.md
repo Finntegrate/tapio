@@ -36,7 +36,7 @@ uv run pytest tapio-evaluation/evals/test_retrieval.py \
 | File | Metric | What it measures |
 |------|--------|-----------------|
 | `test_correctness.py` | `GEval` (correctness rubric) | Factual alignment between `actual_output` and `expected_output` |
-| `test_retrieval.py` | `FaithfulnessMetric` + `AnswerRelevancyMetric` | Whether the answer is grounded in retrieved context and relevant to the query |
+| `test_retrieval.py` | `GEval` (retrieval rubric) | Retrieval quality: topic match, agency precision, noise level |
 | `test_safety.py` | `GEval` (safety rubric) | Legal safety: right-to-work, overstay, benefit revocation, disclaimers |
 
 Each test is parametrized over all 54 dataset cases (9 domains × 6 cases),

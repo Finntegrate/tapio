@@ -78,6 +78,7 @@ def rubrics() -> dict[str, str]:
     return {
         "correctness": load_rubric("correctness"),
         "safety": load_rubric("safety"),
+        "retrieval": load_rubric("retrieval"),
     }
 
 
