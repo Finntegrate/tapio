@@ -1,0 +1,312 @@
+{
+    "doc_001": {
+        "url": "https://migri.fi/en/income-requirement-for-students",
+        "title": "Income requirement for students",
+        "agency": "Migri"
+    },
+    "doc_002": {
+        "url": "https://migri.fi/en/residence-permit-for-studies",
+        "title": "Residence permit for studies",
+        "agency": "Migri"
+    },
+    "doc_003": {
+        "url": "https://migri.fi/en/fast-track",
+        "title": "Fast-track service",
+        "agency": "Migri"
+    },
+    "doc_004": {
+        "url": "https://migri.fi/en/specialist",
+        "title": "Specialist",
+        "agency": "Migri"
+    },
+    "doc_005": {
+        "url": "https://migri.fi/en/spouse-of-a-finnish-citizen",
+        "title": "Spouse of a Finnish citizen",
+        "agency": "Migri"
+    },
+    "doc_006": {
+        "url": "https://migri.fi/en/income-requirement-for-family-members-of-a-finnish-citizen",
+        "title": "Income requirement: Spouse of a Finnish citizen",
+        "agency": "Migri"
+    },
+    "doc_007": {
+        "url": "https://migri.fi/en/permanent-residence-permit",
+        "title": "Permanent residence permit",
+        "agency": "Migri"
+    },
+    "doc_008": {
+        "url": "https://migri.fi/en/work-after-graduation",
+        "title": "Work after graduation",
+        "agency": "Migri"
+    },
+    "doc_009": {
+        "url": "https://migri.fi/en/residence-permit-to-look-for-work",
+        "title": "Residence permit to look for work",
+        "agency": "Migri"
+    },
+    "doc_010": {
+        "url": "https://migri.fi/en/temporary-protection",
+        "title": "Temporary protection",
+        "agency": "Migri"
+    },
+    "doc_011": {
+        "url": "https://migri.fi/en/right-to-work-under-temporary-protection",
+        "title": "Right to work under temporary protection",
+        "agency": "Migri"
+    },
+    "doc_012": {
+        "url": "https://migri.fi/en/working-and-internships-during-studies",
+        "title": "Working and internships during studies",
+        "agency": "Migri"
+    },
+    "doc_013": {
+        "url": "https://migri.fi/en/studying-in-finland",
+        "title": "Studying in Finland",
+        "agency": "Migri"
+    },
+    "doc_014": {
+        "url": "https://migri.fi/en/asylum-seekers-right-to-work",
+        "title": "Asylum seeker's right to work",
+        "agency": "Migri"
+    },
+    "doc_015": {
+        "url": "https://migri.fi/en/right-to-work-on-the-basis-of-family-ties",
+        "title": "Right to work on the basis of family ties",
+        "agency": "Migri"
+    },
+    "doc_016": {
+        "url": "https://migri.fi/en/changing-jobs",
+        "title": "Changing jobs",
+        "agency": "Migri"
+    },
+    "doc_017": {
+        "url": "https://migri.fi/en/working-without-a-residence-permit",
+        "title": "Working without a residence permit",
+        "agency": "Migri"
+    },
+    "doc_018": {
+        "url": "https://migri.fi/en/right-to-work",
+        "title": "Right to work",
+        "agency": "Migri"
+    },
+    "doc_019": {
+        "url": "https://migri.fi/en/right-to-work-while-an-application-for-an-extended-permit-is-pending",
+        "title": "Right to work: Extended permit pending",
+        "agency": "Migri"
+    },
+    "doc_020": {
+        "url": "https://migri.fi/en/income-requirement-for-family-members-of-a-person-who-has-been-granted-a-residence-permit-in-finland",
+        "title": "Income requirements for family members",
+        "agency": "Migri"
+    },
+    "doc_021": {
+        "url": "https://migri.fi/en/student-s-family-members",
+        "title": "Student's family members",
+        "agency": "Migri"
+    },
+    "doc_022": {
+        "url": "https://migri.fi/en/income-requirement-in-the-family-reunification-of-those-who-have-been-granted-refugee-status",
+        "title": "Income requirement: Refugee status family ties",
+        "agency": "Migri"
+    },
+    "doc_023": {
+        "url": "https://migri.fi/en/income-requirement-for-family-members-of-a-person-who-has-been-granted-international-protection",
+        "title": "Income requirements: International protection family",
+        "agency": "Migri"
+    },
+    "doc_024": {
+        "url": "https://migri.fi/en/family-member",
+        "title": "Who is a family member",
+        "agency": "Migri"
+    },
+    "doc_025": {
+        "url": "https://migri.fi/en/cohabiting-partner",
+        "title": "Cohabiting partner",
+        "agency": "Migri"
+    },
+    "doc_026": {
+        "url": "https://migri.fi/en/period-of-residence",
+        "title": "Period of residence",
+        "agency": "Migri"
+    },
+    "doc_027": {
+        "url": "https://migri.fi/en/citizenship-application-for-adults",
+        "title": "Citizenship application for adults",
+        "agency": "Migri"
+    },
+    "doc_028": {
+        "url": "https://migri.fi/en/language-skills",
+        "title": "Language skills requirement",
+        "agency": "Migri"
+    },
+    "doc_029": {
+        "url": "https://migri.fi/en/means-of-support",
+        "title": "Means of support (Citizenship)",
+        "agency": "Migri"
+    },
+    "doc_030": {
+        "url": "https://migri.fi/en/finnish-citizenship-for-a-child",
+        "title": "Finnish citizenship for a child",
+        "agency": "Migri"
+    },
+    "doc_031": {
+        "url": "https://migri.fi/en/citizenship-application-for-a-child",
+        "title": "Citizenship application for a child",
+        "agency": "Migri"
+    },
+    "doc_032": {
+        "url": "https://www.kela.fi/coming-to-finland",
+        "title": "Coming to Finland",
+        "agency": "Kela"
+    },
+    "doc_033": {
+        "url": "https://www.kela.fi/moving-to-finland",
+        "title": "Moving to Finland",
+        "agency": "Kela"
+    },
+    "doc_034": {
+        "url": "https://www.kela.fi/general-social-security-benefit-during-unemployment",
+        "title": "General social security benefit during unemployment",
+        "agency": "Kela"
+    },
+    "doc_035": {
+        "url": "https://www.kela.fi/financial-aid-for-students",
+        "title": "Financial aid for students",
+        "agency": "Kela"
+    },
+    "doc_036": {
+        "url": "https://dvv.fi/en/registration-of-a-foreigner",
+        "title": "Registration of a foreigner",
+        "agency": "DVV"
+    },
+    "doc_037": {
+        "url": "https://dvv.fi/en/municipality-of-residence",
+        "title": "Municipality of residence",
+        "agency": "DVV"
+    },
+    "doc_038": {
+        "url": "https://dvv.fi/en/moving-to-finland",
+        "title": "Moving from abroad",
+        "agency": "DVV"
+    },
+    "doc_039": {
+        "url": "https://www.vero.fi/en/individuals/residency-and-nonresidency-in-finland",
+        "title": "Tax Residency and nonresidency",
+        "agency": "Vero"
+    },
+    "doc_040": {
+        "url": "https://www.vero.fi/en/individuals/arriving-in-finland",
+        "title": "Arriving in Finland (Taxation)",
+        "agency": "Vero"
+    },
+    "doc_041": {
+        "url": "https://www.vero.fi/en/individuals/work-in-finland",
+        "title": "Work in Finland (Taxation)",
+        "agency": "Vero"
+    },
+    "doc_042": {
+        "url": "https://www.vero.fi/en/individuals/tax-card",
+        "title": "Tax card",
+        "agency": "Vero"
+    },
+    "doc_043": {
+        "url": "https://www.vero.fi/en/individuals/foreign-key-person---you-can-pay-tax-at-source-on-your-income",
+        "title": "Foreign key person taxation",
+        "agency": "Vero"
+    },
+    "doc_044": {
+        "url": "https://www.vero.fi/en/individuals/the-tax-number",
+        "title": "The tax number",
+        "agency": "Vero"
+    },
+    "doc_045": {
+        "url": "https://www.vero.fi/en/individuals/public-register-of-tax-numbers",
+        "title": "Public Register of Tax Numbers",
+        "agency": "Vero"
+    },
+    "doc_046": {
+        "url": "https://www.vero.fi/en/individuals/berry-picking-or-other-seasonal-work--how-to-take-care-of-your-taxes",
+        "title": "Seasonal work taxation",
+        "agency": "Vero"
+    },
+    "doc_047": {
+        "url": "https://www.vero.fi/en/individuals/studying-in-finland",
+        "title": "Studying in Finland (Taxation)",
+        "agency": "Vero"
+    },
+    "doc_048": {
+        "url": "https://www.infofinland.fi/en/housing/rental-home",
+        "title": "Rental home",
+        "agency": "InfoFinland"
+    },
+    "doc_049": {
+        "url": "https://www.infofinland.fi/en/housing/tenancy-agreement",
+        "title": "Tenancy agreement",
+        "agency": "InfoFinland"
+    },
+    "doc_050": {
+        "url": "https://www.kela.fi/general-housing-allowance",
+        "title": "General housing allowance",
+        "agency": "Kela"
+    },
+    "doc_051": {
+        "url": "https://www.infofinland.fi/en/housing/housing-allowance",
+        "title": "Housing allowance",
+        "agency": "InfoFinland"
+    },
+    "doc_052": {
+        "url": "https://www.infofinland.fi/en/housing/moving-house",
+        "title": "Moving house",
+        "agency": "InfoFinland"
+    },
+    "doc_053": {
+        "url": "https://www.infofinland.fi/en/health/health-services-in-finland",
+        "title": "Health services in Finland",
+        "agency": "InfoFinland"
+    },
+    "doc_054": {
+        "url": "https://www.infofinland.fi/en/health/emergencies",
+        "title": "Emergencies",
+        "agency": "InfoFinland"
+    },
+    "doc_055": {
+        "url": "https://www.infofinland.fi/en/health/dental-care",
+        "title": "Dental care",
+        "agency": "InfoFinland"
+    },
+    "doc_056": {
+        "url": "https://www.infofinland.fi/en/health/medication",
+        "title": "Medication",
+        "agency": "InfoFinland"
+    },
+    "doc_057": {
+        "url": "https://migri.fi/en/changes-in-your-situation",
+        "title": "Changes in your situation",
+        "agency": "Migri"
+    },
+    "doc_058": {
+        "url": "https://migri.fi/en/changes-in-legislation-affecting-asylum-seekers-as-of-1-september-2024",
+        "title": "Changes in asylum legislation August 2024",
+        "agency": "Migri"
+    },
+    "doc_059": {
+        "url": "https://migri.fi/en/extended-permit-on-the-basis-of-work",
+        "title": "Extended permit on the basis of work",
+        "agency": "Migri"
+    },
+    "doc_060": {
+        "url": "https://migri.fi/en/frequently-asked-questions-from-employers",
+        "title": "FAQ from employers",
+        "agency": "Migri"
+    },
+    "doc_061": {
+        "url": "https://migri.fi/en/permanent-residence-card-for-a-family-member-of-an-eu-citizen",
+        "title": "Permanent card for family member of EU citizen",
+        "agency": "Migri"
+    },
+    "doc_062": {
+        "url": "https://migri.fi/en/residence-permits",
+        "title": "Residence permits in Finland",
+        "agency": "Migri"
+    }
+}
