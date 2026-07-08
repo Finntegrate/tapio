@@ -9,3 +9,23 @@ node = "24"
 ollama = "latest"
 python = "3.14"
 uv = "latest"
+
+[tasks.eval]
+description = "Run all DeepEval evaluations (requires Ollama + ChromaDB)"
+run = "deepeval test run tapio-evaluation/evals/ -n 4"
+
+[tasks.eval-correctness]
+description = "Run correctness evaluation only"
+run = "uv run pytest tapio-evaluation/evals/test_correctness.py -m deepeval -v --no-header"
+
+[tasks.eval-retrieval]
+description = "Run retrieval quality evaluation only"
+run = "uv run pytest tapio-evaluation/evals/test_retrieval.py -m deepeval -v --no-header"
+
+[tasks.eval-safety]
+description = "Run safety evaluation only"
+run = "uv run pytest tapio-evaluation/evals/test_safety.py -m deepeval -v --no-header"
+
+[tasks.eval-list]
+description = "List all registered DeepEval test cases"
+run = "uv run pytest tapio-evaluation/evals/ --collect-only -m deepeval --no-header -q"

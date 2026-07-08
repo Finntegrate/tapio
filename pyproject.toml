@@ -33,7 +33,7 @@ dependencies = [
 [project.scripts]
 tapio = "tapio.cli:app"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 
@@ -126,6 +126,13 @@ ignore = [
     "S101",    # assert is the standard pytest idiom
     "SLF001",  # tests intentionally exercise private members
 ]
+"tapio-evaluation/evals/*" = [
+    "ANN",     # evaluation tests excluded from mypy and don't need annotations
+    "D",       # docstrings aren't required on evaluation functions
+    "PLC0415", # local imports for Ollama/DeepEval/ChromaDB are lazy by design
+    "PTH",     # path handling in eval fixtures is fine
+    "S101",    # assert_test is the standard DeepEval idiom
+]
 "tapio/cli.py" = [
     "FBT003",  # typer.Option(False, ...) passes the default positionally by convention
 ]
@@ -143,6 +150,7 @@ line-ending = "auto"
 
 [dependency-groups]
 dev = [
+    "deepeval>=4.0.0",
     "mypy>=1.15.0",
     "prek>=0.2.3",
     "pyrefly>=1.1.1",
