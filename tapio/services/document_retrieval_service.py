@@ -3,6 +3,8 @@
 import logging
 from typing import Any
 
+from langsmith import traceable
+
 from tapio.vectorstore.chroma_store import ChromaStore
 
 # Configure logging
@@ -43,6 +45,7 @@ class DocumentRetrievalService:
             "Initialized document retrieval service",
         )
 
+    @traceable(run_type="retriever", name="Document Retrieval")
     def retrieve_documents(self, query_text: str) -> list[Any]:
         """Retrieve relevant documents for the given query.
 

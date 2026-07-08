@@ -4,6 +4,8 @@ import logging
 from collections.abc import Generator
 from typing import Any
 
+from langsmith import traceable
+
 from tapio.prompts import load_prompt
 from tapio.services.document_retrieval_service import DocumentRetrievalService
 from tapio.services.llm_service import LLMService
@@ -51,6 +53,7 @@ class RAGOrchestrator:
             "Initialized RAG orchestrator",
         )
 
+    @traceable(run_type="chain", name="RAG Query")
     def query(
         self,
         query_text: str,
@@ -100,6 +103,7 @@ class RAGOrchestrator:
                 [],
             )
 
+    @traceable(run_type="chain", name="RAG Query (Stream)")
     def query_stream(
         self,
         query_text: str,

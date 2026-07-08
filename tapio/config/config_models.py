@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field, HttpUrl
 from tapio.config.settings import (
     DEFAULT_CHROMA_COLLECTION,
     DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LANGSMITH_PROJECT,
     DEFAULT_LLM_MODEL,
     DEFAULT_MAX_TOKENS,
     DEFAULT_NUM_RESULTS,
@@ -158,3 +159,4 @@ class RAGConfig:
     llm_model_name: str = DEFAULT_LLM_MODEL
     max_tokens: int = DEFAULT_MAX_TOKENS
     num_results: int = DEFAULT_NUM_RESULTS
+    langsmith_project: str = DEFAULT_LANGSMITH_PROJECT

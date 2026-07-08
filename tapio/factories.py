@@ -9,6 +9,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from tapio.config.config_models import RAGConfig
+from tapio.core.tracing import setup_langsmith
 from tapio.services.document_retrieval_service import DocumentRetrievalService
 from tapio.services.llm_service import LLMService
 from tapio.services.rag_orchestrator import RAGOrchestrator
@@ -40,6 +41,7 @@ class RAGOrchestratorFactory:
             config: RAGConfig instance containing all configuration parameters
         """
         self.config = config
+        setup_langsmith(project_name=config.langsmith_project)
 
     def create_embeddings(self) -> HuggingFaceEmbeddings:
         """Create embeddings instance.

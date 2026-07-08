@@ -28,6 +28,8 @@ dependencies = [
     "pydantic>=2.13.4",
     "httpx>=0.28.1",
     "beautifulsoup4>=4.13.4",
+    "langsmith>=0.3.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]

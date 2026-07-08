@@ -24,3 +24,12 @@ DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "llama3.2"
 DEFAULT_MAX_TOKENS = 1024
 DEFAULT_NUM_RESULTS = 5
+
+# LangSmith configuration
+DEFAULT_LANGSMITH_PROJECT = "tapio"
+LANGSMITH_ENV_VARS = {
+    "LANGCHAIN_TRACING_V2": "true",
+    "LANGCHAIN_PROJECT": "tapio",
+    "LANGSMITH_API_KEY": "",
+    "LANGCHAIN_ENDPOINT": "https://api.smith.langchain.com",
+}

@@ -5,6 +5,7 @@ from collections.abc import Generator
 from typing import Any
 
 import ollama
+from langsmith import traceable
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -123,6 +124,7 @@ class LLMService:
         else:
             return True
 
+    @traceable(run_type="llm", name="LLM Generate")
     def generate_response(
         self,
         prompt: str,
@@ -158,6 +160,7 @@ class LLMService:
                 f"Please check if Ollama is running with the {self.model_name} model."
             )
 
+    @traceable(run_type="llm", name="LLM Generate (Stream)")
     def generate_response_stream(
         self,
         prompt: str,
