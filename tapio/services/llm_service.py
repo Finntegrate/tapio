@@ -14,6 +14,37 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY_MESSAGES = 10
 
 
+def _normalize_content(content: Any) -> str | None:
+    """Normalize message content to a plain string for Ollama compatibility.
+
+    Gradio 6+ returns messages with content as a list of content blocks
+    (e.g. [{"type": "text", "text": "..."}]). Ollama expects a plain string.
+
+    Args:
+        content: Raw content value from a message dict
+
+    Returns:
+        Plain string content, or None if content was None/empty
+    """
+    if content is None:
+        return None
+    if isinstance(content, str):
+        return content
+    if isinstance(content, list):
+        parts: list[str] = []
+        for block in content:
+            if isinstance(block, dict):
+                if "text" in block:
+                    parts.append(str(block["text"]))
+                elif "image_url" in block:
+                    parts.append("[image]")
+            else:
+                parts.append(str(block))
+        text = "".join(parts)
+        return text or None
+    return str(content)
+
+
 def _build_messages(
     prompt: str,
     system_prompt: str | None,
@@ -35,7 +66,11 @@ def _build_messages(
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
-        messages.extend(history[-MAX_HISTORY_MESSAGES:])
+        normalized = [
+            {"role": m.get("role", "user"), "content": _normalize_content(m.get("content"))}
+            for m in history[-MAX_HISTORY_MESSAGES:]
+        ]
+        messages.extend(normalized)
 
     messages.append({"role": "user", "content": prompt})
     return messages
