@@ -49,13 +49,14 @@ _ALL_METRICS = [
 
 
 @pytest.mark.ragas
-def test_comprehensive_evaluation(evaluation_dataset, ragas_llm, ragas_embeddings):
+def test_comprehensive_evaluation(evaluation_dataset, ragas_llm, ragas_embeddings, ragas_run_config):
     """Run all Ragas metrics on the full evaluation dataset."""
     result = evaluate(
         dataset=evaluation_dataset,
         metrics=_ALL_METRICS,
         llm=ragas_llm,
         embeddings=ragas_embeddings,
+        run_config=ragas_run_config,
     )
 
     logger.info("Ragas comprehensive evaluation results:")

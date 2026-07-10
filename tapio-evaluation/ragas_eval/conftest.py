@@ -8,6 +8,7 @@ Provides:
 
 import json
 import logging
+import os
 from pathlib import Path
 from types import ModuleType
 from typing import Any
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 EVAL_DIR = Path(__file__).resolve().parent.parent
 DATASETS_DIR = EVAL_DIR / "datasets"
 
-DATASET_NAMES = [
+_ALL_DATASET_NAMES = [
     "citizenship",
     "dvv",
     "edge_cases",
@@ -30,6 +31,20 @@ DATASET_NAMES = [
     "taxes",
     "work_rights",
 ]
+
+RAGAS_DATASETS = os.environ.get("RAGAS_DATASETS")
+DATASET_NAMES: list[str] = (
+    [d.strip() for d in RAGAS_DATASETS.split(",")]
+    if RAGAS_DATASETS
+    else _ALL_DATASET_NAMES
+)
+
+RAGAS_CASES = os.environ.get("RAGAS_CASES")
+_CASE_FILTER: set[str] | None = (
+    {c.strip() for c in RAGAS_CASES.split(",")}
+    if RAGAS_CASES
+    else None
+)
 
 # ---------------------------------------------------------------------------
 # Ragas compatibility patch
@@ -97,8 +112,11 @@ _ALL_CASES: list[tuple[str, dict[str, Any]]] = []
 _ALL_IDS: list[str] = []
 for _name in DATASET_NAMES:
     for _case in load_dataset(_name):
+        _cid = _case["test_case_id"]
+        if _CASE_FILTER is not None and _cid not in _CASE_FILTER:
+            continue
         _ALL_CASES.append((_name, _case))
-        _ALL_IDS.append(f"{_name}:{_case['test_case_id']}")
+        _ALL_IDS.append(f"{_name}:{_cid}")
 
 # ---------------------------------------------------------------------------
 # Fixtures
@@ -129,12 +147,22 @@ def ragas_llm():
     except Exception as e:
         pytest.skip(f"Ollama is not available: {e}")
 
+    model = os.environ.get("RAGAS_LLM_MODEL", "qwen2.5:7b")
     chat = ChatOllama(
-        model="llama3.2",
+        model=model,
         base_url="http://localhost:11434",
         temperature=0,
     )
     return LangchainLLMWrapper(chat)
+
+
+@pytest.fixture(scope="session")
+def ragas_run_config():
+    """Session-scoped RunConfig with relaxed timeout for local Ollama."""
+    from ragas.run_config import RunConfig
+
+    timeout = int(os.environ.get("RAGAS_TIMEOUT", "600"))
+    return RunConfig(timeout=timeout)
 
 
 @pytest.fixture(scope="session")
@@ -175,6 +203,8 @@ def evaluation_dataset(rag_orchestrator) -> Dataset:
     rows: list[dict[str, Any]] = []
     for name in DATASET_NAMES:
         for test_data in load_dataset(name):
+            if _CASE_FILTER is not None and test_data["test_case_id"] not in _CASE_FILTER:
+                continue
             query = test_data["query"]
             try:
                 response, retrieved_docs = rag_orchestrator.query(query)

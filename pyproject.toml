@@ -162,6 +162,7 @@ line-ending = "auto"
 dev = [
     "deepeval>=4.0.0",
     "langchain-google-vertexai>=3.2.4",
+    "langchain-ollama>=1.1.0",
     "mypy>=1.15.0",
     "prek>=0.2.3",
     "pyrefly>=1.1.1",

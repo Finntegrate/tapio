@@ -30,6 +30,10 @@ DATASET_NAMES = [
     "work_rights",
 ]
 
+MULTI_TURN_DATASETS = [
+    "multi_turn_conversations",
+]
+
 
 def load_dataset(name: str) -> list[dict[str, Any]]:
     path = DATASETS_DIR / f"{name}.jsonl"
@@ -94,7 +98,7 @@ def ollama_judge():
         pytest.skip(f"Ollama is not available: {e}")
 
     return OllamaModel(
-        model="llama3.2",
+        model="qwen2.5:7b",
         base_url="http://localhost:11434",
         temperature=0,
     )
@@ -114,3 +118,36 @@ def rag_orchestrator():
         pytest.skip("LLM model is not available in Ollama")
 
     return orchestrator
+
+
+# ---------------------------------------------------------------------------
+# Multi-turn conversation fixtures
+# ---------------------------------------------------------------------------
+
+
+def _load_multi_turn_cases(name: str) -> list[dict[str, Any]]:
+    """Load multi-turn test cases and parse turns into dicts."""
+    return load_dataset(name)
+
+
+# Collect all multi-turn test cases
+_MT_CASES: list[tuple[str, dict[str, Any]]] = []
+_MT_IDS: list[str] = []
+for _name in MULTI_TURN_DATASETS:
+    for _case in _load_multi_turn_cases(_name):
+        _MT_CASES.append((_name, _case))
+        _MT_IDS.append(f"{_name}:{_case['test_case_id']}")
+
+
+@pytest.fixture(params=_MT_CASES, ids=_MT_IDS)
+def multi_turn_case(request) -> tuple[str, dict[str, Any]]:
+    """Parametrized fixture yielding every multi-turn conversation test case."""
+    return request.param
+
+
+@pytest.fixture(scope="session")
+def conversation_runner(rag_orchestrator):
+    """Create a ConversationRunner wired to the session-scoped orchestrator."""
+    from tapio.evaluation import ConversationRunner
+
+    return ConversationRunner(rag_orchestrator)
