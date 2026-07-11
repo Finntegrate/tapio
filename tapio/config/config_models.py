@@ -24,13 +24,14 @@ class HtmlToMarkdownConfig(BaseModel):
     """Configuration settings for HTML to Markdown conversion.
 
     Customizes how HTML elements are converted to Markdown. These settings are
-    mapped to html2text options.
+    mapped to markdownify options. Some legacy html2text fields are retained
+    for backward compatibility but are no longer functional.
     """
 
     ignore_links: bool = False
-    body_width: int = 0  # Don't wrap text
-    protect_links: bool = True  # Don't wrap links
-    unicode_snob: bool = True  # Use Unicode instead of ASCII
+    body_width: int = 0  # Don't wrap text; maps to markdownify's wrap_width
+    protect_links: bool = True  # Deprecated — no markdownify equivalent; retained for config compatibility
+    unicode_snob: bool = True  # Deprecated — no markdownify equivalent; retained for config compatibility
     ignore_images: bool = False  # Include images
     ignore_tables: bool = False  # Include tables
 
