@@ -6,12 +6,13 @@ from pathlib import Path
 import typer
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
 from langchain_huggingface import HuggingFaceEmbeddings  # type: ignore[import-not-found]
-from langchain_text_splitters import MarkdownTextSplitter  # type: ignore[import-not-found]
 
 from tapio.config import ConfigManager
 from tapio.config.config_models import RAGConfig
 from tapio.config.settings import (
     DEFAULT_CHROMA_COLLECTION,
+    DEFAULT_CHUNK_OVERLAP,
+    DEFAULT_CHUNK_SIZE,
     DEFAULT_CONTENT_DIR,
     DEFAULT_DIRS,
     DEFAULT_EMBEDDING_MODEL,
@@ -20,6 +21,7 @@ from tapio.config.settings import (
 from tapio.crawler.runner import CrawlerRunner
 from tapio.factories import RAGOrchestratorFactory
 from tapio.parser import Parser
+from tapio.utils.text_utils import HybridMarkdownSplitter
 from tapio.vectorstore.vectorizer import MarkdownVectorizer
 
 # Configure logging
@@ -359,9 +361,9 @@ def vectorize(
     try:
         # Create dependencies
         embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
-        text_splitter = MarkdownTextSplitter(
-            chunk_size=1000,
-            chunk_overlap=200,
+        text_splitter = HybridMarkdownSplitter(
+            chunk_size=DEFAULT_CHUNK_SIZE,
+            chunk_overlap=DEFAULT_CHUNK_OVERLAP,
         )
         vector_db = Chroma(
             collection_name=collection_name,

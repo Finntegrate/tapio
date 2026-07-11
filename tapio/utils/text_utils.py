@@ -4,12 +4,15 @@ import logging
 import re
 from typing import Any
 
-# Import LangChain text splitters
+from langchain_core.documents import Document
 from langchain_text_splitters import (  # type: ignore[import-not-found]
     HTMLHeaderTextSplitter,
     HTMLSectionSplitter,
+    MarkdownHeaderTextSplitter,
     RecursiveCharacterTextSplitter,
 )
+
+from tapio.config.settings import DEFAULT_CHUNK_SIZE, DEFAULT_CHUNK_OVERLAP
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +212,95 @@ def _chunk_text_safely(
             if len(chunks) >= max_chunks:
                 break
         return chunks
+
+
+class HybridMarkdownSplitter:
+    """Two-pass hybrid markdown splitter.
+
+    Pass 1 (Structural): Uses MarkdownHeaderTextSplitter to split the document
+    by logical sections, attaching the header hierarchy to the metadata.
+
+    Pass 2 (Size-controlled): Runs those resulting sections through
+    RecursiveCharacterTextSplitter with a defined chunk_size and chunk_overlap.
+
+    This ensures final chunks are appropriately sized for vector embeddings
+    while retaining their complete structural parent-context in the metadata.
+    """
+
+    def __init__(
+        self,
+        headers_to_split_on: list[tuple[str, str]] | None = None,
+        chunk_size: int = DEFAULT_CHUNK_SIZE,
+        chunk_overlap: int = DEFAULT_CHUNK_OVERLAP,
+        separators: list[str] | None = None,
+        add_start_index: bool = True,
+    ) -> None:
+        """Initialize the hybrid splitter with header and size parameters."""
+        self.headers_to_split_on = headers_to_split_on or [
+            ("#", "H1"),
+            ("##", "H2"),
+            ("###", "H3"),
+            ("####", "H4"),
+        ]
+        self.chunk_size = chunk_size
+        self.chunk_overlap = chunk_overlap
+        self.add_start_index = add_start_index
+
+        self._header_splitter = MarkdownHeaderTextSplitter(
+            headers_to_split_on=self.headers_to_split_on,
+            strip_headers=False,
+        )
+        self._size_splitter = RecursiveCharacterTextSplitter(
+            chunk_size=chunk_size,
+            chunk_overlap=chunk_overlap,
+            separators=separators or [
+                "\n## ",
+                "\n### ",
+                "\n#### ",
+                "\n```\n",
+                "\n\n",
+                "\n",
+                ". ",
+                "? ",
+                "! ",
+                "; ",
+                " ",
+                "",
+            ],
+            add_start_index=True,
+        )
+
+    def split_documents(self, documents: list[Document]) -> list[Document]:
+        """Split documents using the two-pass hybrid approach.
+
+        Pass 1: Split by markdown headers to get logical sections with
+        header hierarchy in metadata.
+
+        Pass 2: Further split each section by size using
+        RecursiveCharacterTextSplitter, preserving header metadata.
+        """
+        all_chunks: list[Document] = []
+
+        for doc in documents:
+            sections = self._header_splitter.split_text(doc.page_content)
+
+            for idx, section in enumerate(sections):
+                metadata = {
+                    **doc.metadata,
+                    **section.metadata,
+                    "section_id": idx,
+                }
+                section.metadata = metadata
+
+            sub_chunks = self._size_splitter.split_documents(sections)
+
+            for chunk in sub_chunks:
+                chunk.metadata.pop("chunk_index", None)
+                chunk.metadata.pop("total_chunks", None)
+
+            all_chunks.extend(sub_chunks)
+
+        return all_chunks
 
 
 def _basic_clean_html(html_content: str) -> str:
