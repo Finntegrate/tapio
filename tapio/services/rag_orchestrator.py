@@ -95,6 +95,9 @@ class RAGOrchestrator:
                 history=history,
             )
 
+            logger.info("Query: %.200s", query_text.replace("\n", " "))
+            logger.info("Response: %.200s", str(response).replace("\n", " "))
+
             return str(response), retrieved_docs
         except Exception:
             logger.exception("Error generating RAG response")
@@ -120,6 +123,7 @@ class RAGOrchestrator:
         """
         try:
             # Step 1: Retrieve relevant documents up front
+            logger.info("Query: %.200s", query_text.replace("\n", " "))
             logger.info("Retrieving relevant documents")
             retrieved_docs = self.doc_retrieval_service.retrieve_documents(
                 query_text,
@@ -138,25 +142,24 @@ class RAGOrchestrator:
                 question=query_text,
             )
 
-            # Step 4: Create the streaming generator
+            # Step 4: Start the LLM stream while still inside the @traceable context
+            # so that the LLM Generate run appears as a child of RAG Query.
             logger.info("Generating streaming response with LLM")
+            llm_response_stream = self.llm_service.generate_response_stream(
+                prompt=user_prompt,
+                system_prompt=system_prompt,
+                history=history,
+            )
 
             def stream_generator() -> Generator[str]:
-                llm_response_stream = self.llm_service.generate_response_stream(
-                    prompt=user_prompt,
-                    system_prompt=system_prompt,
-                    history=history,
-                )
                 try:
                     logger.info("Starting to consume LLM response stream")
-                    # Stream the LLM response directly using yield from
                     yield from llm_response_stream
 
                 except Exception:
                     logger.exception("Error in stream generator")
                     yield "I encountered an error while processing your query. Please try again."
                 finally:
-                    # Ensure proper cleanup of upstream generator
                     if hasattr(llm_response_stream, "close"):
                         llm_response_stream.close()
 
