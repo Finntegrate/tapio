@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field, HttpUrl
 
 from tapio.config.settings import (
     DEFAULT_CHROMA_COLLECTION,
+    DEFAULT_EMBEDDING_DIMENSION,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_LLM_MODEL,
     DEFAULT_MAX_TOKENS,
@@ -156,6 +157,7 @@ class RAGConfig:
     collection_name: str = DEFAULT_CHROMA_COLLECTION
     persist_directory: str = "chroma_db"
     embedding_model_name: str = DEFAULT_EMBEDDING_MODEL
+    embedding_dimension: int = DEFAULT_EMBEDDING_DIMENSION
     llm_model_name: str = DEFAULT_LLM_MODEL
     max_tokens: int = DEFAULT_MAX_TOKENS
     num_results: int = DEFAULT_NUM_RESULTS

@@ -306,7 +306,7 @@ def vectorize(
         help="Site to vectorize (e.g. 'migri'). If not provided, all sites are processed.",
     ),
     embedding_model: str = typer.Option(
-        "all-MiniLM-L6-v2",
+        DEFAULT_EMBEDDING_MODEL,
         "--model",
         "-m",
         help="Name of the sentence-transformers model to use",
@@ -360,7 +360,10 @@ def vectorize(
 
     try:
         # Create dependencies
-        embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
+        embeddings = HuggingFaceEmbeddings(
+            model_name=embedding_model,
+            encode_kwargs={"normalize_embeddings": True, "batch_size": 128},
+        )
         text_splitter = HybridMarkdownSplitter(
             chunk_size=DEFAULT_CHUNK_SIZE,
             chunk_overlap=DEFAULT_CHUNK_OVERLAP,

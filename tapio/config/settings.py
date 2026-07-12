@@ -18,7 +18,8 @@ DEFAULT_CHROMA_COLLECTION = "tapio_knowledge"
 DEFAULT_CRAWLER_TIMEOUT = 30
 
 # Embedding model configuration
-DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
+DEFAULT_EMBEDDING_MODEL = "BAAI/bge-m3"
+DEFAULT_EMBEDDING_DIMENSION = 1024
 
 # RAG configuration defaults
 DEFAULT_LLM_MODEL = "llama3.2"

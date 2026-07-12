@@ -101,7 +101,7 @@ def test_rag_factory_integration(tmp_chroma_db, mock_embeddings):
     config = RAGConfig(
         collection_name="test_factory",
         persist_directory=tmp_chroma_db,
-        embedding_model_name="all-MiniLM-L6-v2",
+        embedding_model_name="BAAI/bge-m3",
         llm_model_name="llama3.2",
         max_tokens=512,
         num_results=3,
