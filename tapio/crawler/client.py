@@ -38,13 +38,13 @@ def start_crawl(
 
 
 def wait_for_crawl(account_id: str, job_id: str, api_token: str) -> dict:
-    max_attempts = 60
+    max_attempts = 100
     delay_seconds = 5
 
     for _ in range(max_attempts):
         endpoint = (
             f"https://api.cloudflare.com/client/v4/accounts/{account_id}"
-            f"/browser-rendering/crawl/{job_id}?limit=1"
+            f"/browser-rendering/crawl/{job_id}"
         )
 
         headers = {
