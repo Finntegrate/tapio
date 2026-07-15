@@ -97,9 +97,18 @@ def extract_document_metadata(documents: list[Any]) -> list[dict[str, Any]]:
             "content_preview": content[:500] + ("..." if len(content) > 500 else ""),
         }
 
-        known_keys = {"source_id", "source_url", "url", "citation_url",
-                       "title", "chunk_index", "total_chunks",
-                       "file_name", "source_path", "content_preview"}
+        known_keys = {
+            "source_id",
+            "source_url",
+            "url",
+            "citation_url",
+            "title",
+            "chunk_index",
+            "total_chunks",
+            "file_name",
+            "source_path",
+            "content_preview",
+        }
 
         extra = {k: v for k, v in doc_meta.items() if k not in known_keys}
         if extra:

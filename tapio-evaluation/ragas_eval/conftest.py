@@ -33,18 +33,10 @@ _ALL_DATASET_NAMES = [
 ]
 
 RAGAS_DATASETS = os.environ.get("RAGAS_DATASETS")
-DATASET_NAMES: list[str] = (
-    [d.strip() for d in RAGAS_DATASETS.split(",")]
-    if RAGAS_DATASETS
-    else _ALL_DATASET_NAMES
-)
+DATASET_NAMES: list[str] = [d.strip() for d in RAGAS_DATASETS.split(",")] if RAGAS_DATASETS else _ALL_DATASET_NAMES
 
 RAGAS_CASES = os.environ.get("RAGAS_CASES")
-_CASE_FILTER: set[str] | None = (
-    {c.strip() for c in RAGAS_CASES.split(",")}
-    if RAGAS_CASES
-    else None
-)
+_CASE_FILTER: set[str] | None = {c.strip() for c in RAGAS_CASES.split(",")} if RAGAS_CASES else None
 
 # ---------------------------------------------------------------------------
 # Ragas compatibility patch
@@ -221,7 +213,7 @@ def evaluation_dataset(rag_orchestrator) -> Dataset:
                     "response": actual_output,
                     "retrieved_contexts": contexts,
                     "reference": test_data["expected_answer"],
-                }
+                },
             )
 
     return Dataset.from_list(rows)
