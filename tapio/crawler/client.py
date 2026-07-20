@@ -14,7 +14,23 @@ def start_crawl(  # noqa: PLR0913
     render: bool = True,
     source: str = "all",
 ) -> str:
-    """Start a crawl job and return its job id."""
+    """Start a crawl job and return its job ID.
+
+    Args:
+        account_id: Cloudflare account ID.
+        api_token: Cloudflare API token with Browser Rendering permissions.
+        url: Starting URL to crawl.
+        depth: Maximum link depth from the starting URL.
+        limit: Maximum number of pages to crawl.
+        render: If True, render pages in a headless browser (executes JavaScript).
+        source: URL discovery source — "all", "sitemaps", or "links".
+
+    Returns:
+        Job ID string for the crawl job.
+
+    Raises:
+        httpx.HTTPStatusError: If the API request fails.
+    """
     endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/browser-rendering/crawl"
 
     headers = {
@@ -38,7 +54,23 @@ def start_crawl(  # noqa: PLR0913
 
 
 def wait_for_crawl(account_id: str, job_id: str, api_token: str) -> dict:
-    """Poll the crawl job until it finishes , then return the full paginated result."""
+    """Poll a crawl job until it reaches a terminal status, then return the full result.
+
+    Polls with ``limit=1`` to keep status checks lightweight, then fetches the
+    complete record set, following cursor-based pagination for large results.
+
+    Args:
+        account_id: Cloudflare account ID.
+        job_id: Crawl job ID returned by ``start_crawl``.
+        api_token: Cloudflare API token with Browser Rendering permissions.
+
+    Returns:
+        The job result dict, with ``records`` containing all paginated records.
+
+    Raises:
+        TimeoutError: If the job doesn't finish within the polling window.
+        httpx.HTTPStatusError: If any API request fails.
+    """
     max_attempts = 100
     delay_seconds = 5
     endpoint = f"https://api.cloudflare.com/client/v4/accounts/{account_id}/browser-rendering/crawl/{job_id}"
@@ -82,7 +114,24 @@ def crawl_site(  # noqa: PLR0913
     render: bool = True,
     source: str = "all",
 ) -> dict:
-    """Run a full crawl: start the job , wait for it , and return the result."""
+    """Run a full crawl: start the job, wait for completion, return the result.
+
+    Args:
+        account_id: Cloudflare account ID.
+        api_token: Cloudflare API token with Browser Rendering permissions.
+        url: Starting URL to crawl.
+        depth: Maximum link depth from the starting URL.
+        limit: Maximum number of pages to crawl.
+        render: If True, render pages in a headless browser (executes JavaScript).
+        source: URL discovery source — "all", "sitemaps", or "links".
+
+    Returns:
+        The completed job result dict, including all crawled records.
+
+    Raises:
+        TimeoutError: If the job doesn't finish within the polling window.
+        httpx.HTTPStatusError: If any API request fails.
+    """
     job_id = start_crawl(
         account_id=account_id,
         api_token=api_token,
