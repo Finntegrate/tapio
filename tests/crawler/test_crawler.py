@@ -70,9 +70,11 @@ class TestBaseCrawler:
         monkeypatch.chdir(tmp_path)
 
         # Also block .env loading so tests don't accidentally pick up real creds
-        with patch("tapio.crawler.crawler.load_dotenv"):
-            with pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN"):
-                BaseCrawler("test-site", make_test_site_config())
+        with (
+            patch("tapio.crawler.crawler.load_dotenv"),
+            pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN"),
+        ):
+            BaseCrawler("test-site", make_test_site_config())
 
     def test_filter_completed_keeps_only_completed_records(self, monkeypatch, tmp_path):
         monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
@@ -104,8 +106,8 @@ class TestBaseCrawler:
         p_deep = crawler._get_file_path_from_url("https://example.com/en/about")
         p_query = crawler._get_file_path_from_url("https://example.com/page?x=1&y=2")
 
-        assert p_root.endswith("example.com" + "\\" + "index.md") or p_root.endswith("example.com/index.md")
-        assert p_deep.endswith("en\\about.md") or p_deep.endswith("en/about.md")
+        assert p_root.endswith(("example.com\\index.md", "example.com/index.md"))
+        assert p_deep.endswith(("en\\about.md", "en/about.md"))
         assert "page_x_1_y_2.md" in p_query
 
     def test_get_file_path_blocks_path_traversal(self, monkeypatch, tmp_path):

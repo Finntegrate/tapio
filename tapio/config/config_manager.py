@@ -5,6 +5,7 @@ from YAML files, providing a centralized interface for configuration data throug
 """
 
 from __future__ import annotations
+
 import logging
 from pathlib import Path
 

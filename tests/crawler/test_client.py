@@ -1,133 +1,176 @@
-"""Tests for the Cloudflare /crawl API client."""
+"""Tests for BaseCrawler — the Cloudflare-backed crawler."""
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
-import httpx
 import pytest
+from pydantic import HttpUrl
 
-from tapio.crawler.client import crawl_site, start_crawl, wait_for_crawl
-
-
-def make_fake_response(status_code: int, json_body: dict) -> MagicMock:
-    """Build a MagicMock that behaves like an httpx.Response."""
-    response = MagicMock()
-    response.status_code = status_code
-    response.json.return_value = json_body
-    if status_code >= 400:
-        response.raise_for_status.side_effect = httpx.HTTPStatusError(
-            f"Client error {status_code}",
-            request=MagicMock(),
-            response=response,
-        )
-    else:
-        response.raise_for_status.return_value = None
-    return response
+from tapio.config.config_models import CrawlerConfig, SiteConfig
+from tapio.crawler.crawler import BaseCrawler
 
 
-def test_start_crawl_posts_correct_payload_and_returns_job_id():
-    fake = make_fake_response(200, {"success": True, "result": "fake-job-id"})
+def make_test_site_config(
+    base_url: str = "https://example.com",
+    max_depth: int = 1,
+    limit: int = 10,
+    render: bool = True,
+    source: str = "all",
+) -> SiteConfig:
+    """Build a minimal SiteConfig for tests."""
+    return SiteConfig(
+        base_url=HttpUrl(base_url),
+        crawler_config=CrawlerConfig(
+            max_depth=max_depth,
+            limit=limit,
+            render=render,
+            source=source,
+        ),
+    )
 
-    with patch("tapio.crawler.client.httpx.post", return_value=fake) as mock_post:
-        job_id = start_crawl(
-            account_id="acc123",
-            api_token="tok456",
-            url="https://example.com",
-            depth=2,
+
+def make_cloudflare_record(url: str, status: str, markdown: str = "", title: str = "") -> dict:
+    """Build a record dict as Cloudflare would return it."""
+    return {
+        "url": url,
+        "status": status,
+        "markdown": markdown,
+        "metadata": {"title": title, "status": 200, "url": url},
+    }
+
+
+class TestBaseCrawler:
+    """Behavior of BaseCrawler with Cloudflare backend."""
+
+    def test_init_reads_env_vars_and_config(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "test-account")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "test-token")
+        monkeypatch.chdir(tmp_path)
+
+        site_config = make_test_site_config(
+            base_url="https://x.com",
+            max_depth=2,
             limit=50,
-            render=True,
-            source="all",
+            render=False,
+            source="sitemaps",
         )
 
-    assert job_id == "fake-job-id"
+        crawler = BaseCrawler("test-site", site_config)
 
-    mock_post.assert_called_once()
-    args, kwargs = mock_post.call_args
+        assert crawler.site_name == "test-site"
+        assert crawler.account_id == "test-account"
+        assert crawler.api_token == "test-token"
+        assert crawler.max_depth == 2
+        assert crawler.limit == 50
+        assert crawler.render is False
+        assert crawler.source == "sitemaps"
 
-    assert args[0] == "https://api.cloudflare.com/client/v4/accounts/acc123/browser-rendering/crawl"
+    def test_init_raises_when_credentials_missing(self, monkeypatch, tmp_path):
+        monkeypatch.delenv("CLOUDFLARE_ACCOUNT_ID", raising=False)
+        monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
+        monkeypatch.chdir(tmp_path)
 
-    headers = kwargs["headers"]
-    assert headers["Authorization"] == "Bearer tok456"
-    assert headers["Content-Type"] == "application/json"
+        # Also block .env loading so tests don't accidentally pick up real creds
+        with (
+            patch("tapio.crawler.crawler.load_dotenv"),
+            pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN"),
+        ):
+            BaseCrawler("test-site", make_test_site_config())
 
-    payload = kwargs["json"]
-    assert payload["url"] == "https://example.com"
-    assert payload["depth"] == 2
-    assert payload["limit"] == 50
-    assert payload["render"] is True
-    assert payload["source"] == "all"
-    assert payload["formats"] == ["markdown"]
+    def test_filter_completed_keeps_only_completed_records(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "b")
+        monkeypatch.chdir(tmp_path)
 
+        crawler = BaseCrawler("t", make_test_site_config())
 
-def test_start_crawl_raises_on_http_error():
-    fake = make_fake_response(401, {"success": False, "errors": [{"message": "Invalid token"}]})
+        records = [
+            make_cloudflare_record("a", "completed"),
+            make_cloudflare_record("b", "errored"),
+            make_cloudflare_record("c", "queued"),
+            make_cloudflare_record("d", "completed"),
+            make_cloudflare_record("e", "skipped"),
+        ]
 
-    with patch("tapio.crawler.client.httpx.post", return_value=fake):
-        with pytest.raises(httpx.HTTPStatusError):
-            start_crawl(account_id="acc", api_token="bad", url="https://example.com")
+        result = crawler._filter_completed(records)
 
+        assert [r["url"] for r in result] == ["a", "d"]
 
-def test_wait_for_crawl_returns_immediately_on_completed():
-    fake = make_fake_response(200, {"success": True, "result": {"status": "completed", "records": []}})
+    def test_get_file_path_builds_md_paths(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "b")
+        monkeypatch.chdir(tmp_path)
 
-    with patch("tapio.crawler.client.httpx.get", return_value=fake) as mock_get:
-        with patch("tapio.crawler.client.time.sleep") as mock_sleep:
-            result = wait_for_crawl(account_id="acc", job_id="job-1", api_token="tok")
+        crawler = BaseCrawler("t", make_test_site_config())
 
-    assert result["status"] == "completed"
-    assert mock_get.call_count == 1
-    assert mock_sleep.call_count == 0
+        p_root = crawler._get_file_path_from_url("https://example.com/")
+        p_deep = crawler._get_file_path_from_url("https://example.com/en/about")
+        p_query = crawler._get_file_path_from_url("https://example.com/page?x=1&y=2")
 
+        assert p_root.endswith(("example.com\\index.md", "example.com/index.md"))
+        assert p_deep.endswith(("en\\about.md", "en/about.md"))
+        assert "page_x_1_y_2.md" in p_query
 
-def test_wait_for_crawl_polls_until_completed():
-    running = make_fake_response(200, {"success": True, "result": {"status": "running", "records": []}})
-    completed = make_fake_response(200, {"success": True, "result": {"status": "completed", "records": []}})
+    def test_get_file_path_blocks_path_traversal(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "b")
+        monkeypatch.chdir(tmp_path)
 
-    with patch("tapio.crawler.client.httpx.get", side_effect=[running, running, completed]) as mock_get:
-        with patch("tapio.crawler.client.time.sleep") as mock_sleep:
-            result = wait_for_crawl(account_id="acc", job_id="job-1", api_token="tok")
+        crawler = BaseCrawler("t", make_test_site_config())
 
-    assert result["status"] == "completed"
-    assert mock_get.call_count == 3
-    assert mock_sleep.call_count == 2
+        with pytest.raises(ValueError, match="outside output directory"):
+            crawler._get_file_path_from_url("https://example.com/../../../etc/passwd")
 
+    def test_crawl_processes_completed_records_and_ignores_others(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "b")
+        monkeypatch.chdir(tmp_path)
 
-def test_wait_for_crawl_raises_timeout():
-    running = make_fake_response(200, {"success": True, "result": {"status": "running", "records": []}})
+        fake_cloudflare_response = {
+            "status": "completed",
+            "records": [
+                make_cloudflare_record("https://x.com/a", "completed", "# A", "Page A"),
+                make_cloudflare_record("https://x.com/b", "errored", "", ""),
+                make_cloudflare_record("https://x.com/c", "completed", "# C", "Page C"),
+            ],
+        }
 
-    with patch("tapio.crawler.client.httpx.get", return_value=running):
-        with patch("tapio.crawler.client.time.sleep"):
-            with pytest.raises(TimeoutError):
-                wait_for_crawl(account_id="acc", job_id="job-1", api_token="tok")
+        with patch("tapio.crawler.crawler.crawl_site", return_value=fake_cloudflare_response):
+            crawler = BaseCrawler("t", make_test_site_config())
+            results = crawler.crawl()
 
+        assert len(results) == 2
+        assert results[0]["url"] == "https://x.com/a"
+        assert results[0]["markdown"] == "# A"
+        assert results[0]["title"] == "Page A"
+        assert results[1]["url"] == "https://x.com/c"
+        assert results[1]["title"] == "Page C"
 
-def test_crawl_site_chains_start_and_wait():
-    fake_result = {"status": "completed", "records": [{"url": "x"}]}
+    def test_crawl_returns_empty_when_all_records_errored(self, monkeypatch, tmp_path):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "b")
+        monkeypatch.chdir(tmp_path)
 
-    with patch("tapio.crawler.client.start_crawl", return_value="chained-job-id") as mock_start:
-        with patch("tapio.crawler.client.wait_for_crawl", return_value=fake_result) as mock_wait:
-            returned = crawl_site(
-                account_id="acc",
-                api_token="tok",
-                url="https://x.com",
-                depth=1,
-                limit=10,
-                render=True,
-                source="all",
-            )
+        fake_cloudflare_response = {
+            "status": "completed",
+            "records": [
+                make_cloudflare_record("https://x.com/a", "errored"),
+                make_cloudflare_record("https://x.com/b", "errored"),
+            ],
+        }
 
-    assert returned is fake_result
+        with patch("tapio.crawler.crawler.crawl_site", return_value=fake_cloudflare_response):
+            crawler = BaseCrawler("t", make_test_site_config())
+            results = crawler.crawl()
 
-    mock_start.assert_called_once_with(
-        account_id="acc",
-        api_token="tok",
-        url="https://x.com",
-        depth=1,
-        limit=10,
-        render=True,
-        source="all",
-    )
-    mock_wait.assert_called_once_with(
-        account_id="acc",
-        job_id="chained-job-id",
-        api_token="tok",
-    )
+        assert results == []
+
+    def test_save_url_mappings_logs_on_write_failure(self, monkeypatch, tmp_path, caplog):
+        monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
+        monkeypatch.setenv("CLOUDFLARE_API_TOKEN", "b")
+        monkeypatch.chdir(tmp_path)
+
+        crawler = BaseCrawler("t", make_test_site_config())
+
+        with patch("pathlib.Path.open", side_effect=OSError("disk full")):
+            # Should not raise
+            crawler._save_url_mappings()

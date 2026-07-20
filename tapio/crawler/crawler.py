@@ -41,6 +41,7 @@ class BaseCrawler:
     """Crawler wrapping the Cloudflare /crawl API."""
 
     def __init__(self, site_name: str, site_config: SiteConfig) -> None:
+        """Initialize the crawler for one site."""
         load_dotenv()
         self.site_name = site_name
         self.site_config = site_config
@@ -52,11 +53,13 @@ class BaseCrawler:
 
     def _load_credentials(self) -> None:
         """Read Cloudflare credentials from environment, raise if missing."""
-        self.account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
-        self.api_token = os.getenv("CLOUDFLARE_API_TOKEN")
-        if not self.account_id or not self.api_token:
+        account_id = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        api_token = os.getenv("CLOUDFLARE_API_TOKEN")
+        if not account_id or not api_token:
             msg = "CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN must be set in environment (.env)"
             raise ValueError(msg)
+        self.account_id: str = account_id
+        self.api_token: str = api_token
 
     def _load_crawl_settings(self) -> None:
         """Copy crawl parameters from site_config into instance attributes."""
@@ -93,7 +96,10 @@ class BaseCrawler:
         logger.info("Base URL: %s", self.base_url)
         logger.info(
             "Depth: %s, Limit: %s, Render: %s, Source: %s",
-            self.max_depth, self.limit, self.render, self.source,
+            self.max_depth,
+            self.limit,
+            self.render,
+            self.source,
         )
         logger.info("Output directory: %s", self.output_dir)
 
@@ -101,9 +107,12 @@ class BaseCrawler:
         """Run a full crawl and return the successful records."""
         raw = self._fetch_from_cloudflare()
         records = self._filter_completed(raw.get("records", []))
-        results = [self._process_record(r) for r in records]
-        self._save_url_mappings()
-        logger.info("Crawl finished. Saved %d pages.", len(results))
+        results: list[CrawlResult] = []
+        try:
+            results = [self._process_record(r) for r in records]
+        finally:
+            self._save_url_mappings()
+        logger.info("Crawl finished. Saved %d pages. ", len(results))
         return results
 
     def _fetch_from_cloudflare(self) -> dict:

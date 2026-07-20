@@ -46,9 +46,11 @@ class CrawlerConfig(BaseModel):
         float,
         Field(ge=0.0, description="Delay between requests in seconds (legacy crawler only)"),
     ] = 1.0
-    max_concurrent: Annotated[int, Field(ge=1, le=50, description="Maximum number of concurrent requests (legacy crawler only)")] = 5
+    max_concurrent: Annotated[
+        int, Field(ge=1, le=50, description="Maximum number of concurrent requests (legacy crawler only)")
+    ] = 5
     max_depth: Annotated[int, Field(ge=1, le=10, description="Maximum crawling depth from starting URLs")] = 1
-    limit : Annotated[
+    limit: Annotated[
         int,
         Field(ge=1, le=100_000, description="Max pages to crawl (Cloudflare)"),
     ] = 100
