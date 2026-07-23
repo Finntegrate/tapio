@@ -1,6 +1,7 @@
 """Tests for the configuration data models."""
 
 import pytest
+from pydantic import HttpUrl, ValidationError
 
 from tapio.config.config_models import (
     CrawlerConfig,
@@ -21,12 +22,7 @@ class TestCrawlerConfig:
         assert config.source == "all"
 
     def test_custom_values(self) -> None:
-        config = CrawlerConfig(
-            max_depth=3,
-            limit=500,
-            render=False,
-            source="sitemaps",
-        )
+        config = CrawlerConfig(max_depth=3, limit=500, render=False, source="sitemaps")
 
         assert config.max_depth == 3
         assert config.limit == 500
@@ -34,19 +30,19 @@ class TestCrawlerConfig:
         assert config.source == "sitemaps"
 
     def test_max_depth_validation(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             CrawlerConfig(max_depth=0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             CrawlerConfig(max_depth=11)
 
     def test_limit_validation(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             CrawlerConfig(limit=0)
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             CrawlerConfig(limit=100_001)
 
     def test_source_validation(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             CrawlerConfig(source="invalid")
 
 
@@ -54,7 +50,7 @@ class TestSiteConfig:
     """Tests for the SiteConfig model."""
 
     def test_minimal_config(self) -> None:
-        config = SiteConfig(base_url="https://example.com")
+        config = SiteConfig(base_url=HttpUrl("https://example.com"))
 
         assert str(config.base_url) == "https://example.com/"
         assert config.description is None
@@ -62,7 +58,7 @@ class TestSiteConfig:
 
     def test_full_config(self) -> None:
         config = SiteConfig(
-            base_url="https://example.com",
+            base_url=HttpUrl("https://example.com"),
             description="Example site",
             crawler_config=CrawlerConfig(max_depth=2, limit=50, render=False, source="sitemaps"),
         )
@@ -74,12 +70,12 @@ class TestSiteConfig:
         assert config.crawler_config.source == "sitemaps"
 
     def test_base_dir_from_url(self) -> None:
-        config = SiteConfig(base_url="https://example.com/en")
+        config = SiteConfig(base_url=HttpUrl("https://example.com/en"))
 
         assert config.base_dir == "example.com"
 
     def test_invalid_url_raises_error(self) -> None:
-        with pytest.raises(ValueError):
+        with pytest.raises(ValidationError):
             SiteConfig(base_url="not a url")
 
 
@@ -94,8 +90,8 @@ class TestParserConfigRegistry:
     def test_with_sites(self) -> None:
         registry = ParserConfigRegistry(
             sites={
-                "site1": SiteConfig(base_url="https://site1.com"),
-                "site2": SiteConfig(base_url="https://site2.com"),
+                "site1": SiteConfig(base_url=HttpUrl("https://site1.com")),
+                "site2": SiteConfig(base_url=HttpUrl("https://site2.com")),
             },
         )
 

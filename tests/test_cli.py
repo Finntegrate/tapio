@@ -1,10 +1,37 @@
 """Tests for the Tapio CLI commands."""
 
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 from typer.testing import CliRunner
 
 from tapio.cli import app
+
+
+def make_fake_site_config(
+    base_url: str = "https://migri.fi",
+    description: str = "Finnish Immigration Service",
+    max_depth: int = 2,
+    limit: int = 100,
+    render: bool = True,
+    source: str = "all",
+) -> SimpleNamespace:
+    """Build a fake SiteConfig that behaves like the real thing for CLI tests.
+
+    Uses SimpleNamespace so setting attributes (as the crawl command does with
+    --depth/--limit overrides) actually works.
+    """
+    crawler_config = SimpleNamespace(
+        max_depth=max_depth,
+        limit=limit,
+        render=render,
+        source=source,
+    )
+    return SimpleNamespace(
+        base_url=base_url,
+        description=description,
+        crawler_config=crawler_config,
+    )
 
 
 class TestListSitesCommand:
@@ -14,22 +41,14 @@ class TestListSitesCommand:
         self.runner = CliRunner()
 
     def test_list_sites_default(self) -> None:
-        with patch("tapio.cli.ConfigManager") as mock_config_manager:
+        with patch("tapio.cli.ConfigManager") as mock_manager_class:
             manager = MagicMock()
             manager.list_available_sites.return_value = ["migri", "kela"]
-
-            def mock_get_site(site: str) -> MagicMock:
-                cfg = MagicMock()
-                cfg.description = f"{site} description"
-                cfg.base_url = f"https://{site}.example.com"
-                cfg.crawler_config.max_depth = 2
-                cfg.crawler_config.limit = 100
-                cfg.crawler_config.render = True
-                cfg.crawler_config.source = "all"
-                return cfg
-
-            manager.get_site_config.side_effect = mock_get_site
-            mock_config_manager.return_value = manager
+            manager.get_site_config.side_effect = lambda s: make_fake_site_config(
+                base_url=f"https://{s}.example.com",
+                description=f"{s} description",
+            )
+            mock_manager_class.return_value = manager
 
             result = self.runner.invoke(app, ["list-sites"])
 
@@ -39,10 +58,10 @@ class TestListSitesCommand:
         assert "kela" in result.stdout
 
     def test_list_sites_empty(self) -> None:
-        with patch("tapio.cli.ConfigManager") as mock_config_manager:
+        with patch("tapio.cli.ConfigManager") as mock_manager_class:
             manager = MagicMock()
             manager.list_available_sites.return_value = []
-            mock_config_manager.return_value = manager
+            mock_manager_class.return_value = manager
 
             result = self.runner.invoke(app, ["list-sites"])
 
@@ -50,25 +69,22 @@ class TestListSitesCommand:
         assert "No sites found" in result.stdout
 
     def test_list_sites_verbose(self) -> None:
-        with patch("tapio.cli.ConfigManager") as mock_config_manager:
+        with patch("tapio.cli.ConfigManager") as mock_manager_class:
             manager = MagicMock()
             manager.list_available_sites.return_value = ["migri"]
-
-            cfg = MagicMock()
-            cfg.description = "Finnish Immigration Service"
-            cfg.base_url = "https://migri.fi"
-            cfg.crawler_config.max_depth = 2
-            cfg.crawler_config.limit = 100
-            cfg.crawler_config.render = True
-            cfg.crawler_config.source = "all"
-            manager.get_site_config.return_value = cfg
-            mock_config_manager.return_value = manager
+            manager.get_site_config.return_value = make_fake_site_config(
+                base_url="https://migri.fi",
+                description="Finnish Immigration Service",
+            )
+            mock_manager_class.return_value = manager
 
             result = self.runner.invoke(app, ["list-sites", "--verbose"])
 
         assert result.exit_code == 0
-        assert "Base URL" in result.stdout
         assert "migri.fi" in result.stdout
+        assert "depth=2" in result.stdout
+        assert "limit=100" in result.stdout
+        assert "render=True" in result.stdout
 
 
 class TestInfoCommand:
@@ -78,18 +94,10 @@ class TestInfoCommand:
         self.runner = CliRunner()
 
     def test_info_prints_config(self) -> None:
-        with patch("tapio.cli.ConfigManager") as mock_config_manager:
+        with patch("tapio.cli.ConfigManager") as mock_manager_class:
             manager = MagicMock()
-
-            cfg = MagicMock()
-            cfg.description = "Finnish Immigration Service"
-            cfg.base_url = "https://migri.fi"
-            cfg.crawler_config.max_depth = 2
-            cfg.crawler_config.limit = 100
-            cfg.crawler_config.render = True
-            cfg.crawler_config.source = "all"
-            manager.get_site_config.return_value = cfg
-            mock_config_manager.return_value = manager
+            manager.get_site_config.return_value = make_fake_site_config()
+            mock_manager_class.return_value = manager
 
             result = self.runner.invoke(app, ["info", "migri"])
 
@@ -101,10 +109,10 @@ class TestInfoCommand:
         assert "Source: all" in result.stdout
 
     def test_info_missing_site_returns_error(self) -> None:
-        with patch("tapio.cli.ConfigManager") as mock_config_manager:
+        with patch("tapio.cli.ConfigManager") as mock_manager_class:
             manager = MagicMock()
             manager.get_site_config.side_effect = ValueError("Site 'unknown' not found")
-            mock_config_manager.return_value = manager
+            mock_manager_class.return_value = manager
 
             result = self.runner.invoke(app, ["info", "unknown"])
 
@@ -118,19 +126,15 @@ class TestCrawlCommand:
         self.runner = CliRunner()
 
     def test_crawl_invokes_runner(self) -> None:
+        cfg = make_fake_site_config()
+
         with (
-            patch("tapio.cli.ConfigManager") as mock_config_manager,
+            patch("tapio.cli.ConfigManager") as mock_manager_class,
             patch("tapio.cli.CrawlerRunner") as mock_runner_class,
         ):
             manager = MagicMock()
-            cfg = MagicMock()
-            cfg.base_url = "https://migri.fi"
-            cfg.crawler_config.max_depth = 2
-            cfg.crawler_config.limit = 100
-            cfg.crawler_config.render = True
-            cfg.crawler_config.source = "all"
             manager.get_site_config.return_value = cfg
-            mock_config_manager.return_value = manager
+            mock_manager_class.return_value = manager
 
             runner_instance = MagicMock()
             runner_instance.run.return_value = [{"url": "x"}, {"url": "y"}]
@@ -143,19 +147,15 @@ class TestCrawlCommand:
         assert "Processed 2 pages" in result.stdout
 
     def test_crawl_with_overrides(self) -> None:
+        cfg = make_fake_site_config()
+
         with (
-            patch("tapio.cli.ConfigManager") as mock_config_manager,
+            patch("tapio.cli.ConfigManager") as mock_manager_class,
             patch("tapio.cli.CrawlerRunner") as mock_runner_class,
         ):
             manager = MagicMock()
-            cfg = MagicMock()
-            cfg.base_url = "https://migri.fi"
-            cfg.crawler_config.max_depth = 1
-            cfg.crawler_config.limit = 10
-            cfg.crawler_config.render = True
-            cfg.crawler_config.source = "all"
             manager.get_site_config.return_value = cfg
-            mock_config_manager.return_value = manager
+            mock_manager_class.return_value = manager
 
             runner_instance = MagicMock()
             runner_instance.run.return_value = []
@@ -169,10 +169,10 @@ class TestCrawlCommand:
         assert cfg.crawler_config.render is False
 
     def test_crawl_missing_site_returns_error(self) -> None:
-        with patch("tapio.cli.ConfigManager") as mock_config_manager:
+        with patch("tapio.cli.ConfigManager") as mock_manager_class:
             manager = MagicMock()
             manager.get_site_config.side_effect = ValueError("Site 'unknown' not found")
-            mock_config_manager.return_value = manager
+            mock_manager_class.return_value = manager
 
             result = self.runner.invoke(app, ["crawl", "unknown"])
 
