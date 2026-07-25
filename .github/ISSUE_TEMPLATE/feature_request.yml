@@ -1,0 +1,54 @@
+name: Feature request
+description: Suggest a new capability or enhancement
+title: "[Feature]: "
+type: Feature
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting an improvement! Please describe the feature and the
+        problem it solves.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the use case or limitation that motivates this request.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: Describe what you'd like to see, as concretely as you can.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Any other approaches you considered, and why this one is preferred.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the system does this mostly affect? (You can also add area labels after the issue is created.)
+      options:
+        - agents
+        - auth
+        - dx
+        - ops
+        - partners
+        - platform
+        - rag
+        - safety
+        - security
+        - ux
+        - Not sure
+    validations:
+      required: false
