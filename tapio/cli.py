@@ -25,7 +25,9 @@ def crawl(
     depth: int | None = typer.Option(None, "--depth", "-d", help="Override max crawl depth"),
     limit: int | None = typer.Option(None, "--limit", "-l", help="Override max pages to crawl"),
     render: bool | None = typer.Option(
-        None, "--render/--no-render", help="Override JavaScript rendering (Cloudflare)",
+        None,
+        "--render/--no-render",
+        help="Override JavaScript rendering (Cloudflare)",
     ),
     config_path: str | None = typer.Option(None, "--config", "-c", help="Custom site config file"),
 ) -> None:
@@ -216,8 +218,7 @@ def list_sites(
                 typer.echo(f"  Description: {description}")
                 cc = site_config.crawler_config
                 typer.echo(
-                    f"  Crawl: depth={cc.max_depth}, limit={cc.limit}, "
-                    f"render={cc.render}, source={cc.source}",
+                    f"  Crawl: depth={cc.max_depth}, limit={cc.limit}, render={cc.render}, source={cc.source}",
                 )
                 typer.echo("")
             else:

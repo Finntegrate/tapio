@@ -89,10 +89,14 @@ class TestConfigManager:
             ConfigManager("nonexistent.yaml")
 
     def test_invalid_yaml_raises(self) -> None:
-        with patch("pathlib.Path.open", mock_open(read_data="ignored")), patch(
-            "tapio.config.config_manager.yaml.safe_load",
-            side_effect=yaml.YAMLError("bad yaml"),
-        ), pytest.raises(yaml.YAMLError):
+        with (
+            patch("pathlib.Path.open", mock_open(read_data="ignored")),
+            patch(
+                "tapio.config.config_manager.yaml.safe_load",
+                side_effect=yaml.YAMLError("bad yaml"),
+            ),
+            pytest.raises(yaml.YAMLError),
+        ):
             ConfigManager()
 
     def test_from_file_classmethod(self) -> None:
