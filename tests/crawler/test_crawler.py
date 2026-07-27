@@ -69,12 +69,14 @@ class TestBaseCrawler:
         monkeypatch.delenv("CLOUDFLARE_API_TOKEN", raising=False)
         monkeypatch.chdir(tmp_path)
 
+        site_config = make_test_site_config()
+
         # Also block .env loading so tests don't accidentally pick up real creds
         with (
             patch("tapio.crawler.crawler.load_dotenv"),
             pytest.raises(ValueError, match="CLOUDFLARE_ACCOUNT_ID and CLOUDFLARE_API_TOKEN"),
         ):
-            BaseCrawler("test-site", make_test_site_config())
+            BaseCrawler("test-site", site_config)
 
     def test_filter_completed_keeps_only_completed_records(self, monkeypatch, tmp_path):
         monkeypatch.setenv("CLOUDFLARE_ACCOUNT_ID", "a")
