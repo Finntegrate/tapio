@@ -7,7 +7,6 @@ import yaml
 
 from tapio.config.config_manager import ConfigManager
 
-
 SAMPLE_YAML_DATA = {
     "sites": {
         "test_site": {
@@ -37,9 +36,11 @@ class TestConfigManager:
     """Behavior of ConfigManager loading site configs from YAML."""
 
     def _load_manager(self) -> ConfigManager:
-        with patch("builtins.open", mock_open(read_data="ignored")):
-            with patch("tapio.config.config_manager.yaml.safe_load", return_value=SAMPLE_YAML_DATA):
-                return ConfigManager()
+        with (
+            patch("pathlib.Path.open", mock_open(read_data="ignored")),
+            patch("tapio.config.config_manager.yaml.safe_load", return_value=SAMPLE_YAML_DATA),
+        ):
+            return ConfigManager()
 
     def test_load_default_config(self) -> None:
         manager = self._load_manager()
@@ -84,22 +85,21 @@ class TestConfigManager:
         assert "another_site" in descriptions
 
     def test_config_file_not_found_raises(self) -> None:
-        with patch("builtins.open", side_effect=FileNotFoundError):
-            with pytest.raises(FileNotFoundError):
-                ConfigManager("nonexistent.yaml")
+        with patch("pathlib.Path.open", side_effect=FileNotFoundError), pytest.raises(FileNotFoundError):
+            ConfigManager("nonexistent.yaml")
 
     def test_invalid_yaml_raises(self) -> None:
-        with patch("builtins.open", mock_open(read_data="ignored")):
-            with patch(
-                "tapio.config.config_manager.yaml.safe_load",
-                side_effect=yaml.YAMLError("bad yaml"),
-            ):
-                with pytest.raises(yaml.YAMLError):
-                    ConfigManager()
+        with patch("pathlib.Path.open", mock_open(read_data="ignored")), patch(
+            "tapio.config.config_manager.yaml.safe_load",
+            side_effect=yaml.YAMLError("bad yaml"),
+        ), pytest.raises(yaml.YAMLError):
+            ConfigManager()
 
     def test_from_file_classmethod(self) -> None:
-        with patch("builtins.open", mock_open(read_data="ignored")):
-            with patch("tapio.config.config_manager.yaml.safe_load", return_value=SAMPLE_YAML_DATA):
-                manager = ConfigManager.from_file("custom.yaml")
+        with (
+            patch("pathlib.Path.open", mock_open(read_data="ignored")),
+            patch("tapio.config.config_manager.yaml.safe_load", return_value=SAMPLE_YAML_DATA),
+        ):
+            manager = ConfigManager.from_file("custom.yaml")
 
         assert "test_site" in manager.list_available_sites()

@@ -298,14 +298,21 @@ class TapioAssistantApp:
 
         return demo
 
-    def launch(self, share: bool = False) -> None:
+    def launch(
+        self,
+        share: bool = False,
+        server_name: str = "0.0.0.0",  # noqa: S104
+        server_port: int = 7860,
+    ) -> None:
         """Launch the Gradio app.
 
         Args:
             share: Whether to create a shareable link for the app
+            server_name: Host to bind the Gradio interface to
+            server_port: Port to run the Gradio interface on
         """
         # Launch the Gradio app
-        self.demo.launch(share=share)
+        self.demo.launch(share=share, server_name=server_name, server_port=server_port)
 
 
 def main(

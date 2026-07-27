@@ -66,7 +66,7 @@ def crawl(
 
 
 @app.command()
-def vectorize(
+def vectorize(  # noqa: PLR0913
     input_dir: str = typer.Option(
         f"./{DEFAULT_CONTENT_DIR}",
         "--input-dir",
@@ -96,7 +96,10 @@ def vectorize(
     ),
 ) -> None:
     """Create vector embeddings from Markdown files for semantic search."""
-    from tapio.vectorstore import Vectorizer
+    from langchain_huggingface import HuggingFaceEmbeddings  # noqa: PLC0415
+    from langchain_text_splitters import MarkdownTextSplitter  # noqa: PLC0415 # type: ignore[import-not-found]
+
+    from tapio.vectorstore import ChromaStore, MarkdownVectorizer  # noqa: PLC0415
 
     try:
         typer.echo(f"Starting vectorization from {input_dir}")
@@ -105,19 +108,19 @@ def vectorize(
         typer.echo(f"Using chunk size: {chunk_size} with overlap: {chunk_overlap}")
         typer.echo(f"Using embedding model: {embedding_model}")
 
-        vectorizer = Vectorizer(
-            input_dir=input_dir,
-            chunk_size=chunk_size,
-            chunk_overlap=chunk_overlap,
+        embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
+        chroma_store = ChromaStore(
             collection_name=collection_name,
+            embeddings=embeddings,
             persist_directory=persist_directory,
-            embedding_model_name=embedding_model,
-            site_filter=site_filter,
         )
+        text_splitter = MarkdownTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+        vectorizer = MarkdownVectorizer(vector_db=chroma_store.vector_db, text_splitter=text_splitter)
 
-        collection_name_result = vectorizer.process()
+        processed_count = vectorizer.process_directory(input_dir=input_dir, site_filter=site_filter)
 
-        typer.echo(f"Vectorization completed. Collection name: {collection_name_result}")
+        typer.echo(f"Vectorization completed. Processed {processed_count} files.")
+        typer.echo(f"Collection name: {collection_name}")
         typer.echo(f"Vector store saved to {persist_directory}")
 
     except Exception as e:
@@ -126,7 +129,7 @@ def vectorize(
 
 
 @app.command()
-def tapio_app(
+def tapio_app(  # noqa: PLR0913
     persist_directory: str = typer.Option(
         DEFAULT_DIRS["CHROMA_DIR"],
         "--persist-dir",
@@ -147,12 +150,13 @@ def tapio_app(
         "-u",
         help="Base URL for the Ollama server",
     ),
-    host: str = typer.Option("0.0.0.0", "--host", help="Host to bind the Gradio interface"),
+    host: str = typer.Option("0.0.0.0", "--host", help="Host to bind the Gradio interface"),  # noqa: S104
     port: int = typer.Option(7860, "--port", help="Port to run the Gradio interface"),
     share: bool = typer.Option(False, "--share", help="Enable a public shareable link"),
 ) -> None:
     """Launch the Tapio Assistant with an interactive Gradio chat interface."""
-    from tapio.app import TapioApp
+    from tapio.app import TapioAssistantApp  # noqa: PLC0415
+    from tapio.factories import RAGOrchestratorFactory  # noqa: PLC0415
 
     try:
         typer.echo("Starting Tapio Assistant...")
@@ -170,7 +174,9 @@ def tapio_app(
         typer.echo(f"Vector store: {rag_config.persist_directory}")
         typer.echo(f"Collection: {rag_config.collection_name}")
 
-        app_instance = TapioApp(rag_config=rag_config)
+        orchestrator = RAGOrchestratorFactory(config=rag_config).create_orchestrator()
+        app_instance = TapioAssistantApp(rag_orchestrator=orchestrator)
+        app_instance.check_model_availability()
         app_instance.launch(share=share, server_name=host, server_port=port)
 
     except Exception as e:
