@@ -14,8 +14,6 @@ authors = [
 ]
 dependencies = [
     "typer>=0.9.0",
-    "lxml>=4.9.3",
-    "html2text>=2020.1.16",
     "pyyaml>=6.0.1",
     "langchain-text-splitters>=0.3.8",
     "python-frontmatter>=1.1.0",
@@ -27,7 +25,6 @@ dependencies = [
     "ollama>=0.4.8",
     "pydantic>=2.13.4",
     "httpx>=0.28.1",
-    "beautifulsoup4>=4.13.4",
 ]
 
 [project.scripts]
@@ -124,7 +121,10 @@ ignore = [
     "PT009",   # some test classes intentionally use unittest.TestCase-style assertions
     "PTH",     # os.path-based temp file/dir handling in test fixtures is fine
     "S101",    # assert is the standard pytest idiom
+    "S105",    # fake tokens in test fixture are not real secrets
+    "S106",    # fake tokens in test are not real secrets
     "SLF001",  # tests intentionally exercise private members
+
 ]
 "tapio/cli.py" = [
     "FBT003",  # typer.Option(False, ...) passes the default positionally by convention

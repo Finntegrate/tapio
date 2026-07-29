@@ -1,126 +1,42 @@
-from unittest.mock import AsyncMock, MagicMock, patch
+"""Tests for CrawlerRunner — the thin facade the CLI calls."""
 
-import pytest
+import asyncio
+from unittest.mock import MagicMock, patch
+
+from pydantic import HttpUrl
 
 from tapio.config.config_models import CrawlerConfig, SiteConfig
 from tapio.crawler.runner import CrawlerRunner
 
 
-def create_test_site_config(
-    base_url: str = "https://example.com",
-    description: str | None = None,
-    depth: int = 1,
-    delay_between_requests: float = 1.0,
-    max_concurrent: int = 5,
-) -> SiteConfig:
-    """Create a test SiteConfig for testing purposes."""
-    from pydantic import HttpUrl
-
+def make_test_site_config() -> SiteConfig:
+    """Build a minimal SiteConfig for runner tests."""
     return SiteConfig(
-        base_url=HttpUrl(base_url),
-        description=description,
-        crawler_config=CrawlerConfig(
-            max_depth=depth,
-            delay_between_requests=delay_between_requests,
-            max_concurrent=max_concurrent,
-        ),
+        base_url=HttpUrl("https://example.com"),
+        crawler_config=CrawlerConfig(),
     )
 
 
 class TestCrawlerRunner:
-    """Test the CrawlerRunner class that manages the crawling process."""
+    """Behavior of the thin runner between CLI and BaseCrawler."""
 
-    def setup_method(self):
-        self.runner = CrawlerRunner()
+    def test_run_calls_crawler_and_returns_results(self):
+        fake_results = [
+            {"url": "https://example.com/", "markdown": "# Home", "title": "Home"},
+            {"url": "https://example.com/a", "markdown": "# A", "title": "A"},
+        ]
 
-    @patch("tapio.crawler.runner.BaseCrawler")
-    def test_run_basic(self, mock_base_crawler):
-        """Test the basic functionality of the run method."""
-        # Mock BaseCrawler instance
-        mock_crawler_instance = MagicMock()
-        mock_crawler_instance.crawl = AsyncMock(
-            return_value=[
-                {
-                    "url": "https://example.com",
-                    "html": "<html><body>Test</body></html>",
-                    "depth": 0,
-                    "crawl_timestamp": "2023-01-01T00:00:00",
-                    "content_type": "text/html",
-                },
-            ],
-        )
-        mock_base_crawler.return_value = mock_crawler_instance
+        fake_crawler = MagicMock()
+        fake_crawler.crawl.return_value = fake_results
 
-        # Create test configuration
-        site_config = create_test_site_config()
+        with patch("tapio.crawler.runner.BaseCrawler", return_value=fake_crawler) as mock_class:
+            runner = CrawlerRunner()
+            site_config = make_test_site_config()
+            results = runner.run("site-x", site_config)
 
-        # Call the run method
-        results = self.runner.run("test_site", site_config)
+        mock_class.assert_called_once_with("site-x", site_config)
+        fake_crawler.crawl.assert_called_once_with()
+        assert results is fake_results
 
-        # Verify BaseCrawler was instantiated with correct parameters
-        mock_base_crawler.assert_called_once_with("test_site", site_config)
-
-        # Verify crawler.crawl was called
-        mock_crawler_instance.crawl.assert_called_once()
-
-        # Verify results were returned
-        assert len(results) == 1
-        assert results[0]["url"] == "https://example.com"
-
-    @patch("tapio.crawler.runner.BaseCrawler")
-    def test_run_with_custom_config(self, mock_base_crawler):
-        """Test the run method with custom configuration settings."""
-        # Mock BaseCrawler instance
-        mock_crawler_instance = MagicMock()
-        mock_crawler_instance.crawl = AsyncMock(return_value=[])
-        mock_base_crawler.return_value = mock_crawler_instance
-
-        # Create test configuration with custom settings
-        site_config = create_test_site_config(
-            base_url="https://custom.example.com",
-            description="Custom test site",
-            depth=3,
-            delay_between_requests=2.0,
-            max_concurrent=10,
-        )
-
-        # Call the run method
-        self.runner.run("custom_site", site_config)
-
-        # Verify BaseCrawler was instantiated with the site config
-        mock_base_crawler.assert_called_once_with("custom_site", site_config)
-
-    @patch("tapio.crawler.runner.BaseCrawler")
-    @pytest.mark.asyncio
-    async def test_run_async(self, mock_base_crawler):
-        """Test the async run_async method."""
-        # Mock BaseCrawler instance
-        mock_crawler_instance = MagicMock()
-        mock_crawler_instance.crawl = AsyncMock(
-            return_value=[
-                {
-                    "url": "https://example.com",
-                    "html": "<html><body>Test</body></html>",
-                    "depth": 0,
-                    "crawl_timestamp": "2023-01-01T00:00:00",
-                    "content_type": "text/html",
-                },
-            ],
-        )
-        mock_base_crawler.return_value = mock_crawler_instance
-
-        # Create test configuration
-        site_config = create_test_site_config(depth=2)
-
-        # Call the async run method
-        results = await self.runner.run_async("async_site", site_config)
-
-        # Verify BaseCrawler was instantiated correctly
-        mock_base_crawler.assert_called_once_with("async_site", site_config)
-
-        # Verify crawler.crawl was called
-        mock_crawler_instance.crawl.assert_called_once()
-
-        # Verify results were returned
-        assert len(results) == 1
-        assert results[0]["url"] == "https://example.com"
+    def test_run_is_synchronous(self):
+        assert asyncio.iscoroutinefunction(CrawlerRunner.run) is False

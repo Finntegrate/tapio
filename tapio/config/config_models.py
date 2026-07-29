@@ -1,18 +1,17 @@
-"""Configuration models for HTML content parsers.
+"""Configuration models for the Tapio application.
 
 This module contains Pydantic models that define the configuration for
-site-specific HTML parsing, including content selectors and HTML-to-Markdown
-conversion settings.
+site-specific crawling via the Cloudflare /crawl API and the RAG system.
 """
 
-from dataclasses import dataclass
-from typing import Annotated, Any
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, HttpUrl
 
 from tapio.config.settings import (
     DEFAULT_CHROMA_COLLECTION,
+    DEFAULT_DIRS,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_LLM_MODEL,
     DEFAULT_MAX_TOKENS,
@@ -20,141 +19,80 @@ from tapio.config.settings import (
 )
 
 
-class HtmlToMarkdownConfig(BaseModel):
-    """Configuration settings for HTML to Markdown conversion.
-
-    Customizes how HTML elements are converted to Markdown. These settings are
-    mapped to html2text options.
-    """
-
-    ignore_links: bool = False
-    body_width: int = 0  # Don't wrap text
-    protect_links: bool = True  # Don't wrap links
-    unicode_snob: bool = True  # Use Unicode instead of ASCII
-    ignore_images: bool = False  # Include images
-    ignore_tables: bool = False  # Include tables
-
-
 class CrawlerConfig(BaseModel):
-    """Configuration settings for web crawling behavior.
+    """Crawler settings mapped 1:1 to the Cloudflare /crawl API."""
 
-    Defines crawler-specific settings such as rate limiting, concurrency limits,
-    and other behavioral parameters to prevent overwhelming target servers.
-    """
-
-    delay_between_requests: Annotated[
-        float,
-        Field(ge=0.0, description="Delay between requests in seconds to avoid rate limiting"),
-    ] = 1.0
-    max_concurrent: Annotated[int, Field(ge=1, le=50, description="Maximum number of concurrent requests")] = 5
-    max_depth: Annotated[int, Field(ge=1, le=10, description="Maximum crawling depth from starting URLs")] = 1
-
-
-class ParserConfig(BaseModel):
-    """Configuration settings for HTML content parsing.
-
-    Defines parser-specific settings such as content selectors, title selectors,
-    and HTML-to-Markdown conversion options.
-    """
-
-    title_selector: str = "//title"
-    content_selectors: list[str] = Field(
-        default_factory=lambda: ["//main", "//article", "//body"],
-        description="Priority-ordered list of XPath selectors to find content",
+    max_depth: Annotated[
+        int,
+        Field(ge=1, le=10, description="Maximum crawling depth from starting URLs"),
+    ] = 1
+    limit: Annotated[
+        int,
+        Field(ge=1, le=100_000, description="Max pages to crawl (Cloudflare)"),
+    ] = 100
+    render: bool = Field(
+        default=True,
+        description="Enable JavaScript rendering (Cloudflare)",
     )
-    fallback_to_body: bool = True
-    markdown_config: HtmlToMarkdownConfig = Field(default_factory=HtmlToMarkdownConfig)
-
-    def get_content_selector(self, tree: Any) -> Any | None:
-        """Find the first matching content element using the configured selectors.
-
-        Args:
-            tree: An lxml HTML tree to search
-
-        Returns:
-            The first matching element or None if no match is found
-        """
-        for selector in self.content_selectors:
-            elements = tree.xpath(selector)
-            if elements:
-                return elements[0]
-        return None
+    source: Literal["all", "sitemaps", "links"] = Field(
+        default="all",
+        description='Crawl source: "all", "sitemaps", or "links" (Cloudflare)',
+    )
 
 
 class SiteConfig(BaseModel):
-    """Configuration for site-specific operations.
-
-    Defines the overall configuration for a site, including base URL, description,
-    and references to both parser and crawler configurations.
-    """
+    """Configuration for a single site."""
 
     base_url: HttpUrl
     description: str | None = None
-    parser_config: ParserConfig = Field(default_factory=ParserConfig)
     crawler_config: CrawlerConfig = Field(default_factory=CrawlerConfig)
 
     @property
     def base_dir(self) -> str:
-        """Derive base directory from base_url.
-
-        Extracts the domain from the base URL to use as the directory name.
-
-        Returns:
-            Domain name without protocol prefix (e.g., 'migri.fi')
-        """
+        """Extract the domain from base_url to use as directory name."""
         url_str = str(self.base_url)
         parsed = urlparse(url_str)
-        # Use hostname to strip any port, and ensure a non-empty result
         host = parsed.hostname
         if not host:
-            msg = f"Invalid base_url: {url_str!r}"
+            msg = f"Invalid base_url: {url_str}"
             raise ValueError(msg)
         return host
 
-    def get_content_selector(self, tree: Any) -> Any | None:
-        """Find the first matching content element using the configured selectors.
-
-        Args:
-            tree: An lxml HTML tree to search
-
-        Returns:
-            The first matching element or None if no match is found
-        """
-        return self.parser_config.get_content_selector(tree)
-
 
 class ParserConfigRegistry(BaseModel):
-    """Registry of all site parser configurations."""
+    """Registry holding all site configurations loaded from YAML."""
 
     sites: dict[str, SiteConfig]
 
 
-@dataclass
-class RAGConfig:
-    """Configuration for RAG (Retrieval Augmented Generation) system.
+class RAGConfig(BaseModel):
+    """Configuration for the RAG system."""
 
-    Groups all configuration parameters for the RAG orchestrator and its
-    dependencies, including vector store settings, embedding model, and
-    LLM configuration.
-
-    Args:
-        collection_name: Name of the ChromaDB collection
-        persist_directory: Directory path for ChromaDB persistence
-        embedding_model_name: Name of the HuggingFace embedding model
-        llm_model_name: Name of the Ollama LLM model
-        max_tokens: Maximum tokens for LLM generation
-        num_results: Number of documents to retrieve for context
-
-    Example:
-        >>> config = RAGConfig(
-        ...     collection_name="my_docs",
-        ...     llm_model_name="llama3.2:latest"
-        ... )
-    """
-
-    collection_name: str = DEFAULT_CHROMA_COLLECTION
-    persist_directory: str = "chroma_db"
-    embedding_model_name: str = DEFAULT_EMBEDDING_MODEL
-    llm_model_name: str = DEFAULT_LLM_MODEL
-    max_tokens: int = DEFAULT_MAX_TOKENS
-    num_results: int = DEFAULT_NUM_RESULTS
+    embedding_model_name: str = Field(
+        default=DEFAULT_EMBEDDING_MODEL,
+        description="Name of the HuggingFace embedding model to use",
+    )
+    llm_model_name: str = Field(
+        default=DEFAULT_LLM_MODEL,
+        description="Name of the Ollama LLM to use",
+    )
+    llm_base_url: str = Field(
+        default="http://localhost:11434",
+        description="Base URL for the Ollama server",
+    )
+    persist_directory: str = Field(
+        default=DEFAULT_DIRS["CHROMA_DIR"],
+        description="Directory where the vector store is persisted",
+    )
+    collection_name: str = Field(
+        default=DEFAULT_CHROMA_COLLECTION,
+        description="Name of the Chroma collection to use",
+    )
+    max_tokens: int = Field(
+        default=DEFAULT_MAX_TOKENS,
+        description="Maximum number of tokens for LLM responses",
+    )
+    num_results: int = Field(
+        default=DEFAULT_NUM_RESULTS,
+        description="Number of results to retrieve from the vector store",
+    )
