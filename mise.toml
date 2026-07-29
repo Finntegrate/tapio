@@ -9,3 +9,43 @@ node = "24"
 ollama = "latest"
 python = "3.14"
 uv = "latest"
+
+[tasks.eval]
+description = "Run all DeepEval evaluations (requires Ollama + ChromaDB)"
+run = "deepeval test run tapio-evaluation/evals/ -n 4"
+
+[tasks.eval-correctness]
+description = "Run correctness evaluation only"
+run = "uv run pytest tapio-evaluation/evals/test_correctness.py -m deepeval -v --no-header"
+
+[tasks.eval-retrieval]
+description = "Run retrieval quality evaluation only"
+run = "uv run pytest tapio-evaluation/evals/test_retrieval.py -m deepeval -v --no-header"
+
+[tasks.eval-safety]
+description = "Run safety evaluation only"
+run = "uv run pytest tapio-evaluation/evals/test_safety.py -m deepeval -v --no-header"
+
+[tasks.eval-list]
+description = "List all registered DeepEval test cases"
+run = "uv run pytest tapio-evaluation/evals/ --collect-only -m deepeval --no-header -q"
+
+[tasks.eval-ragas]
+description = "Run all Ragas evaluations (requires Ollama + ChromaDB)"
+run = "uv run pytest tapio-evaluation/ragas_eval/ -m ragas -v --no-header"
+
+[tasks.eval-ragas-comprehensive]
+description = "Run comprehensive Ragas evaluation with all metrics at once"
+run = "uv run pytest tapio-evaluation/ragas_eval/test_comprehensive.py -m ragas -v --no-header"
+
+[tasks.eval-ragas-retrieval]
+description = "Run Ragas context precision / recall evaluation"
+run = "uv run pytest tapio-evaluation/ragas_eval/test_retrieval.py -m ragas -v --no-header"
+
+[tasks.eval-ragas-answer]
+description = "Run Ragas faithfulness / answer relevancy / correctness evaluation"
+run = "uv run pytest tapio-evaluation/ragas_eval/test_answer.py -m ragas -v --no-header"
+
+[tasks.eval-ragas-list]
+description = "List all registered Ragas test cases"
+run = "uv run pytest tapio-evaluation/ragas_eval/ --collect-only -m ragas --no-header -q"

@@ -173,6 +173,9 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 
+# DeepEval
+.deepeval/
+.env.local
 
 .DS_Store
 

@@ -28,12 +28,14 @@ dependencies = [
     "pydantic>=2.13.4",
     "httpx>=0.28.1",
     "beautifulsoup4>=4.13.4",
+    "langsmith>=0.3.0",
+    "python-dotenv>=1.0.0",
 ]
 
 [project.scripts]
 tapio = "tapio.cli:app"
 
-[tool.pytest]
+[tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
 
@@ -126,6 +128,21 @@ ignore = [
     "S101",    # assert is the standard pytest idiom
     "SLF001",  # tests intentionally exercise private members
 ]
+"tapio-evaluation/evals/*" = [
+    "ANN",     # evaluation tests excluded from mypy and don't need annotations
+    "D",       # docstrings aren't required on evaluation functions
+    "PLC0415", # local imports for Ollama/DeepEval/ChromaDB/Ragas are lazy by design
+    "PTH",     # path handling in eval fixtures is fine
+    "S101",    # assert_test is the standard DeepEval idiom
+]
+"tapio-evaluation/ragas_eval/*" = [
+    "ANN",     # evaluation tests excluded from mypy and don't need annotations
+    "D",       # docstrings aren't required on evaluation functions
+    "PLC0415", # local imports for Ollama/Ragas/ChromaDB are lazy by design
+    "PLR2004", # magic threshold values (0.5, 0.7) are self-documenting
+    "PTH",     # path handling in eval fixtures is fine
+    "S101",    # assert is the standard Ragas pattern
+]
 "tapio/cli.py" = [
     "FBT003",  # typer.Option(False, ...) passes the default positionally by convention
 ]
@@ -143,12 +160,16 @@ line-ending = "auto"
 
 [dependency-groups]
 dev = [
+    "deepeval>=4.0.0",
+    "langchain-google-vertexai>=3.2.4",
+    "langchain-ollama>=1.1.0",
     "mypy>=1.15.0",
     "prek>=0.2.3",
     "pyrefly>=1.1.1",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=6.1.1",
+    "ragas>=0.3.0,<0.4.0",
     "ruff>=0.13.1",
     "types-lxml>=2025.3.30",
     "types-pyyaml>=6.0.12.20250402",

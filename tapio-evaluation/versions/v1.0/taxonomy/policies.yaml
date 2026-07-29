@@ -1,0 +1,56 @@
+policies:
+  - id: income_sufficiency
+    name: "Income Requirement (Toimeentuloedellytys)"
+    description: "The requirement that applicants must have secure and sufficient funds to live in Finland without relying on social assistance."
+    details:
+      student_rate: "EUR 800 per month (EUR 9,600 per year) at the applicant's disposal."
+      specialist_rate: "Subject to a specific salary threshold (tied to the national average, regularly adjusted)."
+      family_member_rates: "Fixed graduated amounts depending on the size of the family (e.g., first adult, spouse, children)."
+      data_sources:
+        - "Migri Income Requirement Guidelines"
+        - "Finnish Incomes Register (Tulorekisteri)"
+
+  - id: language_proficiency
+    name: "Language Skills Requirement (Kielitaitovaatimus)"
+    description: "Mandatory requirement of at least a satisfactory level (CEFR level B1) in Finnish or Swedish to qualify for citizenship or permanent residency."
+    details:
+      accepted_tests:
+        - "National Certificate of Language Proficiency (YKI test, minimum level 3 in speaking, writing, listening, and reading combinations)"
+        - "Civil Service Language Proficiency Certificate (valtionhallinnon kielitutkinto)"
+        - "School or university degree completed in Finnish or Swedish"
+
+  - id: period_of_residence
+    name: "Period of Residence (Asumisaika)"
+    description: "The continuous duration of time an applicant must live in Finland under a valid permit type to qualify for permanent residence or citizenship."
+    details:
+      citizenship_requirement: "Normally 5 years of continuous residence (or 4 years under specific exceptions like spouse of a Finn or refugee status)."
+      permit_types_counted: "Continuous permit (A-permit) counts 100%. Temporary permit (B-permit, e.g., former student rules or seasonal) may count 50% depending on the specific application path (e.g., citizenship vs older permanent residency guidelines)."
+      absence_limits: "Strict limits on the number of days spent outside Finland during the continuous period."
+
+  - id: right_to_work
+    name: "Right to Work (Työnteko-oikeus)"
+    description: "Defines when, where, and for how long a foreign national is allowed to work in Finland."
+    details:
+      students: "Average of 30 hours per week during academic terms; unrestricted hours during holidays."
+      asylum_seekers: "Right to work starts either 3 months (with valid travel document) or 6 months (without travel document) after applying."
+      temporary_protection: "Unrestricted right to work starts immediately upon registering the application with the police or border guard."
+      specialists: "Can work only in roles that meet the specialist criteria until a permanent or extended permit with unrestricted rights is granted."
+
+  - id: fast_track
+    name: "Fast-Track Service (Pikakaista)"
+    description: "A priority processing service promising a decision within 14 days for specific high-value applicants and their families."
+    details:
+      eligible_groups:
+        - "Specialists (high-skilled professionals)"
+        - "EU Blue Card applicants"
+        - "Start-up entrepreneurs"
+        - "Accompanying family members of the above applying simultaneously"
+      requirements: "Online application filed via Enter Finland, fees paid upfront, and identity verified at a service point within specific timeframes."
+
+  - id: social_security_and_registration
+    name: "National Registration and Benefits Integration"
+    description: "Rules governing how residence permits translate into local registration (DVV) and social security coverage (Kela)."
+    details:
+      personal_identity_code: "Granted upon permit approval or registered by DVV (Digi- ja väestötietovirasto)."
+      municipality_of_residence: "Enables access to municipal healthcare, schools, and local services (granted under DVV's municipality of residence act)."
+      kela_benefits: "Determined by whether employment is considered regular/stable (minimum salary/hours) or if residency is deemed permanent."

@@ -168,6 +168,8 @@ class TapioAssistantApp:
                 {"role": "assistant", "content": assistant_response},
             )
 
+            logger.info("Response: %.200s", assistant_response.replace("\n", " "))
+
             # Ensure documents are formatted for final display
             if retrieved_docs:
                 formatted_docs = self.rag_orchestrator.format_documents_for_display(
