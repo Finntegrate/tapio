@@ -324,9 +324,14 @@ class TestCli:
         # Check that parse_all was called correctly (without domain parameter)
         mock_parser_instance.parse_all.assert_called_once_with()
 
+    @patch("tapio.cli.HuggingFaceEmbeddings")
     @patch("tapio.cli.MarkdownVectorizer")
-    def test_vectorize_command_exception(self, mock_vectorizer, runner):
+    def test_vectorize_command_exception(self, mock_vectorizer, mock_embeddings, runner):
         """Test handling of exceptions in vectorize command."""
+        # Mock embeddings to avoid loading the actual BGE-M3 model
+        mock_embeddings_instance = MagicMock()
+        mock_embeddings.return_value = mock_embeddings_instance
+
         # Set up mock to raise an exception
         mock_vectorizer_instance = MagicMock()
         mock_vectorizer_instance.process_directory.side_effect = Exception("Test error")

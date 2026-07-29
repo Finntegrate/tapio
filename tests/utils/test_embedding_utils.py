@@ -2,6 +2,7 @@
 
 from unittest.mock import Mock, patch
 
+from tapio.config.settings import DEFAULT_EMBEDDING_MODEL
 from tapio.utils.embedding_utils import EmbeddingGenerator
 
 
@@ -14,8 +15,11 @@ class TestEmbeddingGenerator:
         generator = EmbeddingGenerator()
 
         # Check if initialized with the correct default model
-        mock_sentence_transformer.assert_called_once_with(model_name="all-MiniLM-L6-v2")
-        assert generator.model_name == "all-MiniLM-L6-v2"
+        mock_sentence_transformer.assert_called_once_with(
+            model_name=DEFAULT_EMBEDDING_MODEL,
+            encode_kwargs={"normalize_embeddings": True},
+        )
+        assert generator.model_name == DEFAULT_EMBEDDING_MODEL
 
     @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
     def test_init_custom_model(self, mock_sentence_transformer):
@@ -24,7 +28,10 @@ class TestEmbeddingGenerator:
         generator = EmbeddingGenerator(model_name=custom_model)
 
         # Check if initialized with the custom model
-        mock_sentence_transformer.assert_called_once_with(model_name=custom_model)
+        mock_sentence_transformer.assert_called_once_with(
+            model_name=custom_model,
+            encode_kwargs={"normalize_embeddings": True},
+        )
         assert generator.model_name == custom_model
 
     @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")

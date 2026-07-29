@@ -7,12 +7,14 @@ configurations and extracts content from HTML pages accordingly.
 import json
 import logging
 import os
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urljoin
 
-import html2text
+from bs4 import BeautifulSoup
+from markdownify import markdownify as md
 import yaml
 from lxml import html
 
@@ -255,6 +257,10 @@ class Parser:
             # Convert relative links to absolute links
             content_html = self._convert_relative_links_to_absolute(content_html)
 
+            # Sanitize HTML before markdown conversion (strip nav, scripts,
+            # unwrap headings from links, remove empty/aria-hidden elements)
+            content_html = self._sanitize_html(content_html)
+
             # Convert HTML to Markdown using site-specific settings
             markdown_content = self._html_to_markdown(content_html)
 
@@ -263,6 +269,66 @@ class Parser:
             return "Error Parsing Page", f"Error parsing the HTML content: {e!s}"
         else:
             return title, markdown_content
+
+    def _sanitize_html(self, html_content: str) -> str:
+        """Sanitize HTML before markdown conversion using BeautifulSoup.
+
+        Strips unwanted elements, unwrap headings from links, and removes
+        hidden / interactive elements that would pollute the markdown output.
+
+        Args:
+            html_content: HTML content string to sanitize
+
+        Returns:
+            Cleaned HTML string
+        """
+        if not html_content or not html_content.strip():
+            return html_content
+
+        soup = BeautifulSoup(html_content, "lxml")
+
+        # Strip invisible / interactive / utility elements
+        for element in soup.find_all(["script", "style", "noscript", "nav", "footer", "button", "form", "input"]):
+            element.decompose()
+
+        # Strip elements marked as aria-hidden
+        for element in soup.find_all(attrs={"aria-hidden": "true"}):
+            element.decompose()
+
+        # Unwrap headings nested inside anchor tags so headers are
+        # not enclosed in brackets by markdownify (e.g. "[### Title](url)").
+        # This ensures MarkdownHeaderTextSplitter can detect them.
+        for a_tag in soup.find_all("a"):
+            heading = a_tag.find(["h1", "h2", "h3", "h4", "h5", "h6"])
+            if heading:
+                a_tag.insert_before(heading.extract())
+                if not a_tag.get_text(strip=True):
+                    a_tag.decompose()
+
+        return str(soup)
+
+    @staticmethod
+    def _post_process_markdown(markdown_content: str) -> str:
+        """Clean up markdown output after conversion.
+
+        Removes empty heading lines and collapses excessive whitespace.
+
+        Args:
+            markdown_content: Raw markdown string from markdownify
+
+        Returns:
+            Cleaned markdown string
+        """
+        if not markdown_content:
+            return markdown_content
+
+        # Remove empty markdown headers (e.g. "# " or "## " with trailing spaces)
+        markdown_content = re.sub(r"^#{1,6}\s*$", "", markdown_content, flags=re.MULTILINE)
+
+        # Collapse three or more consecutive newlines into two
+        markdown_content = re.sub(r"\n{3,}", "\n\n", markdown_content)
+
+        return markdown_content.strip()
 
     @staticmethod
     def _convert_element_link_to_absolute(
@@ -343,18 +409,24 @@ class Parser:
         Returns:
             Markdown formatted text
         """
-        # Configure html2text with site-specific settings
         config = self.config.parser_config.markdown_config
-        text_maker = html2text.HTML2Text()
-        text_maker.ignore_links = config.ignore_links
-        text_maker.body_width = config.body_width
-        text_maker.protect_links = config.protect_links
-        text_maker.unicode_snob = config.unicode_snob
-        text_maker.ignore_images = config.ignore_images
-        text_maker.ignore_tables = config.ignore_tables
 
-        # Convert HTML to Markdown
-        return text_maker.handle(html_content)
+        strip_tags: list[str] = []
+        if config.ignore_links:
+            strip_tags.append("a")
+        if config.ignore_images:
+            strip_tags.append("img")
+        if config.ignore_tables:
+            strip_tags.extend(["table", "thead", "tbody", "tr", "th", "td"])
+
+        markdown = md(
+            html_content,
+            heading_style="ATX",
+            wrap_width=config.body_width if (config.body_width and config.body_width > 0) else None,
+            strip=strip_tags if strip_tags else None,
+        )
+
+        return self._post_process_markdown(markdown)
 
     def _construct_base_url_from_path(self, file_path: str) -> str:
         """Construct base URL from file path when no URL mapping exists.

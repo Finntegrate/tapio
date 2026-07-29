@@ -47,7 +47,10 @@ class RAGOrchestratorFactory:
         Returns:
             Configured HuggingFaceEmbeddings instance
         """
-        return HuggingFaceEmbeddings(model_name=self.config.embedding_model_name)
+        return HuggingFaceEmbeddings(
+            model_name=self.config.embedding_model_name,
+            encode_kwargs={"normalize_embeddings": True, "batch_size": 128},
+        )
 
     def create_chroma_store(self, embeddings: Embeddings | None = None) -> ChromaStore:
         """Create ChromaDB vector store.

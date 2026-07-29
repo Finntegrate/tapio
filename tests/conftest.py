@@ -24,8 +24,8 @@ def mock_embeddings():
     consistent dummy embeddings without loading a real model.
     """
     embeddings = Mock()
-    # Typical embedding dimension for all-MiniLM-L6-v2 is 384
-    dummy_embedding = [0.1] * 384
+    # Typical embedding dimension for BGE-M3 (BAAI/bge-m3) is 1024
+    dummy_embedding = [0.1] * 1024
 
     # embed_query returns a single embedding (copy to avoid mutation)
     embeddings.embed_query.side_effect = lambda _: dummy_embedding.copy()

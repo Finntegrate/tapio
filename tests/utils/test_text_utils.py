@@ -2,12 +2,15 @@
 
 from unittest.mock import Mock, patch
 
+from langchain_core.documents import Document
+
 from tapio.utils.text_utils import (
     _basic_clean_html,
     _chunk_text_safely,
     chunk_html_content,
     is_pdf_url,
     remove_javascript,
+    HybridMarkdownSplitter,
 )
 
 
@@ -262,3 +265,208 @@ class TestTextUtils:
         # Check that list items are converted to bullet points
         assert "• Item 1" in cleaned
         assert "• Item 2" in cleaned
+
+
+class TestHybridMarkdownSplitter:
+    """Tests for the HybridMarkdownSplitter."""
+
+    def test_split_documents_preserves_header_hierarchy(self):
+        """Test that header hierarchy is preserved in chunk metadata."""
+        splitter = HybridMarkdownSplitter(
+            headers_to_split_on=[("#", "H1"), ("##", "H2"), ("###", "H3")],
+            chunk_size=500,
+            chunk_overlap=50,
+        )
+
+        md = """# Residence Permits
+
+             This section covers residence permit types in Finland.
+             
+             ## Type A Permit
+             
+             This is a temporary residence permit.
+             
+             ## Type B Permit
+             
+             This is a continuous residence permit.
+             
+             ### Type B Subcategory
+             
+             Details about type B subcategory.
+             
+             ## Processing Times
+             
+             Standard processing takes 4-6 months.
+             """
+
+        doc = Document(page_content=md, metadata={"source": "test"})
+        chunks = splitter.split_documents([doc])
+
+        assert len(chunks) > 1
+
+        header_metadata = {c.metadata.get("H1") for c in chunks}
+        assert "Residence Permits" in header_metadata
+
+        h2_headers = {c.metadata.get("H2") for c in chunks if c.metadata.get("H2")}
+        assert "Type A Permit" in h2_headers
+        assert "Type B Permit" in h2_headers
+        assert "Processing Times" in h2_headers
+
+        for chunk in chunks:
+            assert chunk.metadata.get("source") == "test"
+
+    def test_split_documents_small_content_no_splitting(self):
+        """Test that small content without headers is returned as-is."""
+        splitter = HybridMarkdownSplitter(chunk_size=1000, chunk_overlap=200)
+
+        md = "Small piece of content without any headers."
+        doc = Document(page_content=md, metadata={"source": "test"})
+        chunks = splitter.split_documents([doc])
+
+        assert len(chunks) == 1
+        assert chunks[0].page_content == md
+        assert chunks[0].metadata.get("source") == "test"
+
+    def test_split_documents_preserves_source_metadata(self):
+        """Test that source metadata is preserved through both passes."""
+        splitter = HybridMarkdownSplitter(
+            headers_to_split_on=[("#", "H1"), ("##", "H2")],
+            chunk_size=800,
+            chunk_overlap=200,
+        )
+
+        md = """# Main Title
+
+             ## Section One
+             
+             Long content that will need to be split across multiple chunks because it exceeds the chunk size limit.
+             
+             ## Section Two
+             
+             More content here that also needs splitting.
+             """
+
+        doc = Document(
+            page_content=md,
+            metadata={"source_url": "https://example.com", "title": "Test"},
+        )
+        chunks = splitter.split_documents([doc])
+
+        assert len(chunks) > 1
+        for chunk in chunks:
+            assert chunk.metadata.get("source_url") == "https://example.com"
+            assert chunk.metadata.get("title") == "Test"
+
+    def test_split_documents_header_hierarchy_in_metadata(self):
+        """Test that nested header hierarchy is preserved in metadata."""
+        splitter = HybridMarkdownSplitter(
+            headers_to_split_on=[("#", "H1"), ("##", "H2"), ("###", "H3")],
+            chunk_size=500,
+            chunk_overlap=50,
+        )
+
+        md = """# Main Title
+
+             ## Section One
+             
+             Content under section one.
+             
+             ### Subsection A
+             
+             Detailed content under subsection A.
+             
+             ## Section Two
+             
+             Content under section two.
+             """
+
+        doc = Document(page_content=md, metadata={})
+        chunks = splitter.split_documents([doc])
+
+        for chunk in chunks:
+            if "Subsection A" in chunk.page_content:
+                assert chunk.metadata.get("H1") == "Main Title"
+                assert chunk.metadata.get("H2") == "Section One"
+                assert chunk.metadata.get("H3") == "Subsection A"
+
+    def test_split_documents_empty_content(self):
+        """Test that empty content returns no chunks."""
+        splitter = HybridMarkdownSplitter()
+        doc = Document(page_content="", metadata={})
+        chunks = splitter.split_documents([doc])
+        assert len(chunks) == 0
+
+    def test_split_documents_no_headers(self):
+        """Test content without headers is still size-split."""
+        splitter = HybridMarkdownSplitter(
+            chunk_size=100,
+            chunk_overlap=10,
+        )
+
+        text = "word " * 200
+        doc = Document(page_content=text, metadata={})
+        chunks = splitter.split_documents([doc])
+
+        assert len(chunks) > 1
+        for chunk in chunks:
+            assert len(chunk.page_content) <= 100
+
+    def test_metadata_merge_order_header_wins(self):
+        splitter = HybridMarkdownSplitter(
+            headers_to_split_on=[("#", "H1")],
+            chunk_size=500,
+            chunk_overlap=50,
+        )
+
+        md = "# Families\n\nContent about families."
+        doc = Document(
+            page_content=md,
+            metadata={"H1": "Wrong value", "source_url": "https://example.com"},
+        )
+        chunks = splitter.split_documents([doc])
+
+        assert len(chunks) == 1
+        assert chunks[0].metadata["H1"] == "Families"
+        assert chunks[0].metadata["source_url"] == "https://example.com"
+
+    def test_section_id_in_metadata(self):
+        splitter = HybridMarkdownSplitter(
+            headers_to_split_on=[("#", "H1"), ("##", "H2")],
+            chunk_size=500,
+            chunk_overlap=50,
+        )
+
+        md = """# Section A
+
+                 Content A.
+
+             ## Sub A1
+
+                Content A1.
+
+              # Section B
+
+            Content B.
+                 """
+        doc = Document(page_content=md, metadata={})
+        chunks = splitter.split_documents([doc])
+
+        section_ids = {c.metadata.get("section_id") for c in chunks}
+        assert 0 in section_ids
+        assert 1 in section_ids
+        assert 2 in section_ids
+
+    def test_start_index_in_metadata(self):
+        splitter = HybridMarkdownSplitter(
+            chunk_size=100,
+            chunk_overlap=10,
+        )
+
+        text = "word " * 200
+        doc = Document(page_content=text, metadata={})
+        chunks = splitter.split_documents([doc])
+
+        assert len(chunks) > 1
+        for chunk in chunks:
+            assert "start_index" in chunk.metadata
+            assert isinstance(chunk.metadata["start_index"], int)

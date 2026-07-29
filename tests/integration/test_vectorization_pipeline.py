@@ -5,8 +5,8 @@ Tests the complete flow from markdown files to vector storage.
 
 import pytest
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
-from langchain_text_splitters import MarkdownTextSplitter  # type: ignore[import-not-found]
 
+from tapio.utils.text_utils import HybridMarkdownSplitter
 from tapio.vectorstore.vectorizer import MarkdownVectorizer
 
 
@@ -64,7 +64,7 @@ Work permits require a job offer from a Finnish employer.
     )
 
     # Create text splitter
-    text_splitter = MarkdownTextSplitter(
+    text_splitter = HybridMarkdownSplitter(
         chunk_size=1000,
         chunk_overlap=200,
     )
@@ -105,7 +105,7 @@ def test_vectorizer_handles_empty_directory(tmp_path, tmp_chroma_db, mock_embedd
     )
 
     # Create text splitter
-    text_splitter = MarkdownTextSplitter(
+    text_splitter = HybridMarkdownSplitter(
         chunk_size=1000,
         chunk_overlap=200,
     )

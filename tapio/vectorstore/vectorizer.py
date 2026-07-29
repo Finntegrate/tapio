@@ -6,7 +6,6 @@ from typing import Any
 
 from langchain_chroma import Chroma  # type: ignore[import-not-found]
 from langchain_core.documents import Document
-from langchain_text_splitters import MarkdownTextSplitter  # type: ignore[import-not-found]
 
 from tapio.utils.markdown_utils import find_markdown_files, read_markdown_file
 
@@ -24,18 +23,19 @@ class MarkdownVectorizer:
     def __init__(
         self,
         vector_db: Chroma,
-        text_splitter: MarkdownTextSplitter,
+        text_splitter: Any,
     ) -> None:
         """Initialize the vectorizer.
 
         Args:
             vector_db: LangChain Chroma instance for vector storage
-            text_splitter: MarkdownTextSplitter for chunking documents
+            text_splitter: Text splitter with a split_documents method
+                (e.g. HybridMarkdownSplitter, MarkdownTextSplitter)
 
         Example:
             >>> from langchain_chroma import Chroma
             >>> from langchain_huggingface import HuggingFaceEmbeddings
-            >>> from langchain_text_splitters import MarkdownTextSplitter
+            >>> from tapio.utils.text_utils import HybridMarkdownSplitter
             >>>
             >>> embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
             >>> vector_db = Chroma(
@@ -43,7 +43,7 @@ class MarkdownVectorizer:
             ...     embedding_function=embeddings,
             ...     persist_directory="./chroma_db"
             ... )
-            >>> text_splitter = MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200)
+            >>> text_splitter = HybridMarkdownSplitter(chunk_size=800, chunk_overlap=200)
             >>> vectorizer = MarkdownVectorizer(vector_db, text_splitter)
         """
         self.vector_db = vector_db
