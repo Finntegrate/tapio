@@ -40,7 +40,7 @@ html, body {
   max-width: none !important;
   min-height: 100vh;
   overflow: hidden;
-  padding: 0.7rem 1rem !important;
+  padding: 0.45rem 1rem !important;
   width: 100% !important;
   background:
     radial-gradient(circle at 12% 0%, #1a3a28 0, transparent 28rem),
@@ -49,19 +49,21 @@ html, body {
   color-scheme: dark;
 }
 .gradio-container > .main {
+  display: flex !important;
+  flex-direction: column;
   height: 100%;
   max-width: none !important;
   min-height: 0;
   padding: 0 !important;
 }
-#tapio-header { margin: 0.15rem 0 0.7rem; }
+#tapio-header { flex: 0 0 auto; margin: 0.05rem 0 0.35rem; }
 #tapio-header h1 {
   color: #f1f8f2;
-  font-size: 1.8rem;
+  font-size: 1.55rem;
   letter-spacing: -0.04em;
   margin: 0.2rem 0;
 }
-#tapio-header p { color: #a9bfaf; margin: 0; }
+#tapio-header p { color: #a9bfaf; font-size: 0.84rem; margin: 0; }
 .eyebrow {
   color: #81d99c;
   font-size: 0.7rem;
@@ -70,11 +72,19 @@ html, body {
 }
 #workspace {
   align-items: stretch;
-  height: calc(100vh - 5.6rem);
+  flex: 1 1 auto;
+  height: auto;
   min-height: 0;
   overflow: hidden;
 }
 #workspace > .column, #chat-workspace { min-height: 0; }
+#chat-workspace {
+  display: flex !important;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+#chat-workspace > * { flex: 0 0 auto; }
 #agent-sidebar, #guide-panel {
   background: #122019;
   border: 1px solid #2d4937;
@@ -154,8 +164,12 @@ html, body {
   border: 1px solid #2d4937;
   border-radius: 1.25rem;
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
-  height: max(220px, calc(100vh - 20.5rem)) !important;
+  flex: 1 1 0 !important;
+  height: auto !important;
+  min-height: 180px;
+  overflow: hidden;
 }
+#conversation > .wrap { height: 100%; }
 #conversation .message, #conversation .message * { color: #eaf4ec !important; }
 #conversation .message.user { background: #1d412b !important; }
 #conversation .message.bot { background: #1a2b20 !important; }
@@ -165,7 +179,7 @@ html, body {
   background: #101c15 !important;
   color: #f2f8f2 !important;
   border-radius: 0.85rem !important;
-  min-height: 58px;
+  min-height: 42px;
 }
 #message-box textarea::placeholder { color: #8ea794 !important; }
 #send-button button, #send-button {
@@ -182,13 +196,11 @@ html, body {
 #new-conversation-button { border-radius: 0.75rem !important; }
 .disclaimer { color: #a8c0ae; font-size: 0.78rem; margin: 0.6rem 0; }
 .disclaimer a { color: #94e6ad !important; }
-#example-prompts { margin-top: 0.35rem; }
-#example-prompts .label-wrap { min-height: 2rem; }
 @media (max-width: 760px) {
   html, body, .gradio-container { overflow: auto; }
   .gradio-container { height: auto; min-height: 100vh; }
   #tapio-header h1 { font-size: 1.85rem; }
-  #workspace { height: auto; overflow: visible; }
+  #workspace { flex: initial; height: auto; overflow: visible; }
   #agent-sidebar, #guide-panel { padding: 1rem; }
   #conversation { height: 52vh !important; }
 }
@@ -486,7 +498,7 @@ class TapioAssistantApp:
                     gr.Markdown("### # your-finland-journey")
                     chatbot = gr.Chatbot(
                         show_label=False,
-                        height="max(220px, calc(100vh - 20.5rem))",
+                        height=360,
                         layout="bubble",
                         buttons=["copy_all"],
                         feedback_options=None,
@@ -496,7 +508,7 @@ class TapioAssistantApp:
                     msg = gr.Textbox(
                         label="Message Tapio and the guides",
                         placeholder="For example: How do I apply for a residence permit?",
-                        lines=2,
+                        lines=1,
                         elem_id="message-box",
                     )
 
@@ -548,17 +560,6 @@ class TapioAssistantApp:
                 ],
             )
             cast("Any", clear).click(self.clear_chat, None, [chatbot, docs_display, guide_status])
-
-            with gr.Accordion("Try an example question", open=False, elem_id="example-prompts"):
-                gr.Examples(
-                    examples=[
-                        "How do I apply for a residence permit?",
-                        "What documents do I need for family reunification?",
-                        "How long does it take to process a work permit application?",
-                        "What are the requirements for Finnish citizenship?",
-                    ],
-                    inputs=msg,
-                )
 
         return demo
 
