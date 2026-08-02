@@ -21,6 +21,12 @@ class TestGradioApp:
         assert "color-scheme: dark;" in APP_CSS
         assert "--body-background-fill: #0b1410;" in APP_CSS
 
+    def test_desktop_layout_fills_the_viewport(self):
+        """Keep scrolling inside the chat rather than the surrounding page."""
+        assert "height: 100vh;" in APP_CSS
+        assert "html, body {" in APP_CSS
+        assert "overflow: hidden;" in APP_CSS
+
     def test_generate_rag_response(self, test_app):
         """Test generating a RAG response."""
         test_app.rag_orchestrator.query.return_value = (

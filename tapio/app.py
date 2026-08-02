@@ -14,6 +14,12 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 APP_CSS = """
+html, body {
+  background: #0b1410;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
 .gradio-container {
   --body-background-fill: #0b1410;
   --body-text-color: #eaf4ec;
@@ -29,17 +35,29 @@ APP_CSS = """
   --button-secondary-background-fill: #1a2c21;
   --button-secondary-text-color: #eaf4ec;
   --button-secondary-border-color: #3b5c46;
-  max-width: 1500px !important;
+  box-sizing: border-box;
+  height: 100vh;
+  max-width: none !important;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 0.7rem 1rem !important;
+  width: 100% !important;
   background:
     radial-gradient(circle at 12% 0%, #1a3a28 0, transparent 28rem),
     #0b1410;
   color: #eaf4ec;
   color-scheme: dark;
 }
-#tapio-header { margin: 0.5rem 0 1.5rem; }
+.gradio-container > .main {
+  height: 100%;
+  max-width: none !important;
+  min-height: 0;
+  padding: 0 !important;
+}
+#tapio-header { margin: 0.15rem 0 0.7rem; }
 #tapio-header h1 {
   color: #f1f8f2;
-  font-size: 2.25rem;
+  font-size: 1.8rem;
   letter-spacing: -0.04em;
   margin: 0.2rem 0;
 }
@@ -50,6 +68,13 @@ APP_CSS = """
   font-weight: 700;
   letter-spacing: 0.11em;
 }
+#workspace {
+  align-items: stretch;
+  height: calc(100vh - 5.6rem);
+  min-height: 0;
+  overflow: hidden;
+}
+#workspace > .column, #chat-workspace { min-height: 0; }
 #agent-sidebar, #guide-panel {
   background: #122019;
   border: 1px solid #2d4937;
@@ -58,6 +83,7 @@ APP_CSS = """
   color: #eaf4ec !important;
   color-scheme: dark;
   padding: 1.25rem;
+  overflow-y: auto;
 }
 #guide-panel {
   background: linear-gradient(180deg, #172b20 0%, #122019 48%);
@@ -128,6 +154,7 @@ APP_CSS = """
   border: 1px solid #2d4937;
   border-radius: 1.25rem;
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
+  height: max(220px, calc(100vh - 20.5rem)) !important;
 }
 #conversation .message, #conversation .message * { color: #eaf4ec !important; }
 #conversation .message.user { background: #1d412b !important; }
@@ -155,9 +182,15 @@ APP_CSS = """
 #new-conversation-button { border-radius: 0.75rem !important; }
 .disclaimer { color: #a8c0ae; font-size: 0.78rem; margin: 0.6rem 0; }
 .disclaimer a { color: #94e6ad !important; }
+#example-prompts { margin-top: 0.35rem; }
+#example-prompts .label-wrap { min-height: 2rem; }
 @media (max-width: 760px) {
+  html, body, .gradio-container { overflow: auto; }
+  .gradio-container { height: auto; min-height: 100vh; }
   #tapio-header h1 { font-size: 1.85rem; }
+  #workspace { height: auto; overflow: visible; }
   #agent-sidebar, #guide-panel { padding: 1rem; }
+  #conversation { height: 52vh !important; }
 }
 """
 
@@ -436,7 +469,7 @@ class TapioAssistantApp:
                 "<p>Your shared conversation with Finntegrate's specialized guides.</p></div>",
             )
 
-            with gr.Row():
+            with gr.Row(elem_id="workspace"):
                 with gr.Column(scale=2, min_width=230, elem_id="agent-sidebar"):
                     gr.Markdown("### Your guide team")
                     gr.Markdown(_agent_roster_markdown())
@@ -449,11 +482,11 @@ class TapioAssistantApp:
                         elem_id="guide-picker",
                     )
 
-                with gr.Column(scale=7, min_width=360):
+                with gr.Column(scale=7, min_width=360, elem_id="chat-workspace"):
                     gr.Markdown("### # your-finland-journey")
                     chatbot = gr.Chatbot(
                         show_label=False,
-                        height=560,
+                        height="max(220px, calc(100vh - 20.5rem))",
                         layout="bubble",
                         buttons=["copy_all"],
                         feedback_options=None,
@@ -516,16 +549,16 @@ class TapioAssistantApp:
             )
             cast("Any", clear).click(self.clear_chat, None, [chatbot, docs_display, guide_status])
 
-            # Add some example queries
-            gr.Examples(
-                examples=[
-                    "How do I apply for a residence permit?",
-                    "What documents do I need for family reunification?",
-                    "How long does it take to process a work permit application?",
-                    "What are the requirements for Finnish citizenship?",
-                ],
-                inputs=msg,
-            )
+            with gr.Accordion("Try an example question", open=False, elem_id="example-prompts"):
+                gr.Examples(
+                    examples=[
+                        "How do I apply for a residence permit?",
+                        "What documents do I need for family reunification?",
+                        "How long does it take to process a work permit application?",
+                        "What are the requirements for Finnish citizenship?",
+                    ],
+                    inputs=msg,
+                )
 
         return demo
 
