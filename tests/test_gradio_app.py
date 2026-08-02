@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from tapio.app import TapioAssistantApp, main
+from tapio.app import APP_CSS, TapioAssistantApp, main
 
 
 @pytest.fixture
@@ -15,6 +15,11 @@ def test_app(mock_rag_orchestrator):
 
 class TestGradioApp:
     """Tests for the Gradio app module."""
+
+    def test_interface_uses_dark_first_visual_design(self):
+        """Keep Tapio's default interface in dark mode."""
+        assert "color-scheme: dark;" in APP_CSS
+        assert "--body-background-fill: #0b1410;" in APP_CSS
 
     def test_generate_rag_response(self, test_app):
         """Test generating a RAG response."""
