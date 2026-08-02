@@ -17,7 +17,17 @@ APP_CSS = """
 .gradio-container { max-width: 1500px !important; }
 #tapio-header { margin-bottom: 0.5rem; }
 #tapio-header h1 { margin-bottom: 0.25rem; }
-#agent-sidebar, #guide-panel { background: #f8faf9; border: 1px solid #e5e7eb; border-radius: 1rem; padding: 1rem; }
+#agent-sidebar, #guide-panel {
+  background: #f8faf9;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  color: #17201a !important;
+  color-scheme: light;
+  padding: 1rem;
+}
+#agent-sidebar *, #guide-panel * { color: #17201a !important; }
+#agent-sidebar a, #guide-panel a { color: #176b46 !important; }
+#agent-sidebar input, #agent-sidebar button { background: #ffffff !important; }
 #conversation { border: 1px solid #e5e7eb; border-radius: 1rem; }
 #message-box textarea { min-height: 58px; }
 .agent-card { border-left: 3px solid #2f6b4f; margin: 0.7rem 0; padding-left: 0.7rem; }
