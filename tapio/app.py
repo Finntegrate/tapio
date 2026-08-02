@@ -14,25 +14,114 @@ logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 APP_CSS = """
-.gradio-container { max-width: 1500px !important; }
-#tapio-header { margin-bottom: 0.5rem; }
-#tapio-header h1 { margin-bottom: 0.25rem; }
-#agent-sidebar, #guide-panel {
-  background: #f8faf9;
-  border: 1px solid #e5e7eb;
-  border-radius: 1rem;
-  color: #17201a !important;
-  color-scheme: light;
-  padding: 1rem;
+.gradio-container {
+  max-width: 1500px !important;
+  background:
+    radial-gradient(circle at 12% 0%, #edf7ed 0, transparent 25rem),
+    #f7f8f5;
+  color: #173524;
 }
-#agent-sidebar *, #guide-panel * { color: #17201a !important; }
+#tapio-header { margin: 0.5rem 0 1.5rem; }
+#tapio-header h1 {
+  color: #123d27;
+  font-size: 2.25rem;
+  letter-spacing: -0.04em;
+  margin: 0.2rem 0;
+}
+#tapio-header p { color: #587060; margin: 0; }
+.eyebrow {
+  color: #28714a;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.11em;
+}
+#agent-sidebar, #guide-panel {
+  background: #ffffff;
+  border: 1px solid #dbe7dc;
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 30px rgba(24, 65, 40, 0.07);
+  color: #173524 !important;
+  color-scheme: light;
+  padding: 1.25rem;
+}
+#guide-panel {
+  background: linear-gradient(180deg, #f4faf5 0%, #ffffff 45%);
+}
+#agent-sidebar *, #guide-panel * { color: #173524 !important; }
 #agent-sidebar a, #guide-panel a { color: #176b46 !important; }
-#agent-sidebar input, #agent-sidebar button { background: #ffffff !important; }
-#conversation { border: 1px solid #e5e7eb; border-radius: 1rem; }
-#message-box textarea { min-height: 58px; }
-.agent-card { border-left: 3px solid #2f6b4f; margin: 0.7rem 0; padding-left: 0.7rem; }
-.agent-card--amber { border-color: #d88d1a; }
-.agent-card--nordic { border-color: #28708c; }
+#agent-sidebar h3, #guide-panel h3 {
+  color: #123d27 !important;
+  font-size: 0.95rem;
+  letter-spacing: -0.01em;
+  margin-bottom: 0.5rem;
+}
+.agent-card {
+  background: #fbfdfb;
+  border: 1px solid #e5eee7;
+  border-left: 3px solid #2f6b4f;
+  border-radius: 0.65rem;
+  margin: 0.55rem 0;
+  padding: 0.55rem 0.65rem;
+}
+.agent-card strong { display: block; font-size: 0.9rem; }
+.agent-card small { color: #607565 !important; font-size: 0.76rem; line-height: 1.35; }
+.agent-card--amber { border-left-color: #c98519; }
+.agent-card--nordic { border-left-color: #28708c; }
+#guide-picker { margin-top: 0.75rem; }
+#guide-picker .wrap {
+  display: grid !important;
+  gap: 0.45rem !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+#guide-picker .wrap > label {
+  align-items: center;
+  background: #fbfdfb !important;
+  border: 1px solid #d7e6da;
+  border-radius: 0.65rem;
+  cursor: pointer;
+  margin: 0 !important;
+  min-height: 2.4rem;
+  padding: 0.35rem 0.55rem;
+  transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease;
+}
+#guide-picker .wrap > label:first-child { grid-column: 1 / -1; }
+#guide-picker .wrap > label:hover {
+  background: #f0f8f1 !important;
+  border-color: #84b892;
+}
+#guide-picker .wrap > label:has(input:checked) {
+  background: #e5f3e8 !important;
+  border-color: #28714a;
+  box-shadow: 0 0 0 1px #28714a;
+}
+#guide-picker .wrap input { accent-color: #28714a; }
+#guide-picker .wrap span { font-size: 0.82rem; font-weight: 600; }
+#active-guide {
+  background: rgba(229, 243, 232, 0.72);
+  border: 1px solid #c8e2ce;
+  border-radius: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem 0.85rem;
+}
+#active-guide p { color: #456553 !important; font-size: 0.86rem; line-height: 1.45; }
+#conversation {
+  background: #ffffff;
+  border: 1px solid #dbe7dc;
+  border-radius: 1.25rem;
+  box-shadow: 0 12px 30px rgba(24, 65, 40, 0.05);
+}
+#message-box textarea {
+  background: #ffffff !important;
+  border-radius: 0.85rem !important;
+  min-height: 58px;
+}
+#send-button { border-radius: 0.75rem !important; font-weight: 650; }
+#new-conversation-button { border-radius: 0.75rem !important; }
+.disclaimer { color: #687b6c; font-size: 0.78rem; margin: 0.6rem 0; }
+@media (max-width: 760px) {
+  #tapio-header h1 { font-size: 1.85rem; }
+  #agent-sidebar, #guide-panel { padding: 1rem; }
+}
 """
 
 
@@ -302,13 +391,11 @@ class TapioAssistantApp:
             Configured Gradio Blocks interface
         """
         tapio = self.agent_router.route("").agent
-        agent_choices = [("Tapio chooses the right guide", AUTO_ROUTE)] + [
-            (f"{agent.name} — {agent.title}", agent.id) for agent in AGENTS
-        ]
+        agent_choices = [("Auto-route", AUTO_ROUTE)] + [(agent.name, agent.id) for agent in AGENTS]
 
         with gr.Blocks(title="Tapio — Your guide to Finland") as demo:
             gr.HTML(
-                "<div id='tapio-header'><h1>Tapio</h1>"
+                "<div id='tapio-header'><span class='eyebrow'>FINNTEGRATE · GUIDE TEAM</span><h1>Tapio</h1>"
                 "<p>Your shared conversation with Finntegrate's specialized guides.</p></div>",
             )
 
@@ -316,11 +403,13 @@ class TapioAssistantApp:
                 with gr.Column(scale=2, min_width=230, elem_id="agent-sidebar"):
                     gr.Markdown("### Your guide team")
                     gr.Markdown(_agent_roster_markdown())
-                    agent_selector = gr.Dropdown(
+                    gr.Markdown("### Route your question")
+                    agent_selector = gr.Radio(
                         choices=agent_choices,
                         value=AUTO_ROUTE,
-                        label="Choose a guide",
-                        info="You can also mention a guide, for example @Sampo.",
+                        label="Choose who leads the next reply",
+                        info="Or mention a guide in your message, for example @Sampo.",
+                        elem_id="guide-picker",
                     )
 
                 with gr.Column(scale=7, min_width=360):
@@ -342,15 +431,15 @@ class TapioAssistantApp:
                     )
 
                     gr.HTML(
-                        """<p style="font-size: 0.8em; color: #666; margin-top: 0.5em; margin-bottom: 0.5em;">
+                        """<p class="disclaimer">
                             ⚠️ Disclaimer: Information provided may contain errors.
                             Always verify with official sources at <a href="https://migri.fi" target="_blank">migri.fi</a>.
                         </p>""",  # noqa: E501
                     )
 
                     with gr.Row():
-                        submit = gr.Button("Send", variant="primary")
-                        clear = gr.Button("New conversation")
+                        submit = gr.Button("Send", variant="primary", elem_id="send-button")
+                        clear = gr.Button("New conversation", elem_id="new-conversation-button")
 
                 with gr.Column(scale=3, min_width=240, elem_id="guide-panel"):
                     guide_status = gr.Markdown(
@@ -358,6 +447,7 @@ class TapioAssistantApp:
                             tapio,
                             "Tapio is ready to understand what you need.",
                         ),
+                        elem_id="active-guide",
                     )
                     gr.Markdown("### Sources in this response")
                     docs_display = gr.Markdown(
