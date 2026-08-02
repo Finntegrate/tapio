@@ -192,14 +192,14 @@ mise install   # installs the tool versions pinned in mise.toml
 
 ### Installing Required Models
 
-Regardless of which setup method you chose, you'll need to install `llama3.2`, the base model this project uses for text generation:
+Regardless of which setup method you chose, you'll need to install `gemma4:latest`, the default model this project uses for text generation:
 
 ```bash
-ollama pull llama3.2
+ollama pull gemma4:latest
 ollama list  # verify it installed
 ```
 
-**Note on Model Sizes**: Some Ollama models are several GB and need significant disk space and compute. If your machine is limited, try a smaller variant instead, e.g. `ollama pull llama3.2:1b` or `ollama pull gemma3:1b`.
+**Note on Model Sizes**: Some Ollama models are several GB and need significant disk space and compute. If your machine is limited, pull a smaller model and pass its name explicitly to the Tapio CLI.
 
 **Embedding Models**: Vectorization uses HuggingFace sentence-transformers (default: `all-MiniLM-L6-v2`), downloaded automatically on first use — no manual installation needed. Ollama's own embedding models (e.g. `all-minilm`) are not used by the current implementation.
 
@@ -348,11 +348,7 @@ from tapio import RAGConfig, RAGOrchestratorFactory
 
 # Create configuration
 config = RAGConfig(
-    collection_name="my_docs",
-    persist_directory="./db",
-    llm_model_name="llama3.2",
-    max_tokens=1024,
-    num_results=5
+    collection_name="my_docs", persist_directory="./db", llm_model_name="gemma4:latest", max_tokens=1024, num_results=5
 )
 
 # Create orchestrator using factory
@@ -379,7 +375,7 @@ from tapio.services.rag_orchestrator import RAGOrchestrator
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 chroma_store = ChromaStore("my_docs", embeddings, "./db")
 doc_service = DocumentRetrievalService(chroma_store, num_results=5)
-llm_service = LLMService(model_name="llama3.2", max_tokens=1024)
+llm_service = LLMService(model_name="gemma4:latest", max_tokens=1024)
 
 # Create orchestrator
 orchestrator = RAGOrchestrator(doc_service, llm_service)
@@ -415,14 +411,14 @@ Centralized configuration in `tapio/config/settings.py`:
 
 ```python
 DEFAULT_DIRS = {
-    "CRAWLED_DIR": "content/crawled",   # HTML storage
-    "PARSED_DIR": "content/parsed",     # Markdown storage
-    "CHROMA_DIR": "chroma_db",          # Vector database
+    "CRAWLED_DIR": "content/crawled",  # HTML storage
+    "PARSED_DIR": "content/parsed",  # Markdown storage
+    "CHROMA_DIR": "chroma_db",  # Vector database
 }
 
-DEFAULT_CHROMA_COLLECTION = "tapio"     # ChromaDB collection name
+DEFAULT_CHROMA_COLLECTION = "tapio"  # ChromaDB collection name
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
-DEFAULT_LLM_MODEL = "llama3.2"
+DEFAULT_LLM_MODEL = "gemma4:latest"
 DEFAULT_MAX_TOKENS = 1024
 DEFAULT_NUM_RESULTS = 5
 ```

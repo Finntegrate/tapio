@@ -6,11 +6,55 @@ from typing import Any
 
 import ollama
 
+from tapio.config.settings import DEFAULT_LLM_MODEL
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
 # Cap on prior turns included as context, to avoid overflowing the model's context window
 MAX_HISTORY_MESSAGES = 10
+
+
+def _message_content_to_text(content: Any) -> str:
+    """Convert a Gradio message value into the plain text Ollama accepts.
+
+    Args:
+        content: A message value from Gradio, which can contain text blocks.
+
+    Returns:
+        The text content suitable for an Ollama chat message.
+    """
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        text_blocks: list[str] = []
+        for block in content:
+            if isinstance(block, str):
+                text_blocks.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                text_blocks.append(block["text"])
+        return "\n".join(text_blocks)
+
+    return ""
+
+
+def _normalise_history(history: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Keep history roles while reducing structured UI content to text.
+
+    Args:
+        history: Gradio-format conversation messages.
+
+    Returns:
+        The most recent messages with string roles and plain-text content.
+    """
+    return [
+        {
+            "role": str(message.get("role", "user")),
+            "content": _message_content_to_text(message.get("content")),
+        }
+        for message in history[-MAX_HISTORY_MESSAGES:]
+    ]
 
 
 def _build_messages(
@@ -34,7 +78,7 @@ def _build_messages(
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
-        messages.extend(history[-MAX_HISTORY_MESSAGES:])
+        messages.extend(_normalise_history(history))
 
     messages.append({"role": "user", "content": prompt})
     return messages
@@ -45,7 +89,7 @@ class LLMService:
 
     def __init__(
         self,
-        model_name: str = "llama3.2",
+        model_name: str = DEFAULT_LLM_MODEL,
         max_tokens: int = 1024,
         temperature: float = 0.7,
     ) -> None:
@@ -64,8 +108,9 @@ class LLMService:
     def _describe_match(self, available_model_name: str) -> str | None:
         """Describe how an available model matches the configured model, if at all.
 
-        Handles exact matches and `:tag` variations (e.g. requesting "llama3.2" should
-        match an available "llama3.2:latest").
+        A model name, including its tag, must match exactly. This prevents a
+        configured model such as ``gemma4:latest`` from being treated as an
+        installed variant such as ``gemma4:e4b``.
 
         Args:
             available_model_name: A model name reported by Ollama
@@ -75,17 +120,6 @@ class LLMService:
         """
         if available_model_name == self.model_name:
             return f"Found exact matching model: {available_model_name}"
-
-        # If user provided base name (no tag), match any variant with tags
-        if ":" not in self.model_name and available_model_name.startswith(f"{self.model_name}:"):
-            return f"Found matching model: {available_model_name} for base name {self.model_name}"
-
-        # If user provided name with tag, check if base names match
-        if ":" in self.model_name and ":" in available_model_name:
-            user_base = self.model_name.split(":")[0]
-            model_base = available_model_name.split(":", maxsplit=1)[0]
-            if user_base == model_base:
-                return f"Found matching model: {available_model_name} for requested {self.model_name}"
 
         return None
 

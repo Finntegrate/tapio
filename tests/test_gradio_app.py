@@ -4,7 +4,7 @@ from unittest.mock import Mock, patch
 
 import pytest
 
-from tapio.app import TapioAssistantApp, main
+from tapio.app import APP_CSS, TapioAssistantApp, main
 
 
 @pytest.fixture
@@ -15,6 +15,19 @@ def test_app(mock_rag_orchestrator):
 
 class TestGradioApp:
     """Tests for the Gradio app module."""
+
+    def test_interface_uses_dark_first_visual_design(self):
+        """Keep Tapio's default interface in dark mode."""
+        assert "color-scheme: dark;" in APP_CSS
+        assert "--body-background-fill: #0b1410;" in APP_CSS
+
+    def test_desktop_layout_fills_the_viewport(self):
+        """Keep scrolling inside the chat rather than the surrounding page."""
+        assert "height: 100vh;" in APP_CSS
+        assert "html, body {" in APP_CSS
+        assert "overflow: hidden;" in APP_CSS
+        assert "#chat-workspace {" in APP_CSS
+        assert "height: max(190px, calc(100vh - 30rem)) !important;" in APP_CSS
 
     def test_generate_rag_response(self, test_app):
         """Test generating a RAG response."""
@@ -55,6 +68,24 @@ class TestGradioApp:
         test_app.rag_orchestrator.query_stream.assert_called_once_with(
             query_text="How do I apply for one?",
             history=prior_turns,
+            agent_id="ilmarinen",
+        )
+
+    def test_respond_stream_shows_selected_guide(self, test_app):
+        outputs = list(
+            test_app.respond_stream(
+                "Can you help me find a rental apartment?",
+                [],
+            ),
+        )
+
+        _, history, _, guide_status = outputs[-1]
+        assert "**Otso**" in history[-1]["content"]
+        assert "**Otso**" in guide_status
+        test_app.rag_orchestrator.query_stream.assert_called_once_with(
+            query_text="Can you help me find a rental apartment?",
+            history=[],
+            agent_id="otso",
         )
 
     def test_generate_rag_response_with_error(self, test_app):

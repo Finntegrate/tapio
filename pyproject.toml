@@ -23,7 +23,7 @@ dependencies = [
     "langchain>=0.3.23",
     "langchain-chroma>=0.2.3",
     "langchain-huggingface[full]>=0.1.2",
-    "gradio>=6.0.0",
+    "gradio>=6.22.0",
     "ollama>=0.4.8",
     "pydantic>=2.13.4",
     "httpx>=0.28.1",
@@ -120,6 +120,7 @@ ignore = [
     "INP001",  # tests intentionally use implicit namespace packages
     "PLC0415", # local imports for mocking/patching timing are idiomatic in tests
     "PLR0913", # test functions naturally take many fixture arguments
+    "PLR0917", # mock-heavy test functions naturally have many positional arguments
     "PLR2004", # magic values in test assertions/fixtures are fine
     "PT009",   # some test classes intentionally use unittest.TestCase-style assertions
     "PTH",     # os.path-based temp file/dir handling in test fixtures is fine
@@ -143,13 +144,13 @@ line-ending = "auto"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.15.0",
+    "mypy>=2.3.0",
     "prek>=0.2.3",
     "pyrefly>=1.1.1",
-    "pytest>=8.3.5",
+    "pytest>=9.0.0",
     "pytest-asyncio>=1.0.0",
-    "pytest-cov>=6.1.1",
-    "ruff>=0.13.1",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.1",
     "types-lxml>=2025.3.30",
     "types-pyyaml>=6.0.12.20250402",
 ]
