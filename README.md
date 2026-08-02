@@ -33,9 +33,26 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 
 ### Prerequisites
 
-- Python 3.14 or higher
+- Python 3.10 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer
-- [Ollama](https://ollama.ai/) - For local LLM inference
+- [Ollama](https://ollama.com/) - For local LLM inference
+
+### System requirements
+
+- At least 4 GB of available RAM (the default `llama3.2` model is about 2 GB)
+- For low-resource environments such as GitHub Codespaces, use a lighter model like `llama3.2:1b`
+
+### Installing Ollama
+
+**Linux:**
+
+```bash
+curl -fsSL https://ollama.com/install.sh | sh
+```
+
+**macOS and Windows:** Download from [ollama.com/download](https://ollama.com/download)
+
+After installing, make sure the Ollama daemon is running before pulling models.
 
 ### Quick Start
 
@@ -51,6 +68,12 @@ uv sync
 
 ```bash
 ollama pull llama3.2
+```
+
+For low-memory environments, use the lighter version:
+
+```bash
+ollama pull llama3.2:1b
 ```
 
 ## Usage
@@ -130,4 +153,4 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
-This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind are welcome!
+This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
