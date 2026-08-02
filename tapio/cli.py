@@ -16,6 +16,7 @@ from tapio.config.settings import (
     DEFAULT_DIRS,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_LLM_MODEL,
+    DEFAULT_MAX_TOKENS,
     DEFAULT_NUM_RESULTS,
 )
 from tapio.crawler.runner import CrawlerRunner
@@ -519,6 +520,7 @@ def dev() -> None:
     # Call the tapio_app function with default settings
     tapio_app(
         model_name=DEFAULT_LLM_MODEL,
+        max_tokens=DEFAULT_MAX_TOKENS,
         share=False,
     )
 
@@ -587,6 +589,7 @@ def run_tapio_app() -> None:
     # This function calls the tapio_app command with default settings
     tapio_app(
         model_name=DEFAULT_LLM_MODEL,
+        max_tokens=DEFAULT_MAX_TOKENS,
         share=False,
     )
 
