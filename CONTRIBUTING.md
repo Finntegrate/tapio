@@ -348,11 +348,7 @@ from tapio import RAGConfig, RAGOrchestratorFactory
 
 # Create configuration
 config = RAGConfig(
-    collection_name="my_docs",
-    persist_directory="./db",
-    llm_model_name="gemma4:latest",
-    max_tokens=1024,
-    num_results=5
+    collection_name="my_docs", persist_directory="./db", llm_model_name="gemma4:latest", max_tokens=1024, num_results=5
 )
 
 # Create orchestrator using factory
@@ -415,12 +411,12 @@ Centralized configuration in `tapio/config/settings.py`:
 
 ```python
 DEFAULT_DIRS = {
-    "CRAWLED_DIR": "content/crawled",   # HTML storage
-    "PARSED_DIR": "content/parsed",     # Markdown storage
-    "CHROMA_DIR": "chroma_db",          # Vector database
+    "CRAWLED_DIR": "content/crawled",  # HTML storage
+    "PARSED_DIR": "content/parsed",  # Markdown storage
+    "CHROMA_DIR": "chroma_db",  # Vector database
 }
 
-DEFAULT_CHROMA_COLLECTION = "tapio"     # ChromaDB collection name
+DEFAULT_CHROMA_COLLECTION = "tapio"  # ChromaDB collection name
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "gemma4:latest"
 DEFAULT_MAX_TOKENS = 1024

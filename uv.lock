@@ -2839,7 +2839,7 @@ dev = [
     { name = "pytest", specifier = ">=9.0.0" },
     { name = "pytest-asyncio", specifier = ">=1.0.0" },
     { name = "pytest-cov", specifier = ">=7.1.0" },
-    { name = "ruff", specifier = ">=0.13.1" },
+    { name = "ruff", specifier = ">=0.16.1" },
     { name = "types-lxml", specifier = ">=2025.3.30" },
     { name = "types-pyyaml", specifier = ">=6.0.12.20250402" },
 ]
