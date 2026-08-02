@@ -27,7 +27,7 @@ class TestGradioApp:
         assert "html, body {" in APP_CSS
         assert "overflow: hidden;" in APP_CSS
         assert "#chat-workspace {" in APP_CSS
-        assert "flex: 1 1 0 !important;" in APP_CSS
+        assert "height: max(190px, calc(100vh - 30rem)) !important;" in APP_CSS
 
     def test_generate_rag_response(self, test_app):
         """Test generating a RAG response."""

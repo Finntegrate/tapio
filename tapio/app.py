@@ -56,7 +56,7 @@ html, body {
   min-height: 0;
   padding: 0 !important;
 }
-#tapio-header { flex: 0 0 auto; margin: 0.05rem 0 0.35rem; }
+#tapio-header { flex: 0 0 auto; margin: 0.05rem 0; }
 #tapio-header h1 {
   color: #f1f8f2;
   font-size: 1.55rem;
@@ -74,6 +74,7 @@ html, body {
   align-items: stretch;
   flex: 1 1 auto;
   height: auto;
+  margin-top: 0 !important;
   min-height: 0;
   overflow: hidden;
 }
@@ -164,9 +165,9 @@ html, body {
   border: 1px solid #2d4937;
   border-radius: 1.25rem;
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.2);
-  flex: 1 1 0 !important;
-  height: auto !important;
-  min-height: 180px;
+  flex: 0 0 auto !important;
+  height: max(190px, calc(100vh - 30rem)) !important;
+  min-height: 190px;
   overflow: hidden;
 }
 #conversation > .wrap { height: 100%; }
