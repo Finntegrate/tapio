@@ -42,7 +42,7 @@ class RAGOrchestrator:
             >>>
             >>> # Or manually for advanced use cases:
             >>> doc_service = DocumentRetrievalService(vector_store=my_store)
-            >>> llm_service = LLMService(model_name="llama3.2")
+            >>> llm_service = LLMService(model_name="gemma4:latest")
             >>> orchestrator = RAGOrchestrator(doc_service, llm_service)
         """
         self.doc_retrieval_service = doc_retrieval_service

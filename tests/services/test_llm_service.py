@@ -14,7 +14,7 @@ class TestLLMService:
         """Test LLMService initialization with default parameters."""
         service = LLMService()
 
-        assert service.model_name == "llama3.2"
+        assert service.model_name == "gemma4:latest"
         assert service.max_tokens == 1024
         assert service.temperature == 0.7
 

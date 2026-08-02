@@ -39,8 +39,8 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 
 ### System requirements
 
-- At least 4 GB of available RAM (the default `llama3.2` model is about 2 GB)
-- For low-resource environments such as GitHub Codespaces, use a lighter model like `llama3.2:1b`
+- Enough available RAM for the selected Ollama model; `gemma4:latest` is the default
+- For low-resource environments such as GitHub Codespaces, choose a smaller model explicitly with `--model-name`
 
 ### Installing Ollama
 
@@ -67,13 +67,14 @@ uv sync
 1. Install required Ollama model:
 
 ```bash
-ollama pull llama3.2
+ollama pull gemma4:latest
 ```
 
-For low-memory environments, use the lighter version:
+To use a different model, pull it and pass its name when launching Tapio:
 
 ```bash
-ollama pull llama3.2:1b
+ollama pull <model-name>
+uv run -m tapio.cli tapio-app --model-name <model-name>
 ```
 
 ## Usage

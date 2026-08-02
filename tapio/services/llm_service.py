@@ -6,6 +6,8 @@ from typing import Any
 
 import ollama
 
+from tapio.config.settings import DEFAULT_LLM_MODEL
+
 # Configure logging
 logger = logging.getLogger(__name__)
 
@@ -45,7 +47,7 @@ class LLMService:
 
     def __init__(
         self,
-        model_name: str = "llama3.2",
+        model_name: str = DEFAULT_LLM_MODEL,
         max_tokens: int = 1024,
         temperature: float = 0.7,
     ) -> None:
@@ -64,8 +66,8 @@ class LLMService:
     def _describe_match(self, available_model_name: str) -> str | None:
         """Describe how an available model matches the configured model, if at all.
 
-        Handles exact matches and `:tag` variations (e.g. requesting "llama3.2" should
-        match an available "llama3.2:latest").
+        Handles exact matches and `:tag` variations (e.g. requesting "gemma4" should
+        match an available "gemma4:latest").
 
         Args:
             available_model_name: A model name reported by Ollama

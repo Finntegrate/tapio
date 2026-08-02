@@ -353,7 +353,7 @@ class TestCli:
 
         # Check that tapio_app was called correctly
         mock_tapio_app.assert_called_once_with(
-            model_name="llama3.2",
+            model_name="gemma4:latest",
             share=False,
         )
 

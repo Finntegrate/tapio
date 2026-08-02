@@ -83,7 +83,7 @@ class TapioAssistantApp:
             >>> from tapio.factories import RAGOrchestratorFactory
             >>> from tapio.config.config_models import RAGConfig
             >>>
-            >>> config = RAGConfig(llm_model_name="llama3.2")
+            >>> config = RAGConfig(llm_model_name="gemma4:latest")
             >>> factory = RAGOrchestratorFactory(config)
             >>> orchestrator = factory.create_orchestrator()
             >>> app = TapioAssistantApp(rag_orchestrator=orchestrator)
@@ -426,7 +426,7 @@ def main(
         >>> from tapio.factories import RAGOrchestratorFactory
         >>> from tapio.config.config_models import RAGConfig
         >>>
-        >>> config = RAGConfig(llm_model_name="llama3.2")
+        >>> config = RAGConfig(llm_model_name="gemma4:latest")
         >>> factory = RAGOrchestratorFactory(config)
         >>> orchestrator = factory.create_orchestrator()
         >>> main(rag_orchestrator=orchestrator, share=False)

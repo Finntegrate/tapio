@@ -15,6 +15,7 @@ from tapio.config.settings import (
     DEFAULT_CONTENT_DIR,
     DEFAULT_DIRS,
     DEFAULT_EMBEDDING_MODEL,
+    DEFAULT_LLM_MODEL,
     DEFAULT_NUM_RESULTS,
 )
 from tapio.crawler.runner import CrawlerRunner
@@ -451,7 +452,7 @@ def info(
 @app.command()
 def tapio_app(
     model_name: str = typer.Option(
-        "llama3.2:latest",
+        DEFAULT_LLM_MODEL,
         "--model-name",
         "-m",
         help="Ollama model to use for LLM inference",
@@ -517,7 +518,7 @@ def dev() -> None:
     typer.echo("🚀 Launching Tapio Assistant chatbot development server...")
     # Call the tapio_app function with default settings
     tapio_app(
-        model_name="llama3.2",
+        model_name=DEFAULT_LLM_MODEL,
         share=False,
     )
 
@@ -585,7 +586,7 @@ def run_tapio_app() -> None:
     """Entry point for the 'dev' command to launch the Tapio app with default settings."""
     # This function calls the tapio_app command with default settings
     tapio_app(
-        model_name="llama3.2",
+        model_name=DEFAULT_LLM_MODEL,
         share=False,
     )
 

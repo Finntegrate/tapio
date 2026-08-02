@@ -148,7 +148,7 @@ class RAGConfig:
     Example:
         >>> config = RAGConfig(
         ...     collection_name="my_docs",
-        ...     llm_model_name="llama3.2:latest"
+        ...     llm_model_name="gemma4:latest"
         ... )
     """
 
