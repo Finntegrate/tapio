@@ -67,7 +67,7 @@ The public Tapio page is the canonical source for these roles. Sampo is an emplo
 - Each assistant message begins with the active guide's name and role.
 - The active-guide panel states the selected guide, its responsibilities, and the routing reason.
 
-**Acceptance criteria**
+##### Shared conversation acceptance criteria
 
 - [ ] Given a response is generated, when it is shown in the conversation, then the reader can identify the guide without opening another panel.
 - [ ] Given Tapio selects a specialist, when the response begins, then the active-guide panel explains the selection in plain language.
@@ -80,7 +80,7 @@ The public Tapio page is the canonical source for these roles. Sampo is an emplo
 - A message that mentions `@Tapio`, `@Ilmarinen`, `@Sampo`, `@Rauni`, or `@Otso` routes to that guide when automatic routing is selected.
 - If no clear domain is present, Tapio remains active and asks or provides the next clarifying step.
 
-**Acceptance criteria**
+##### Routing acceptance criteria
 
 - [ ] Given a question about a residence-permit application, when automatic routing is used, then Ilmarinen is selected.
 - [ ] Given a question about a rental agreement, when automatic routing is used, then Otso is selected.
@@ -94,7 +94,7 @@ The public Tapio page is the canonical source for these roles. Sampo is an emplo
 - The base Tapio prompt applies to every response and requires source-grounded, concise answers.
 - The source panel renders retrieved documents and official URLs for each answer.
 
-**Acceptance criteria**
+##### Grounded-response acceptance criteria
 
 - [ ] Given a specialist route, when the response is generated, then the specialist's prompt is included with Tapio's base prompt.
 - [ ] Given sources are retrieved, when the answer is rendered, then users can see the source title and URL in the source panel.

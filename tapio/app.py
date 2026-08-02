@@ -2,7 +2,7 @@
 
 import logging
 from collections.abc import Generator
-from typing import Any
+from typing import Any, cast
 
 import gradio as gr
 
@@ -366,7 +366,7 @@ class TapioAssistantApp:
 
             # Define app logic - use streaming for better user experience
             # Single event handler for both submit button and Enter key
-            msg.submit(
+            cast("Any", msg).submit(
                 self.respond_stream,
                 [msg, chatbot, agent_selector],
                 [
@@ -377,7 +377,7 @@ class TapioAssistantApp:
                 ],
             )
             # Make submit button trigger the same behavior as Enter key
-            submit.click(
+            cast("Any", submit).click(
                 self.respond_stream,
                 [msg, chatbot, agent_selector],
                 [
@@ -387,7 +387,7 @@ class TapioAssistantApp:
                     guide_status,
                 ],
             )
-            clear.click(self.clear_chat, None, [chatbot, docs_display, guide_status])
+            cast("Any", clear).click(self.clear_chat, None, [chatbot, docs_display, guide_status])
 
             # Add some example queries
             gr.Examples(
