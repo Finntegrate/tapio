@@ -2833,7 +2833,7 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "mypy", specifier = ">=1.15.0" },
+    { name = "mypy", specifier = ">=2.3.0" },
     { name = "prek", specifier = ">=0.2.3" },
     { name = "pyrefly", specifier = ">=1.1.1" },
     { name = "pytest", specifier = ">=8.3.5" },

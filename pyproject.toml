@@ -144,7 +144,7 @@ line-ending = "auto"
 
 [dependency-groups]
 dev = [
-    "mypy>=1.15.0",
+    "mypy>=2.3.0",
     "prek>=0.2.3",
     "pyrefly>=1.1.1",
     "pytest>=8.3.5",
