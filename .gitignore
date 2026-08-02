@@ -182,3 +182,5 @@ chroma_db/
 # Web scraping results
 results.json
 content/
+crawl4ai/
+crawl/
