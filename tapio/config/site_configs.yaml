@@ -23,9 +23,9 @@ sites:
         ignore_tables: false
 
   # Example configuration for TE Services website
-  te_palvelut:
-    base_url: "https://toimistot.te-palvelut.fi"
-    description: "TE Services (Work and Economic Development) website"
+  tyomarkkinatori:
+    base_url: "https://tyomarkkinatori.fi/"
+    description: "Work assistance and employment services website"
     crawler_config:
       delay_between_requests: 1.5
       max_concurrent: 3

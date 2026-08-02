@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Superseded by [0003](0003-crawl4ai-crawler.md)
 
 ## Date
 
@@ -51,7 +51,7 @@ Replace the bespoke `BaseCrawler`, `CrawlerRunner`, and `Parser` with a new impl
 6. **Update** `CrawlerConfig` model (`tapio/config/config_models.py`) to reflect Cloudflare parameters:
    - Remove: `delay_between_requests`, `max_concurrent` (handled by Cloudflare)
    - Keep: `max_depth` (maps to `depth`)
-   - Add: `limit`, `render`, `source`, `formats`, `options.includePatterns`, `options.excludePatterns`, `maxAge`
+   - Add: `limit`, `render`, `source`, `formats`, `options.includePatterns`, `options.excludePatterns`, `maxAge`, `crawlPurposes`
 7. **Update** site configurations (`tapio/config/site_configs.yaml`):
    - Remove all `parser_config` sections
    - Add Cloudflare-appropriate crawler defaults
@@ -65,6 +65,18 @@ Replace the bespoke `BaseCrawler`, `CrawlerRunner`, and `Parser` with a new impl
 - Site configuration structure (`base_url`, `description`)
 - Downstream pipeline: vectorize → RAG app
 - Markdown output saved to `content/{site}/parsed/` with YAML frontmatter
+
+### Content Signals declaration
+
+The `/crawl` endpoint respects [Content Signals](https://developers.cloudflare.com/robots-txt/content-signals/) directives published in a target site's `robots.txt`. The request accepts a `crawlPurposes` parameter (default: `["search", "ai-input", "ai-train"]`) declaring the intended use of crawled content; if a site's `Content-Signal` directive disallows any *declared* purpose, the request is rejected with a 400 error.
+
+Tapio's use — retrieving chunked, vectorized content at query time to ground LLM-generated answers — matches Cloudflare's definition of **`ai-input`** ("retrieval augmented generation, grounding, or other real-time taking of content for generative AI"), not `search` (which covers only returning links and short excerpts, explicitly excluding AI-synthesized answers). All crawl requests should therefore declare:
+
+```json
+"crawlPurposes": ["ai-input"]
+```
+
+Declaring only the purpose actually in use is both more accurate and reduces the chance of an unnecessary rejection on sites that restrict `search` or `ai-train` but permit `ai-input`.
 
 ### Source URL requirement
 
@@ -102,8 +114,29 @@ crawl_timestamp: "2026-03-12T10:30:00Z"
 ### Risks
 
 - **Beta status** — The `/crawl` endpoint is in open beta. API surface may change
-- **Bot protection** — Target sites using Cloudflare Bot Management or WAF may block the crawler. This is the same risk our current crawler faces, but worth noting
+- **Bot protection** — Target sites using Cloudflare Bot Management or WAF may block the crawler. This is the same risk our current crawler faces, but worth noting. **Confirmed 2026-07-25**: `migri.fi` returns HTTP 403 ("Pääsy estetty / Förbjuden / Forbidden") from Valtori (the Finnish government's shared IT provider) regardless of `crawlPurposes`, ruling out a Content Signals rejection and confirming a WAF-level block. Since Valtori fronts multiple Finnish government sites, the other target sites (`te_palvelut`, `kela`, `vero`, `dvv`) should each be tested before committing further to this approach
 - **Full-page vs. targeted content** — Cloudflare returns full-page Markdown rather than targeted content areas (XPath selectors). For RAG, full-page content is generally acceptable and may actually provide better context. If noise is an issue, Cloudflare's `includePatterns`/`excludePatterns` can scope URLs, and downstream chunking/embedding can handle content relevance
+
+## Crawl test results (2026-07-25)
+
+All five target sites (plus `finntegrate.org` as a non-target smoke test) were crawled with `render: true`, `formats: ["markdown"]`, `crawlPurposes: ["ai-input"]`, `limit: 1` against their front page, to validate reachability before further investment in this ADR.
+
+| Site | URL tested | Result | Notes |
+| --- | --- | --- | --- |
+| finntegrate.org | `https://finntegrate.org/` | ✅ 200, completed in ~0.3 browser-seconds | Smoke test, not a pipeline target |
+| migri | `https://migri.fi/` | ❌ 403 Forbidden | Blocked by Valtori's WAF ("Pääsy estetty / Förbjuden / Forbidden"). Confirmed this is not a Content Signals rejection — identical result with `crawlPurposes` narrowed to `["ai-input"]` |
+| te_palvelut (old) | `https://toimistot.te-palvelut.fi/` | ❌ errored | No HTTP status returned, 0 browser-seconds used — domain appears defunct. TE Services' online office has moved to `tyomarkkinatori.fi` |
+| tyomarkkinatori | `https://tyomarkkinatori.fi/` | ✅ 200, completed | Successor to `te_palvelut`; `site_configs.yaml` renamed accordingly |
+| kela | `https://www.kela.fi/` | ✅ 200, completed (~2.6 browser-seconds) | Redirected to `/henkiloasiakkaat` |
+| vero | `https://www.vero.fi/en/` | ✅ 200, completed | Redirected to `/en/individuals/` |
+| dvv | `https://dvv.fi/` | ⚠️ stuck | Job stayed `queued` (0 browser-seconds used) for ~14 minutes with no terminal status. No `429`/rate-limit response headers observed at any point — likely a silent free-tier concurrency/queue limitation rather than a target-site block, since this job was submitted alongside four others in quick succession. Needs a retry in isolation to confirm |
+
+Ad-hoc output for each successful crawl was saved to `crawl/<site>/index.md` (a scratch location for this test, not the `content/{site}/parsed/` pipeline output described above).
+
+### Implementation notes from testing
+
+- **Malformed JSON responses**: the beta `/crawl` API returns Markdown containing literal unescaped control characters and backslash-escaped Markdown syntax (e.g. `kela\_fpa`) that make the overall response invalid JSON. Both `jq` and Python's `json.loads` — even with `strict=False` — fail on these responses. The `CrawlerRunner` rewrite needs a lenient parser (e.g. pre-processing to double any backslash not followed by a valid JSON escape character before parsing with `strict=False`) rather than relying on strict JSON parsing.
+- **Concurrency**: firing multiple crawl jobs concurrently on the free tier appears able to starve individual jobs in an invisible queue — no error, no rate-limit header, just an indefinite `queued` status (see `dvv` above). `CrawlerRunner` should default to sequential or low-concurrency job submission across sites rather than firing all site crawls in parallel.
 
 ## Alternatives considered
 
