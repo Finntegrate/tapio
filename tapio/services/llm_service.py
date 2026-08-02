@@ -15,6 +15,34 @@ logger = logging.getLogger(__name__)
 MAX_HISTORY_MESSAGES = 10
 
 
+def _message_content_to_text(content: Any) -> str:
+    """Convert a Gradio message value into the plain text Ollama accepts."""
+    if isinstance(content, str):
+        return content
+
+    if isinstance(content, list):
+        text_blocks = []
+        for block in content:
+            if isinstance(block, str):
+                text_blocks.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                text_blocks.append(block["text"])
+        return "\n".join(text_blocks)
+
+    return ""
+
+
+def _normalise_history(history: list[dict[str, Any]]) -> list[dict[str, str]]:
+    """Keep history roles while reducing structured UI content to text."""
+    return [
+        {
+            "role": str(message.get("role", "user")),
+            "content": _message_content_to_text(message.get("content")),
+        }
+        for message in history[-MAX_HISTORY_MESSAGES:]
+    ]
+
+
 def _build_messages(
     prompt: str,
     system_prompt: str | None,
@@ -36,7 +64,7 @@ def _build_messages(
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
-        messages.extend(history[-MAX_HISTORY_MESSAGES:])
+        messages.extend(_normalise_history(history))
 
     messages.append({"role": "user", "content": prompt})
     return messages

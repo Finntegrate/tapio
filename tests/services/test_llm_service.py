@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tapio.services.llm_service import LLMService
+from tapio.services.llm_service import LLMService, _build_messages
 
 
 class TestLLMService:
@@ -29,6 +29,22 @@ class TestLLMService:
         assert service.model_name == "llama3.2:latest"
         assert service.max_tokens == 2048
         assert service.temperature == 0.5
+
+    def test_build_messages_normalizes_structured_gradio_history(self):
+        messages = _build_messages(
+            prompt="What should I do next?",
+            system_prompt=None,
+            history=[
+                {"role": "user", "content": [{"type": "text", "text": "Hello"}]},
+                {"role": "assistant", "content": [{"type": "text", "text": "Welcome"}]},
+            ],
+        )
+
+        assert messages == [
+            {"role": "user", "content": "Hello"},
+            {"role": "assistant", "content": "Welcome"},
+            {"role": "user", "content": "What should I do next?"},
+        ]
 
     def test_get_model_name(self):
         """Test getting the model name."""
