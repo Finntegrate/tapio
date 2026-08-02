@@ -4,6 +4,7 @@ import logging
 from collections.abc import Generator
 from typing import Any
 
+from tapio.agents import get_agent
 from tapio.prompts import load_prompt
 from tapio.services.document_retrieval_service import DocumentRetrievalService
 from tapio.services.llm_service import LLMService
@@ -55,12 +56,14 @@ class RAGOrchestrator:
         self,
         query_text: str,
         history: list[dict[str, Any]] | None = None,
+        agent_id: str = "tapio",
     ) -> tuple[str, list[Any]]:
         """Generate a response using RAG.
 
         Args:
             query_text: The user's query
             history: Chat history (optional)
+            agent_id: The guide whose specialist system prompt should be applied
 
         Returns:
             Tuple containing the response and the retrieved documents
@@ -77,7 +80,7 @@ class RAGOrchestrator:
             )
 
             # Step 3: Create prompts
-            system_prompt = load_prompt("system_prompt")
+            system_prompt = self._get_system_prompt(agent_id)
             user_prompt = load_prompt(
                 "user_query",
                 context=context_text,
@@ -104,12 +107,14 @@ class RAGOrchestrator:
         self,
         query_text: str,
         history: list[dict[str, Any]] | None = None,
+        agent_id: str = "tapio",
     ) -> tuple[Generator[str], list[Any]]:
         """Generate a streaming response using RAG.
 
         Args:
             query_text: The user's query
             history: Chat history (optional)
+            agent_id: The guide whose specialist system prompt should be applied
 
         Returns:
             Tuple containing the response generator and the retrieved documents
@@ -127,7 +132,7 @@ class RAGOrchestrator:
             )
 
             # Step 3: Create prompts
-            system_prompt = load_prompt("system_prompt")
+            system_prompt = self._get_system_prompt(agent_id)
             user_prompt = load_prompt(
                 "user_query",
                 context=context_text,
@@ -173,6 +178,16 @@ class RAGOrchestrator:
             bool: True if the model is available, False otherwise
         """
         return self.llm_service.check_model_availability()
+
+    def _get_system_prompt(self, agent_id: str) -> str:
+        """Combine Tapio's safety baseline with a specialist's scope when needed."""
+        base_prompt = load_prompt("system_prompt")
+        agent = get_agent(agent_id)
+        if agent.id == "tapio":
+            return base_prompt
+
+        specialist_prompt = load_prompt(f"agents/{agent.id}")
+        return f"{base_prompt}\n\n{specialist_prompt}".strip()
 
     def format_documents_for_display(self, documents: list[Any]) -> str:
         """Format retrieved documents for display.

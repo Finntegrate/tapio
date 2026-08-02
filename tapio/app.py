@@ -6,11 +6,51 @@ from typing import Any
 
 import gradio as gr
 
+from tapio.agents import AGENTS, AUTO_ROUTE, AgentDefinition, AgentRouter
 from tapio.services.rag_orchestrator import RAGOrchestrator
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+APP_CSS = """
+.gradio-container { max-width: 1500px !important; }
+#tapio-header { margin-bottom: 0.5rem; }
+#tapio-header h1 { margin-bottom: 0.25rem; }
+#agent-sidebar, #guide-panel { background: #f8faf9; border: 1px solid #e5e7eb; border-radius: 1rem; padding: 1rem; }
+#conversation { border: 1px solid #e5e7eb; border-radius: 1rem; }
+#message-box textarea { min-height: 58px; }
+.agent-card { border-left: 3px solid #2f6b4f; margin: 0.7rem 0; padding-left: 0.7rem; }
+.agent-card--amber { border-color: #d88d1a; }
+.agent-card--nordic { border-color: #28708c; }
+"""
+
+
+def _agent_roster_markdown() -> str:
+    """Render a compact guide directory for the app sidebar."""
+    cards = []
+    for agent in AGENTS:
+        responsibilities = ", ".join(agent.responsibilities[:2])
+        cards.append(
+            f'<div class="agent-card agent-card--{agent.color}">'
+            f"<strong>{agent.name}</strong> · {agent.title}<br>"
+            f"<small>{responsibilities}</small>"
+            "</div>",
+        )
+    return "\n".join(cards)
+
+
+def _guide_status_markdown(agent: AgentDefinition, reason: str) -> str:
+    """Render the active guide's scope and the visible routing explanation."""
+    focus = ", ".join(agent.responsibilities)
+    return f"""### Active guide
+**{agent.name}** · {agent.title}
+
+{reason}
+
+**Focus:** {focus}
+
+_Information is grounded in retrieved official sources. Verify important decisions with the relevant authority._"""
 
 
 class TapioAssistantApp:
@@ -39,6 +79,7 @@ class TapioAssistantApp:
             >>> app = TapioAssistantApp(rag_orchestrator=orchestrator)
         """
         self.rag_orchestrator = rag_orchestrator
+        self.agent_router = AgentRouter()
         self.demo = self._build_interface()
 
     def check_model_availability(self) -> None:
@@ -55,22 +96,24 @@ class TapioAssistantApp:
         self,
         query: str,
         history: list[dict[str, Any]] | None = None,
+        agent_id: str = "tapio",
     ) -> tuple[str, str]:
         """Generate a response using RAG and return both the response and retrieved documents.
 
         Args:
             query: The user's query
             history: Chat history
+            agent_id: The guide whose specialist prompt should be applied
 
         Returns:
             Tuple containing the response and formatted documents for display
         """
         try:
             # Get response and retrieved docs from the RAG orchestrator
-            response, retrieved_docs = self.rag_orchestrator.query(
-                query_text=query,
-                history=history,
-            )
+            query_args: dict[str, Any] = {"query_text": query, "history": history}
+            if agent_id != "tapio":
+                query_args["agent_id"] = agent_id
+            response, retrieved_docs = self.rag_orchestrator.query(**query_args)
 
             # Format documents for display
             formatted_docs = self.rag_orchestrator.format_documents_for_display(
@@ -90,38 +133,45 @@ class TapioAssistantApp:
         self,
         message: str,
         chat_history: list[dict[str, str]],
-    ) -> Generator[tuple[str, list[dict[str, str]], str]]:
+        selected_agent_id: str = AUTO_ROUTE,
+    ) -> Generator[tuple[str, list[dict[str, str]], str, str]]:
         """Process user message and stream the response.
 
         Args:
             message: User's message
             chat_history: Current chat history
+            selected_agent_id: User-selected guide or automatic routing mode
 
         Yields:
-            Tuple containing empty message (to clear input), updated chat history,
-            and document display content
+            Tuple containing cleared message input, updated chat history, source
+            display content, and the active-guide panel.
         """
         # Initialize chat history if empty
         if not chat_history:
             chat_history = []
 
+        route = self.agent_router.route(message, selected_agent_id)
+        agent = route.agent
+        guide_status = _guide_status_markdown(agent, route.reason)
+        agent_header = f"**{agent.name}** · {agent.title}\n\n"
+
         # Add user message immediately
         chat_history.append({"role": "user", "content": message})
 
         # Clear input and show user message
-        yield "", chat_history, "Retrieving relevant documents..."
+        yield "", chat_history, "Retrieving relevant official sources...", guide_status
 
         try:
             # Get streaming response and retrieved docs from the RAG orchestrator
             # Exclude the just-appended current message; history should hold prior turns only
-            response_stream, retrieved_docs = self.rag_orchestrator.query_stream(
-                query_text=message,
-                history=chat_history[:-1],
-            )
+            query_args: dict[str, Any] = {"query_text": message, "history": chat_history[:-1]}
+            if agent.id != "tapio":
+                query_args["agent_id"] = agent.id
+            response_stream, retrieved_docs = self.rag_orchestrator.query_stream(**query_args)
 
             # Start building the assistant response and immediately start streaming
-            assistant_response = "..."  # Start with ellipsis for immediate feedback
-            formatted_docs = "Retrieving relevant documents..."
+            assistant_response = f"{agent_header}…"
+            formatted_docs = "Retrieving relevant official sources..."
             first_chunk = True
 
             # Update chat history immediately with ellipsis to show activity
@@ -129,7 +179,7 @@ class TapioAssistantApp:
             current_history.append(
                 {"role": "assistant", "content": assistant_response},
             )
-            yield "", current_history, formatted_docs
+            yield "", current_history, formatted_docs, guide_status
 
             # Immediately start consuming the generator to trigger LLM processing
             logger.info("Starting to consume response stream")
@@ -142,7 +192,7 @@ class TapioAssistantApp:
                     logger.info(
                         "Replacing ellipsis with first meaningful chunk",
                     )
-                    assistant_response = chunk
+                    assistant_response = f"{agent_header}{chunk}"
                     first_chunk = False
                 elif not first_chunk:
                     # Normal streaming - append chunks
@@ -156,12 +206,12 @@ class TapioAssistantApp:
                 )
 
                 # Format documents for display once we have them
-                if retrieved_docs and formatted_docs == "Retrieving relevant documents...":
+                if retrieved_docs and formatted_docs == "Retrieving relevant official sources...":
                     formatted_docs = self.rag_orchestrator.format_documents_for_display(
                         retrieved_docs,
                     )
 
-                yield "", current_history, formatted_docs
+                yield "", current_history, formatted_docs, guide_status
 
             # Final update with complete response
             chat_history.append(
@@ -174,7 +224,7 @@ class TapioAssistantApp:
                     retrieved_docs,
                 )
 
-            yield "", chat_history, formatted_docs
+            yield "", chat_history, formatted_docs, guide_status
 
         except Exception:
             logger.exception("Error in streaming response")
@@ -182,26 +232,36 @@ class TapioAssistantApp:
             chat_history.append(
                 {"role": "assistant", "content": error_message},
             )
-            yield "", chat_history, "Error retrieving documents."
+            yield "", chat_history, "Error retrieving official sources.", guide_status
 
-    def clear_chat(self) -> tuple[list, str]:
+    def clear_chat(self) -> tuple[list, str, str]:
         """Clear the chat history and documents display.
 
         Returns:
-            Empty chat history and empty string for documents display
+            Empty chat history, initial source copy, and Tapio's guide panel
         """
-        return [], ""
+        tapio = self.agent_router.route("").agent
+        return (
+            [],
+            "Sources will appear here with each response.",
+            _guide_status_markdown(
+                tapio,
+                "Tapio is ready to understand what you need.",
+            ),
+        )
 
     def respond(
         self,
         message: str,
         chat_history: list[dict[str, str]],
+        selected_agent_id: str = AUTO_ROUTE,
     ) -> tuple[str, list[dict[str, str]], str]:
         """Process user message and update the chat history.
 
         Args:
             message: User's message
             chat_history: Current chat history
+            selected_agent_id: User-selected guide or automatic routing mode
 
         Returns:
             Tuple containing empty message (to clear input), updated chat history,
@@ -211,11 +271,17 @@ class TapioAssistantApp:
         if not chat_history:
             chat_history = []
 
-        response, docs = self.generate_rag_response(message, chat_history)
+        route = self.agent_router.route(message, selected_agent_id)
+        response, docs = self.generate_rag_response(message, chat_history, route.agent.id)
 
         # Add the new messages
         chat_history.append({"role": "user", "content": message})
-        chat_history.append({"role": "assistant", "content": response})
+        chat_history.append(
+            {
+                "role": "assistant",
+                "content": f"**{route.agent.name}** · {route.agent.title}\n\n{response}",
+            },
+        )
 
         return "", chat_history, docs
 
@@ -225,23 +291,44 @@ class TapioAssistantApp:
         Returns:
             Configured Gradio Blocks interface
         """
-        with gr.Blocks(title="Tapio Assistant") as demo:
-            gr.Markdown("# Tapio Assistant")
-            gr.Markdown(
-                "Ask questions about Finnish immigration processes. "
-                "The assistant uses RAG to find and use relevant information.",
+        tapio = self.agent_router.route("").agent
+        agent_choices = [("Tapio chooses the right guide", AUTO_ROUTE)] + [
+            (f"{agent.name} — {agent.title}", agent.id) for agent in AGENTS
+        ]
+
+        with gr.Blocks(title="Tapio — Your guide to Finland") as demo:
+            gr.HTML(
+                "<div id='tapio-header'><h1>Tapio</h1>"
+                "<p>Your shared conversation with Finntegrate's specialized guides.</p></div>",
             )
 
             with gr.Row():
-                with gr.Column(scale=7):
+                with gr.Column(scale=2, min_width=230, elem_id="agent-sidebar"):
+                    gr.Markdown("### Your guide team")
+                    gr.Markdown(_agent_roster_markdown())
+                    agent_selector = gr.Dropdown(
+                        choices=agent_choices,
+                        value=AUTO_ROUTE,
+                        label="Choose a guide",
+                        info="You can also mention a guide, for example @Sampo.",
+                    )
+
+                with gr.Column(scale=7, min_width=360):
+                    gr.Markdown("### # your-finland-journey")
                     chatbot = gr.Chatbot(
-                        label="Conversation",
-                        height=500,
+                        show_label=False,
+                        height=560,
+                        layout="bubble",
+                        buttons=["copy_all"],
+                        feedback_options=None,
+                        placeholder="Start with a question. Tapio will bring in the right guide when needed.",
+                        elem_id="conversation",
                     )
                     msg = gr.Textbox(
-                        label="Your question",
-                        placeholder="Ask about Finnish immigration processes...",
+                        label="Message Tapio and the guides",
+                        placeholder="For example: How do I apply for a residence permit?",
                         lines=2,
+                        elem_id="message-box",
                     )
 
                     gr.HTML(
@@ -252,38 +339,45 @@ class TapioAssistantApp:
                     )
 
                     with gr.Row():
-                        submit = gr.Button("Submit")
-                        clear = gr.Button("Clear")
+                        submit = gr.Button("Send", variant="primary")
+                        clear = gr.Button("New conversation")
 
-                with gr.Column(scale=3):
+                with gr.Column(scale=3, min_width=240, elem_id="guide-panel"):
+                    guide_status = gr.Markdown(
+                        value=_guide_status_markdown(
+                            tapio,
+                            "Tapio is ready to understand what you need.",
+                        ),
+                    )
+                    gr.Markdown("### Sources in this response")
                     docs_display = gr.Markdown(
-                        label="Retrieved Documents",
-                        value="Documents will appear here when you ask a question.",
-                        height=500,
+                        value="Sources will appear here with each response.",
                     )
 
             # Define app logic - use streaming for better user experience
             # Single event handler for both submit button and Enter key
             msg.submit(
                 self.respond_stream,
-                [msg, chatbot],
+                [msg, chatbot, agent_selector],
                 [
                     msg,
                     chatbot,
                     docs_display,
+                    guide_status,
                 ],
             )
             # Make submit button trigger the same behavior as Enter key
             submit.click(
                 self.respond_stream,
-                [msg, chatbot],
+                [msg, chatbot, agent_selector],
                 [
                     msg,
                     chatbot,
                     docs_display,
+                    guide_status,
                 ],
             )
-            clear.click(self.clear_chat, None, [chatbot, docs_display])
+            clear.click(self.clear_chat, None, [chatbot, docs_display, guide_status])
 
             # Add some example queries
             gr.Examples(
@@ -305,7 +399,7 @@ class TapioAssistantApp:
             share: Whether to create a shareable link for the app
         """
         # Launch the Gradio app
-        self.demo.launch(share=share)
+        self.demo.launch(share=share, css=APP_CSS)
 
 
 def main(

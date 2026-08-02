@@ -23,7 +23,7 @@ dependencies = [
     "langchain>=0.3.23",
     "langchain-chroma>=0.2.3",
     "langchain-huggingface[full]>=0.1.2",
-    "gradio>=6.0.0",
+    "gradio>=6.22.0",
     "ollama>=0.4.8",
     "pydantic>=2.13.4",
     "httpx>=0.28.1",
@@ -120,6 +120,7 @@ ignore = [
     "INP001",  # tests intentionally use implicit namespace packages
     "PLC0415", # local imports for mocking/patching timing are idiomatic in tests
     "PLR0913", # test functions naturally take many fixture arguments
+    "PLR0917", # mock-heavy test functions naturally have many positional arguments
     "PLR2004", # magic values in test assertions/fixtures are fine
     "PT009",   # some test classes intentionally use unittest.TestCase-style assertions
     "PTH",     # os.path-based temp file/dir handling in test fixtures is fine

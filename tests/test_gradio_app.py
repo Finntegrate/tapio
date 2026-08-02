@@ -55,6 +55,24 @@ class TestGradioApp:
         test_app.rag_orchestrator.query_stream.assert_called_once_with(
             query_text="How do I apply for one?",
             history=prior_turns,
+            agent_id="ilmarinen",
+        )
+
+    def test_respond_stream_shows_selected_guide(self, test_app):
+        outputs = list(
+            test_app.respond_stream(
+                "Can you help me find a rental apartment?",
+                [],
+            ),
+        )
+
+        _, history, _, guide_status = outputs[-1]
+        assert "**Otso**" in history[-1]["content"]
+        assert "**Otso**" in guide_status
+        test_app.rag_orchestrator.query_stream.assert_called_once_with(
+            query_text="Can you help me find a rental apartment?",
+            history=[],
+            agent_id="otso",
         )
 
     def test_generate_rag_response_with_error(self, test_app):
