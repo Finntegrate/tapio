@@ -180,7 +180,14 @@ class RAGOrchestrator:
         return self.llm_service.check_model_availability()
 
     def _get_system_prompt(self, agent_id: str) -> str:
-        """Combine Tapio's safety baseline with a specialist's scope when needed."""
+        """Combine Tapio's safety baseline with a specialist's scope when needed.
+
+        Args:
+            agent_id: Identifier for the guide whose specialist prompt may be loaded.
+
+        Returns:
+            The shared prompt, optionally extended with a specialist prompt.
+        """
         base_prompt = load_prompt("system_prompt")
         agent = get_agent(agent_id)
         if agent.id == "tapio":

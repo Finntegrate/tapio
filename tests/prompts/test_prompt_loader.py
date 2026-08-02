@@ -69,6 +69,16 @@ def test_load_prompt_without_variables():
             os.unlink(temp_file.name)
 
 
+def test_system_prompt_requires_sources_for_all_factual_guidance():
+    """Keep every guide grounded in retrieved information, not just immigration advice."""
+    prompt = load_prompt("system_prompt")
+
+    assert "all factual guidance" in prompt
+    assert "employment" in prompt
+    assert "Do not make factual claims when no reliable source was retrieved." in prompt
+    assert "source URL" in prompt
+
+
 def test_load_nonexistent_prompt():
     """Test loading a nonexistent prompt file returns empty string."""
     with mock.patch("pathlib.Path.exists", return_value=False):

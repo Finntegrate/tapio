@@ -459,7 +459,7 @@ def tapio_app(
         help="Ollama model to use for LLM inference",
     ),
     max_tokens: int = typer.Option(
-        1024,
+        DEFAULT_MAX_TOKENS,
         "--max-tokens",
         "-t",
         help="Maximum number of tokens to generate",

@@ -30,7 +30,8 @@ class TestLLMService:
         assert service.max_tokens == 2048
         assert service.temperature == 0.5
 
-    def test_build_messages_normalizes_structured_gradio_history(self):
+    def test_build_messages_normalizes_structured_gradio_history(self) -> None:
+        """Test structured Gradio history is normalized to plain text."""
         messages = _build_messages(
             prompt="What should I do next?",
             system_prompt=None,
@@ -93,32 +94,6 @@ class TestLLMService:
                 True,
                 "Found exact matching model: all-minilm:22m",
             ),
-            # Base name matching (user provides base name, model has tag)
-            (
-                "llama3.2",
-                ["llama3.2:latest", "all-minilm:22m"],
-                True,
-                "Found matching model: llama3.2:latest for base name llama3.2",
-            ),
-            (
-                "all-minilm",
-                ["llama3.2:latest", "all-minilm:22m"],
-                True,
-                "Found matching model: all-minilm:22m for base name all-minilm",
-            ),
-            # Base name matching (user provides tag, model has different tag but same base)
-            (
-                "llama3.2:3b",
-                ["llama3.2:latest", "all-minilm:22m"],
-                True,
-                "Found matching model: llama3.2:latest for requested llama3.2:3b",
-            ),
-            (
-                "llama3.2:latest",
-                ["llama3.2:3b", "all-minilm:22m"],
-                True,
-                "Found matching model: llama3.2:3b for requested llama3.2:latest",
-            ),
             # No matches
             (
                 "nonexistent-model",
@@ -131,19 +106,6 @@ class TestLLMService:
                 ["llama3.2:latest", "all-minilm:22m"],
                 False,
                 "mistral:7b model not found in Ollama",
-            ),
-            # Edge cases with complex model names
-            (
-                "llama3.2",
-                ["llama3.2:latest", "llama3.2:3b", "llama3.2:instruct"],
-                True,
-                "Found matching model: llama3.2:latest for base name llama3.2",
-            ),
-            (
-                "codellama:7b-instruct",
-                ["codellama:13b-instruct", "llama3.2:latest"],
-                True,
-                "Found matching model: codellama:13b-instruct for requested codellama:7b-instruct",
             ),
         ],
     )
@@ -183,6 +145,17 @@ class TestLLMService:
 
         # Check that the expected log message appears
         assert expected_log_message in caplog.text
+
+    @patch("tapio.services.llm_service.ollama.list")
+    def test_check_model_availability_requires_exact_model_tag(self, mock_list) -> None:
+        """Reject an installed variant when its tag differs from the requested model."""
+        installed_model = MagicMock()
+        installed_model.model = "gemma4:e4b"
+        mock_response = MagicMock()
+        mock_response.models = [installed_model]
+        mock_list.return_value = mock_response
+
+        assert LLMService("gemma4:latest").check_model_availability() is False
 
     @patch("tapio.services.llm_service.ollama.list")
     def test_check_model_availability_logs_available_models(self, mock_list, caplog):

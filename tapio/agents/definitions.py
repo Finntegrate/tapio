@@ -8,7 +8,19 @@ AgentId = Literal["tapio", "ilmarinen", "sampo", "rauni", "otso"]
 
 @dataclass(frozen=True, slots=True)
 class AgentDefinition:
-    """Describe a specialist's scope and how it appears to a user."""
+    """Describe a specialist's scope and how it appears to a user.
+
+    Args:
+        id: Stable identifier used for routing and prompt selection.
+        name: Display name shown to users.
+        title: Short, user-facing role title.
+        category: Topic area used to explain automatic routing.
+        summary: Brief description of the guide's support.
+        responsibilities: Topics the guide is equipped to address.
+        activation_terms: Terms used to score automatic routing.
+        out_of_scope: Support the guide should not provide.
+        color: Visual accent name used in the interface.
+    """
 
     id: AgentId
     name: str
@@ -123,6 +135,12 @@ AGENTS_BY_ID: Final[dict[AgentId, AgentDefinition]] = {agent.id: agent for agent
 
 def get_agent(agent_id: str) -> AgentDefinition:
     """Return an agent definition by ID.
+
+    Args:
+        agent_id: Stable identifier for a guide in the initial team.
+
+    Returns:
+        The matching guide definition.
 
     Raises:
         ValueError: If ``agent_id`` is not part of the supported initial team.

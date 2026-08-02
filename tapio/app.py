@@ -13,6 +13,8 @@ from tapio.services.rag_orchestrator import RAGOrchestrator
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+RETRIEVING_SOURCES_MESSAGE = "Retrieving relevant official sources..."
+
 APP_CSS = """
 html, body {
   background: #0b1410;
@@ -341,7 +343,7 @@ class TapioAssistantApp:
         chat_history.append({"role": "user", "content": message})
 
         # Clear input and show user message
-        yield "", chat_history, "Retrieving relevant official sources...", guide_status
+        yield "", chat_history, RETRIEVING_SOURCES_MESSAGE, guide_status
 
         try:
             # Get streaming response and retrieved docs from the RAG orchestrator
@@ -353,7 +355,7 @@ class TapioAssistantApp:
 
             # Start building the assistant response and immediately start streaming
             assistant_response = f"{agent_header}…"
-            formatted_docs = "Retrieving relevant official sources..."
+            formatted_docs = RETRIEVING_SOURCES_MESSAGE
             first_chunk = True
 
             # Update chat history immediately with ellipsis to show activity
@@ -388,7 +390,7 @@ class TapioAssistantApp:
                 )
 
                 # Format documents for display once we have them
-                if retrieved_docs and formatted_docs == "Retrieving relevant official sources...":
+                if retrieved_docs and formatted_docs == RETRIEVING_SOURCES_MESSAGE:
                     formatted_docs = self.rag_orchestrator.format_documents_for_display(
                         retrieved_docs,
                     )
@@ -416,7 +418,7 @@ class TapioAssistantApp:
             )
             yield "", chat_history, "Error retrieving official sources.", guide_status
 
-    def clear_chat(self) -> tuple[list, str, str]:
+    def clear_chat(self) -> tuple[list[dict[str, str]], str, str]:
         """Clear the chat history and documents display.
 
         Returns:
@@ -431,41 +433,6 @@ class TapioAssistantApp:
                 "Tapio is ready to understand what you need.",
             ),
         )
-
-    def respond(
-        self,
-        message: str,
-        chat_history: list[dict[str, str]],
-        selected_agent_id: str = AUTO_ROUTE,
-    ) -> tuple[str, list[dict[str, str]], str]:
-        """Process user message and update the chat history.
-
-        Args:
-            message: User's message
-            chat_history: Current chat history
-            selected_agent_id: User-selected guide or automatic routing mode
-
-        Returns:
-            Tuple containing empty message (to clear input), updated chat history,
-            and document display content
-        """
-        # Update for 'messages' type chatbot
-        if not chat_history:
-            chat_history = []
-
-        route = self.agent_router.route(message, selected_agent_id)
-        response, docs = self.generate_rag_response(message, chat_history, route.agent.id)
-
-        # Add the new messages
-        chat_history.append({"role": "user", "content": message})
-        chat_history.append(
-            {
-                "role": "assistant",
-                "content": f"**{route.agent.name}** · {route.agent.title}\n\n{response}",
-            },
-        )
-
-        return "", chat_history, docs
 
     def _build_interface(self) -> gr.Blocks:
         """Build the Gradio interface components.

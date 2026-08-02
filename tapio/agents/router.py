@@ -21,7 +21,15 @@ class AgentRouter:
     """Select the most relevant guide without hiding the decision from users."""
 
     def route(self, message: str, preferred_agent_id: str = AUTO_ROUTE) -> AgentRoute:
-        """Choose a guide using a manual choice, mention, or domain keywords."""
+        """Choose a guide using a manual choice, mention, or domain keywords.
+
+        Args:
+            message: User message used for guide mentions and topic matching.
+            preferred_agent_id: Explicit guide selection, or ``AUTO_ROUTE`` to infer one.
+
+        Returns:
+            The selected guide and a user-visible explanation of the decision.
+        """
         if preferred_agent_id != AUTO_ROUTE:
             agent = get_agent(preferred_agent_id)
             return AgentRoute(agent=agent, reason="You selected this guide.", was_explicit=True)
@@ -43,5 +51,13 @@ class AgentRouter:
 
     @staticmethod
     def _score(agent: AgentDefinition, normalized_message: str) -> int:
-        """Weight longer terms so specific phrases win over broad keywords."""
+        """Weight longer terms so specific phrases win over broad keywords.
+
+        Args:
+            agent: Guide whose activation terms are evaluated.
+            normalized_message: Case-normalized user message to score.
+
+        Returns:
+            Aggregate keyword score for the guide.
+        """
         return sum(normalized_message.count(term) * len(term.split()) for term in agent.activation_terms)
