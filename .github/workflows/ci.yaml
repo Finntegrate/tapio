@@ -25,6 +25,9 @@ jobs:
           - service: tapio
             package: tapio
             mypy_args: --config-file mypy.ini tapio
+          - service: backend
+            package: tapio_backend
+            mypy_args: --config-file mypy.ini tapio_backend
     defaults:
       run:
         working-directory: ${{ matrix.service }}

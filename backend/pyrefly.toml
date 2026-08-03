@@ -1,0 +1,4 @@
+project_includes = ["tapio_backend/", ]
+project_excludes = ["**/.[!/.]*", "**/*venv/**", ".venv/**", "tests/"]
+search_path = ["tapio_backend/", "tests/"]
+python_version = "3.14.0"

@@ -58,3 +58,11 @@ run = "uv run pytest --cov=tapio_ingest --cov-fail-under=80"
 [tasks.ingest]
 dir = "ingest"
 run = "uv run tapio-ingest"
+
+[tasks."test:backend"]
+dir = "backend"
+run = "uv run pytest --cov=tapio_backend --cov-fail-under=80"
+
+[tasks.backend]
+dir = "backend"
+run = "uv run uvicorn tapio_backend.main:app --reload --port 8000"

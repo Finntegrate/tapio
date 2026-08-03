@@ -9,10 +9,12 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 
 - `crawler/` collects source pages and emits Markdown with `source_url` frontmatter.
 - `ingest/` chunks that Markdown and writes it to the shared `vectorstore/` collection.
-- `tapio/` is the user-facing chat application and only reads from that collection.
+- `tapio/` is the RAG/agent-routing orchestration library and only reads from that collection.
+- `backend/` is a FastAPI HTTP/SSE layer over `tapio/`, for the `app/` frontend to call.
 
 Each project has its own dependency manifest and can be tested independently
-with `mise run test:crawl`, `mise run test:ingest`, or `mise run test:tapio`.
+with `mise run test:crawl`, `mise run test:ingest`, `mise run test:tapio`, or
+`mise run test:backend`.
 
 ```text
 crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  tapio
