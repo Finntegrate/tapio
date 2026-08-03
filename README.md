@@ -3,7 +3,15 @@
 [![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 
-Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing, and querying information from websites like Migri.fi (Finnish Immigration Service). It provides complete workflow capabilities including web crawling, content parsing, vectorization, and an interactive chatbot interface.
+Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing, and querying information from websites like Migri.fi (Finnish Immigration Service). Its crawler, ingestion pipeline, and chat application are independent projects in this monorepo.
+
+## Projects
+
+- `crawler/` collects source pages and emits Markdown with `source_url` frontmatter.
+- `ingest/` chunks that Markdown and writes it to the configured vector collection.
+- `tapio/` is the user-facing chat application and only reads from that collection.
+
+Each project has its own dependency manifest and can be tested independently with `mise run <project>:test`.
 
 ## Features
 
@@ -61,7 +69,7 @@ After installing, make sure the Ollama daemon is running before pulling models.
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
-uv sync
+cd tapio && uv sync
 ```
 
 1. Install required Ollama model:
@@ -74,7 +82,7 @@ To use a different model, pull it and pass its name when launching Tapio:
 
 ```bash
 ollama pull <model-name>
-uv run -m tapio.cli tapio-app --model-name <model-name>
+uv run tapio serve --model-name <model-name>
 ```
 
 ## Usage
@@ -83,29 +91,25 @@ uv run -m tapio.cli tapio-app --model-name <model-name>
 
 Tapio provides a four-step workflow:
 
-1. **crawl** - Collect HTML content from websites
-2. **parse** - Convert HTML to structured Markdown
-3. **vectorize** - Create vector embeddings for semantic search
-4. **tapio-app** - Launch the interactive chatbot interface
+1. **crawler** - Collect and normalize source content
+2. **ingest** - Create vector embeddings from crawler Markdown
+3. **tapio** - Launch the interactive chatbot interface
 
-Use `uv run -m tapio.cli --help` to see all commands or `uv run -m tapio.cli <command> --help` for command-specific options.
+Run commands from the owning project: `cd crawler && uv run tapio-crawler --help`, `cd ingest && uv run tapio-ingest --help`, or `cd tapio && uv run tapio --help`.
 
 ### Quick Example
 
 Complete workflow for the Migri website:
 
 ```bash
-# 1. Crawl content (uses site configuration)
-uv run -m tapio.cli crawl migri --depth 2
+# 1. Crawl and normalize content (uses site configuration)
+cd crawler && uv run tapio-crawler crawl migri --depth 2 && uv run tapio-crawler parse migri
 
-# 2. Parse HTML to Markdown
-uv run -m tapio.cli parse migri
+# 2. Create vector embeddings from crawler output
+cd ../ingest && uv run tapio-ingest ingest ../content
 
-# 3. Create vector embeddings
-uv run -m tapio.cli vectorize
-
-# 4. Launch chatbot interface
-uv run -m tapio.cli tapio-app
+# 3. Launch the chat application
+cd ../tapio && uv run tapio serve
 ```
 
 ### Available Sites
@@ -113,13 +117,13 @@ uv run -m tapio.cli tapio-app
 To list configured sites:
 
 ```bash
-uv run -m tapio.cli list-sites
+cd crawler && uv run tapio-crawler crawl --help
 ```
 
 To view detailed site configurations:
 
 ```bash
-uv run -m tapio.cli list-sites --verbose
+cd crawler && uv run tapio-crawler parse --help
 ```
 
 For technical details on site configurations, programmatic API usage, and adding new sites, see [CONTRIBUTING.md](CONTRIBUTING.md).

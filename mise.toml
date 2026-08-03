@@ -10,3 +10,15 @@ ollama = "latest"
 prek = "latest"
 python = "3.14"
 uv = "latest"
+
+[tasks."tapio:test"]
+dir = "tapio"
+run = "uv run pytest"
+
+[tasks."crawler:test"]
+dir = "crawler"
+run = "uv run pytest"
+
+[tasks."ingest:test"]
+dir = "ingest"
+run = "uv run pytest"
