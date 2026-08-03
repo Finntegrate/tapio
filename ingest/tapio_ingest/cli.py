@@ -1,6 +1,7 @@
 """CLI for the document-ingestion service."""
 
 import os
+from pathlib import Path
 
 import typer
 from langchain_chroma import Chroma
@@ -16,7 +17,10 @@ app = typer.Typer(help="Ingest crawler Markdown into Tapio's vector collection."
 DEFAULT_CONTENT_DIR = os.environ.get("TAPIO_CONTENT_DIR", "../content")
 # An external volume can supply this path; local development uses the
 # monorepo's adjacent ``vectorstore/`` directory by default.
-DEFAULT_VECTORSTORE_DIR = os.environ.get("TAPIO_VECTORSTORE_DIR", "../vectorstore")
+DEFAULT_VECTORSTORE_DIR = os.environ.get(
+    "TAPIO_VECTORSTORE_DIR",
+    str(Path(__file__).resolve().parents[2] / "vectorstore"),
+)
 
 
 @app.command()
@@ -37,7 +41,18 @@ def ingest(
         help="Only ingest one site's parsed Markdown",
     ),
 ) -> None:
-    """Chunk and index shared-folder Markdown while preserving citations."""
+    """Chunk and index shared-folder Markdown while preserving citations.
+
+    :param input_dir: Shared directory containing crawler Markdown.
+    :param collection: Chroma collection that receives the document chunks.
+    :param persist_directory: Directory where Chroma persists the collection.
+    :param embedding_model: Hugging Face embedding model name.
+    :param site: Optional site identifier used to restrict ingestion.
+    :return: None.
+
+    :example:
+        $ uv run tapio-ingest --site migri
+    """
     embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
     store = Chroma(
         collection_name=collection,

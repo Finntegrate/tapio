@@ -34,7 +34,10 @@ def test_ingest_uses_the_shared_content_directory_by_default(
     _chroma: Mock,
     vectorizer_class: Mock,
 ) -> None:
-    """The CLI consumes the shared-folder contract without a crawler import."""
+    """Verify the CLI consumes the shared-folder contract without a crawler import.
+
+    :return: None.
+    """
     vectorizer_class.return_value.process_directory.return_value = 2
 
     result = CliRunner().invoke(app, ["--site", "migri"])

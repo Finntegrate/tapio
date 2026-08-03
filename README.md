@@ -12,7 +12,7 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 - `tapio/` is the user-facing chat application and only reads from that collection.
 
 Each project has its own dependency manifest and can be tested independently
-with `mise run test:<project>`.
+with `mise run test:crawl`, `mise run test:ingest`, or `mise run test:tapio`.
 
 ```text
 crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  tapio

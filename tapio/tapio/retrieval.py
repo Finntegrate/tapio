@@ -21,7 +21,16 @@ class ChromaRetriever:
         embeddings: Embeddings,
         persist_directory: str = DEFAULT_VECTORSTORE_DIR,
     ) -> None:
-        """Connect to the collection produced by the ingestion service."""
+        """Connect to the collection produced by the ingestion service.
+
+        Args:
+            collection_name: Name of the collection to query.
+            embeddings: Embedding function used for similarity searches.
+            persist_directory: Shared directory containing the Chroma collection.
+
+        Returns:
+            None.
+        """
         self.vector_db = Chroma(
             collection_name=collection_name,
             embedding_function=embeddings,
