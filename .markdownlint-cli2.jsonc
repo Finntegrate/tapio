@@ -13,6 +13,10 @@
     "tapio/prompts/**",
     // Not project-owned; only relevant when running this glob outside prek/CI,
     // since prek/CI only ever lint git-tracked files.
-    ".venv/**"
+    ".venv/**",
+    // Vendored agent-skill docs duplicated verbatim across platforms; not
+    // hand-authored prose.
+    "app/.gemini/skills/**",
+    "app/.github/skills/**"
   ]
 }
