@@ -20,6 +20,8 @@ class AgentDefinition:
         activation_terms: Terms used to score automatic routing.
         out_of_scope: Support the guide should not provide.
         color: Visual accent name used in the interface.
+        specialist_prompt: Optional prompt template that narrows the shared
+            Tapio system prompt to this guide's domain.
     """
 
     id: AgentId
@@ -31,6 +33,7 @@ class AgentDefinition:
     activation_terms: tuple[str, ...]
     out_of_scope: str
     color: str
+    specialist_prompt: str | None = None
 
 
 AGENTS: Final[tuple[AgentDefinition, ...]] = (
@@ -66,6 +69,7 @@ AGENTS: Final[tuple[AgentDefinition, ...]] = (
         ),
         out_of_scope="Employment opportunities, benefits, and housing choices without a paperwork question.",
         color="forest",
+        specialist_prompt="agents/ilmarinen",
     ),
     AgentDefinition(
         id="sampo",
@@ -87,6 +91,7 @@ AGENTS: Final[tuple[AgentDefinition, ...]] = (
         ),
         out_of_scope="Permit applications and legal employment eligibility questions.",
         color="amber",
+        specialist_prompt="agents/sampo",
     ),
     AgentDefinition(
         id="rauni",
@@ -107,6 +112,7 @@ AGENTS: Final[tuple[AgentDefinition, ...]] = (
         ),
         out_of_scope="Medical diagnosis and legal representation.",
         color="nordic",
+        specialist_prompt="agents/rauni",
     ),
     AgentDefinition(
         id="otso",
@@ -127,6 +133,7 @@ AGENTS: Final[tuple[AgentDefinition, ...]] = (
         ),
         out_of_scope="Immigration applications and financial-benefit eligibility beyond housing context.",
         color="nordic",
+        specialist_prompt="agents/otso",
     ),
 )
 

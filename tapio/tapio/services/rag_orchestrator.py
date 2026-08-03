@@ -190,10 +190,10 @@ class RAGOrchestrator:
         """
         base_prompt = load_prompt("system_prompt")
         agent = get_agent(agent_id)
-        if agent.id == "tapio":
+        if agent.specialist_prompt is None:
             return base_prompt
 
-        specialist_prompt = load_prompt(f"agents/{agent.id}")
+        specialist_prompt = load_prompt(agent.specialist_prompt)
         return f"{base_prompt}\n\n{specialist_prompt}".strip()
 
     def format_documents_for_display(self, documents: list[Any]) -> str:

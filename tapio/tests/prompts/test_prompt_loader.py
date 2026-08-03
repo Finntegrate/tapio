@@ -5,6 +5,9 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
+import pytest
+
+from tapio.agents import AGENTS
 from tapio.prompts.prompt_loader import get_prompt_path, load_prompt
 
 
@@ -77,6 +80,19 @@ def test_system_prompt_requires_sources_for_all_factual_guidance():
     assert "employment" in prompt
     assert "Do not make factual claims when no reliable source was retrieved." in prompt
     assert "source URL" in prompt
+
+
+@pytest.mark.parametrize(
+    "agent",
+    [agent for agent in AGENTS if agent.specialist_prompt is not None],
+    ids=lambda agent: agent.id,
+)
+def test_specialist_prompts_define_scope_and_a_tapio_handoff(agent):
+    prompt = load_prompt(agent.specialist_prompt)
+
+    assert f"You are {agent.name}" in prompt
+    assert "Stay within" in prompt
+    assert "Tapio can bring in" in prompt
 
 
 def test_user_prompt_delimits_adversarial_reference_content_as_data():
