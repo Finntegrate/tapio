@@ -8,7 +8,7 @@ from tapio.utils.embedding_utils import EmbeddingGenerator
 class TestEmbeddingGenerator:
     """Tests for the EmbeddingGenerator class."""
 
-    @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
+    @patch("tapio.utils.embedding_utils.HuggingFaceEmbeddings")
     def test_init_default_model(self, mock_sentence_transformer):
         """Test initialization with default model name."""
         generator = EmbeddingGenerator()
@@ -17,7 +17,7 @@ class TestEmbeddingGenerator:
         mock_sentence_transformer.assert_called_once_with(model_name="all-MiniLM-L6-v2")
         assert generator.model_name == "all-MiniLM-L6-v2"
 
-    @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
+    @patch("tapio.utils.embedding_utils.HuggingFaceEmbeddings")
     def test_init_custom_model(self, mock_sentence_transformer):
         """Test initialization with custom model name."""
         custom_model = "paraphrase-multilingual-MiniLM-L12-v2"
@@ -27,7 +27,7 @@ class TestEmbeddingGenerator:
         mock_sentence_transformer.assert_called_once_with(model_name=custom_model)
         assert generator.model_name == custom_model
 
-    @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
+    @patch("tapio.utils.embedding_utils.HuggingFaceEmbeddings")
     def test_generate_embedding(self, mock_sentence_transformer):
         """Test generation of a single embedding."""
         # Mock the embed_query method to return a sample embedding
@@ -43,7 +43,7 @@ class TestEmbeddingGenerator:
         # Check if the result matches the expected embedding
         assert embedding == [0.1, 0.2, 0.3, 0.4]
 
-    @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
+    @patch("tapio.utils.embedding_utils.HuggingFaceEmbeddings")
     def test_generate_embedding_error(self, mock_sentence_transformer):
         """Test error handling during single embedding generation."""
         # Mock the embed_query method to raise an exception
@@ -57,7 +57,7 @@ class TestEmbeddingGenerator:
         # Check if the error is handled and None is returned
         assert embedding is None
 
-    @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
+    @patch("tapio.utils.embedding_utils.HuggingFaceEmbeddings")
     def test_generate_batch_embeddings(self, mock_sentence_transformer):
         """Test generation of batch embeddings."""
         # Mock the embed_documents method to return sample embeddings
@@ -81,7 +81,7 @@ class TestEmbeddingGenerator:
         assert embeddings[1] == [0.4, 0.5, 0.6]
         assert embeddings[2] == [0.7, 0.8, 0.9]
 
-    @patch("tapio.utils.embedding_utils.SentenceTransformerEmbeddings")
+    @patch("tapio.utils.embedding_utils.HuggingFaceEmbeddings")
     def test_generate_batch_embeddings_error(self, mock_sentence_transformer):
         """Test error handling during batch embedding generation."""
         # Mock the embed_documents method to raise an exception

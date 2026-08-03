@@ -1,5 +1,6 @@
 """Simple, explainable routing for Tapio's initial multi-agent experience."""
 
+import re
 from dataclasses import dataclass
 from typing import Final
 
@@ -60,4 +61,7 @@ class AgentRouter:
         Returns:
             Aggregate keyword score for the guide.
         """
-        return sum(normalized_message.count(term) * len(term.split()) for term in agent.activation_terms)
+        return sum(
+            len(re.findall(rf"(?<!\w){re.escape(term)}(?!\w)", normalized_message)) * len(term.split())
+            for term in agent.activation_terms
+        )

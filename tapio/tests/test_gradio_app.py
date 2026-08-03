@@ -88,6 +88,15 @@ class TestGradioApp:
             agent_id="otso",
         )
 
+    def test_respond_stream_displays_the_empty_retrieval_message(self, test_app):
+        test_app.rag_orchestrator.query_stream.return_value = (iter(["Response"]), [])
+        test_app.rag_orchestrator.format_documents_for_display.return_value = "No relevant documents found."
+
+        outputs = list(test_app.respond_stream("A general question", []))
+
+        assert outputs[-1][2] == "No relevant documents found."
+        test_app.rag_orchestrator.format_documents_for_display.assert_called_with([])
+
     def test_generate_rag_response_with_error(self, test_app):
         """Test error handling in generate_rag_response."""
         # Setup

@@ -328,3 +328,25 @@ class TestLLMService:
         assert "Error: Could not generate a response" in result
         assert "llama3.2:latest" in result
         mock_chat.assert_called_once()
+
+    @patch("tapio.services.llm_service.ollama.chat")
+    def test_generate_response_stream_yields_content_without_a_context_cap(self, mock_chat):
+        mock_chat.return_value = [
+            {"message": {"content": "First "}},
+            {"message": {"content": "second"}},
+        ]
+
+        chunks = list(LLMService("llama3.2:latest").generate_response_stream("Test prompt"))
+
+        assert chunks == ["First ", "second"]
+        options = mock_chat.call_args.kwargs["options"]
+        assert "num_ctx" not in options
+
+    @patch("tapio.services.llm_service.ollama.chat")
+    def test_generate_response_stream_yields_a_safe_error_message(self, mock_chat):
+        mock_chat.side_effect = Exception("Connection error")
+
+        chunks = list(LLMService("llama3.2:latest").generate_response_stream("Test prompt"))
+
+        assert len(chunks) == 1
+        assert "Error: Could not generate a response" in chunks[0]

@@ -78,7 +78,14 @@ class DocumentRetrievalService:
         if not documents:
             return ""
 
-        context_docs = [doc.page_content for doc in documents if hasattr(doc, "page_content")]
+        context_docs = []
+        for document in documents:
+            if not hasattr(document, "page_content"):
+                continue
+            metadata = document.metadata if hasattr(document, "metadata") else {}
+            source = metadata.get("citation_url", metadata.get("source_url", metadata.get("url")))
+            source_line = f"Source: {source}\n" if source else ""
+            context_docs.append(f"{source_line}{document.page_content}")
 
         return "\n\n".join(context_docs)
 

@@ -20,13 +20,17 @@ jobs:
             package: tapio_crawler
           - service: ingest
             package: tapio_ingest
+            mypy_args: tapio_ingest
           - service: tapio
             package: tapio
+            mypy_args: --config-file mypy.ini tapio
     defaults:
       run:
         working-directory: ${{ matrix.service }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
 
       - uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
         with:
@@ -44,6 +48,10 @@ jobs:
 
       - name: Lint
         run: uv run --no-sync --no-build ruff check .
+
+      - name: Type check
+        if: matrix.service != 'crawler'
+        run: uv run --no-sync --no-build mypy ${{ matrix.mypy_args }}
 
       - name: Test
         run: uv run --no-sync --no-build pytest -q --cov=${{ matrix.package }} --cov-fail-under=80

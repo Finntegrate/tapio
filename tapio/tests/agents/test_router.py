@@ -38,3 +38,9 @@ def test_router_keeps_general_questions_with_tapio():
     route = AgentRouter().route("I am moving to Finland and do not know where to begin.")
 
     assert route.agent == get_agent("tapio")
+
+
+def test_router_does_not_match_activation_terms_inside_larger_words():
+    route = AgentRouter().route("I am reading general information.")
+
+    assert route.agent == get_agent("tapio")

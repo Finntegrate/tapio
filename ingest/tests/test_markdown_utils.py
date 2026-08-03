@@ -4,6 +4,8 @@ import os
 import tempfile
 from unittest.mock import mock_open, patch
 
+import pytest
+
 from tapio_ingest.markdown_utils import find_markdown_files, read_markdown_file
 
 
@@ -45,6 +47,17 @@ This is test content.
         assert metadata["source_file"] == "crawled/example.com/page.html"
         assert metadata["url"] == "example.com/page.html"
         assert content == "# Test Content\n\nThis is test content."  # No trailing newline
+
+    def test_source_file_normalization_only_removes_a_leading_crawled_directory(self):
+        mock_file_content = """---
+source_file: archive/crawled/example.com/page.html
+---
+Content
+"""
+        with patch("pathlib.Path.open", mock_open(read_data=mock_file_content)):
+            metadata, _ = read_markdown_file("test_file.md")
+
+        assert metadata["url"] == "archive/crawled/example.com/page.html"
 
     def test_read_markdown_file_error(self):
         """Test error handling when reading a markdown file."""
@@ -141,8 +154,9 @@ title: - [Invalid YAML
             assert any(f.endswith("file2.md") for f in markdown_files)
 
     def test_find_markdown_files_error(self):
-        """Test error handling when finding markdown files."""
-        with patch("pathlib.Path.rglob", side_effect=PermissionError("Permission denied")):
-            markdown_files = find_markdown_files("non_existent_dir")
-
-        assert markdown_files == []
+        """Permission errors remain visible to the caller."""
+        with (
+            patch("pathlib.Path.rglob", side_effect=PermissionError("Permission denied")),
+            pytest.raises(PermissionError, match="Permission denied"),
+        ):
+            find_markdown_files("non_existent_dir")

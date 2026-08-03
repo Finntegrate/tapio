@@ -1,6 +1,7 @@
 """Vectorize markdown content into ChromaDB using LangChain components."""
 
 import logging
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 
@@ -102,6 +103,7 @@ class MarkdownVectorizer:
             Number of chunks processed
         """
         all_documents = []
+        document_ids = []
 
         for file_path in file_paths:
             try:
@@ -127,6 +129,7 @@ class MarkdownVectorizer:
                     chunk.metadata["total_chunks"] = len(chunks)
 
                 all_documents.extend(chunks)
+                document_ids.extend(self._chunk_ids(file_path, len(chunks)))
 
                 logger.debug(
                     "Added document %s with embeddings",
@@ -138,9 +141,15 @@ class MarkdownVectorizer:
 
         # Add all documents to the vector store
         if all_documents:
-            self.vector_db.add_documents(all_documents)
+            self.vector_db.add_documents(all_documents, ids=document_ids)
 
         return len(all_documents)
+
+    @staticmethod
+    def _chunk_ids(file_path: str, chunk_count: int) -> list[str]:
+        """Return stable IDs so a re-ingestion upserts each document chunk."""
+        source_id = sha256(str(Path(file_path).resolve()).encode()).hexdigest()
+        return [f"{source_id}:{index}" for index in range(chunk_count)]
 
     def _prepare_metadata(
         self,
@@ -216,7 +225,7 @@ class MarkdownVectorizer:
                 chunk.metadata["total_chunks"] = len(chunks)
 
             # Add documents to the vector store
-            self.vector_db.add_documents(chunks)
+            self.vector_db.add_documents(chunks, ids=self._chunk_ids(file_path, len(chunks)))
             # No need to explicitly persist as ChromaDB 0.4.x+ automatically persists documents
 
             logger.debug(

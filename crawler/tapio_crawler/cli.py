@@ -12,6 +12,13 @@ from tapio_crawler.parser import Parser
 app = typer.Typer(help="Collect and normalize source content for Tapio.")
 
 
+@app.command("list-sites")
+def list_sites() -> None:
+    """List the configured source sites."""
+    for site in ConfigManager().list_available_sites():
+        typer.echo(site)
+
+
 @app.command()
 def crawl(site: str, depth: int | None = typer.Option(None, "--depth", "-d")) -> None:
     """Collect source pages for one configured site."""

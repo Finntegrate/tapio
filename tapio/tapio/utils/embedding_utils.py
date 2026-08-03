@@ -3,24 +3,24 @@
 import logging
 from typing import cast
 
-from langchain_community.embeddings import (  # type: ignore[import-not-found]
-    SentenceTransformerEmbeddings,
-)
+from langchain_huggingface import HuggingFaceEmbeddings
+
+from tapio.config.settings import DEFAULT_EMBEDDING_MODEL
 
 logger = logging.getLogger(__name__)
 
 
 class EmbeddingGenerator:
-    """Generate embeddings using LangChain's SentenceTransformerEmbeddings."""
+    """Generate embeddings using LangChain's HuggingFaceEmbeddings."""
 
-    def __init__(self, model_name: str = "all-MiniLM-L6-v2") -> None:
+    def __init__(self, model_name: str = DEFAULT_EMBEDDING_MODEL) -> None:
         """Initialize the embedding generator.
 
         Args:
             model_name: Name of the embedding model to use
         """
         self.model_name = model_name
-        self.embedding_model = SentenceTransformerEmbeddings(model_name=model_name)
+        self.embedding_model = HuggingFaceEmbeddings(model_name=model_name)
         logger.info("Initialized embedding model: %s", model_name)
 
     def generate(self, text: str) -> list[float] | None:

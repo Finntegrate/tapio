@@ -1,7 +1,7 @@
-"""Configuration module for tapio.
+"""Configuration module for the crawler service.
 
 This module provides configuration models and management utilities
-for the Tapio application.
+for source-site collection and Markdown output.
 """
 
 from tapio_crawler.config.config_manager import ConfigManager

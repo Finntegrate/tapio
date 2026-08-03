@@ -219,7 +219,6 @@ class LLMService:
                 options={
                     "temperature": self.temperature,
                     "num_predict": self.max_tokens,
-                    "num_ctx": 2048,  # Reduce context window for faster processing
                     "top_k": 40,
                     "top_p": 0.9,
                     "repeat_penalty": 1.1,

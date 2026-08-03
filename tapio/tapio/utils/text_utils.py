@@ -203,7 +203,8 @@ def _chunk_text_safely(
         logger.exception("Error chunking text")
         # Last resort: manual chunking
         chunks = []
-        for i in range(0, len(text), chunk_size - chunk_overlap):
+        stride = max(1, chunk_size - chunk_overlap)
+        for i in range(0, len(text), stride):
             chunk = text[i : i + chunk_size]
             chunks.append({"content": chunk, "metadata": {}})
             if len(chunks) >= max_chunks:

@@ -41,7 +41,7 @@ Each project has its own dependency manifest and can be tested independently wit
 
 ### Prerequisites
 
-- Python 3.10 or higher
+- Python 3.14 or higher
 - [uv](https://github.com/astral-sh/uv) - Fast Python package installer
 - [Ollama](https://ollama.com/) - For local LLM inference
 
@@ -69,7 +69,7 @@ After installing, make sure the Ollama daemon is running before pulling models.
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
-cd tapio && uv sync
+uv sync
 ```
 
 1. Install required Ollama model:
@@ -89,7 +89,7 @@ uv run tapio serve --model-name <model-name>
 
 ### CLI Overview
 
-Tapio provides a four-step workflow:
+Tapio provides a three-stage workflow:
 
 1. **crawler** - Collect and normalize source content
 2. **ingest** - Create vector embeddings from crawler Markdown
@@ -106,7 +106,7 @@ Complete workflow for the Migri website:
 cd crawler && uv run tapio-crawler crawl migri --depth 2 && uv run tapio-crawler parse migri
 
 # 2. Create vector embeddings from crawler output
-cd ../ingest && uv run tapio-ingest ingest ../content
+cd ../ingest && uv run tapio-ingest ../content
 
 # 3. Launch the chat application
 cd ../tapio && uv run tapio serve
@@ -117,13 +117,13 @@ cd ../tapio && uv run tapio serve
 To list configured sites:
 
 ```bash
-cd crawler && uv run tapio-crawler crawl --help
+cd crawler && uv run tapio-crawler list-sites
 ```
 
 To view detailed site configurations:
 
 ```bash
-cd crawler && uv run tapio-crawler parse --help
+cd crawler && uv run tapio-crawler crawl --help
 ```
 
 For technical details on site configurations, programmatic API usage, and adding new sites, see [CONTRIBUTING.md](CONTRIBUTING.md).

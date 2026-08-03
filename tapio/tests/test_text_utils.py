@@ -226,6 +226,14 @@ class TestTextUtils:
                 mock_logging.assert_called_once()
                 assert "Error chunking text" in mock_logging.call_args[0][0]
 
+    def test_chunk_text_safely_fallback_handles_overlap_larger_than_chunk_size(self):
+        with patch("tapio.utils.text_utils.RecursiveCharacterTextSplitter") as mock_splitter_class:
+            mock_splitter_class.return_value.create_documents.side_effect = ValueError("Test error")
+
+            chunks = _chunk_text_safely("abcdef", chunk_size=2, chunk_overlap=3)
+
+        assert [chunk["content"] for chunk in chunks] == ["ab", "bc", "cd", "de", "ef", "f"]
+
     def test_basic_clean_html(self):
         """Test basic HTML cleaning."""
         html = """

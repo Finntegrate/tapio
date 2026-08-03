@@ -390,7 +390,7 @@ class TapioAssistantApp:
                 )
 
                 # Format documents for display once we have them
-                if retrieved_docs and formatted_docs == RETRIEVING_SOURCES_MESSAGE:
+                if formatted_docs == RETRIEVING_SOURCES_MESSAGE:
                     formatted_docs = self.rag_orchestrator.format_documents_for_display(
                         retrieved_docs,
                     )
@@ -403,10 +403,9 @@ class TapioAssistantApp:
             )
 
             # Ensure documents are formatted for final display
-            if retrieved_docs:
-                formatted_docs = self.rag_orchestrator.format_documents_for_display(
-                    retrieved_docs,
-                )
+            formatted_docs = self.rag_orchestrator.format_documents_for_display(
+                retrieved_docs,
+            )
 
             yield "", chat_history, formatted_docs, guide_status
 

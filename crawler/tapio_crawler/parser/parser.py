@@ -85,8 +85,8 @@ class Parser:
             output_dir: Directory for output markdown files
 
         Example:
-            >>> from tapio.config.config_manager import ConfigManager
-            >>> from tapio.config import settings
+            >>> from tapio_crawler.config.config_manager import ConfigManager
+            >>> from tapio_crawler.config import settings
             >>>
             >>> config_manager = ConfigManager()
             >>> site_config = config_manager.get_site_config("migri")
@@ -211,7 +211,7 @@ class Parser:
         return None
 
     # The _load_site_config and _load_config_registry methods have been replaced
-    # by using the ConfigManager from tapio.config
+    # by using the ConfigManager from tapio_crawler.config
 
     def _parse_html(self, html_content: str) -> tuple[str, str]:
         """Parse HTML content using site-specific selectors.

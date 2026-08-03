@@ -31,7 +31,7 @@ def read_markdown_file(file_path: str) -> tuple[dict, str]:
                 # Fallback to legacy handling
                 source_file = metadata["source_file"]
                 if isinstance(source_file, str):
-                    metadata["url"] = source_file.replace("crawled/", "")
+                    metadata["url"] = source_file.removeprefix("crawled/")
 
             return metadata, content
     except Exception:
@@ -71,6 +71,9 @@ def find_markdown_files(directory: str, site_filter: str | None = None) -> list[
                     pass
             else:
                 markdown_files.append(file_path)
+    except PermissionError:
+        logger.exception("Permission denied while finding markdown files in %s", directory)
+        raise
     except Exception:
         logger.exception("Error finding markdown files")
 

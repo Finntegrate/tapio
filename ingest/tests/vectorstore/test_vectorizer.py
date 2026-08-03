@@ -163,10 +163,12 @@ class TestMarkdownVectorizer:
         assert mock_chunk3.metadata["chunk_index"] == 0
         assert mock_chunk3.metadata["total_chunks"] == 1
 
-        # Verify add_documents was called with all chunks
-        mock_vector_db.add_documents.assert_called_once_with(
-            [mock_chunk1, mock_chunk2, mock_chunk3],
-        )
+        # Verify stable IDs make the Chroma write an upsert on re-ingestion.
+        added_documents, = mock_vector_db.add_documents.call_args.args
+        chunk_ids = mock_vector_db.add_documents.call_args.kwargs["ids"]
+        assert added_documents == [mock_chunk1, mock_chunk2, mock_chunk3]
+        assert len(chunk_ids) == 3
+        assert len(set(chunk_ids)) == 3
 
         # Verify correct number of chunks was returned
         assert chunk_count == 3
@@ -228,8 +230,12 @@ class TestMarkdownVectorizer:
         assert mock_chunk2.metadata["chunk_index"] == 1
         assert mock_chunk2.metadata["total_chunks"] == 2
 
-        # Verify add_documents was called
-        mock_vector_db.add_documents.assert_called_once_with([mock_chunk1, mock_chunk2])
+        # Verify add_documents was called with deterministic chunk IDs.
+        added_documents, = mock_vector_db.add_documents.call_args.args
+        chunk_ids = mock_vector_db.add_documents.call_args.kwargs["ids"]
+        assert added_documents == [mock_chunk1, mock_chunk2]
+        assert len(chunk_ids) == 2
+        assert len(set(chunk_ids)) == 2
 
         # Verify correct number of chunks was returned
         assert chunk_count == 2
@@ -258,6 +264,7 @@ class TestMarkdownVectorizer:
         assert enriched["source_url"] == "https://example.com/doc"
         assert enriched["url"] == "https://example.com/doc"
         assert enriched["citation_url"] == "https://example.com/doc"
+
         assert enriched["source_id"] == "file"
         assert enriched["source_path"] == "test_dir/file.md"
         assert enriched["file_name"] == "file.md"
@@ -275,3 +282,13 @@ class TestMarkdownVectorizer:
         assert enriched["url"] == "https://example.com/doc"
         assert enriched["source_url"] == "https://example.com/doc"
         assert enriched["citation_url"] == "https://example.com/doc"
+
+    def test_chunk_ids_are_stable_for_repeated_ingestion(self):
+        vectorizer = MarkdownVectorizer(vector_db=Mock(), text_splitter=Mock())
+
+        first_run_ids = vectorizer._chunk_ids("test_dir/file.md", 2)
+        second_run_ids = vectorizer._chunk_ids("test_dir/file.md", 2)
+
+        assert first_run_ids == second_run_ids
+        assert first_run_ids[0].endswith(":0")
+        assert first_run_ids[1].endswith(":1")

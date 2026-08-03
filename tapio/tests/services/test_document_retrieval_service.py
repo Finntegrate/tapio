@@ -59,9 +59,11 @@ def test_document_retrieval_service_formats_context(doc_retrieval_service):
     # Create mock documents
     mock_doc1 = mock.MagicMock()
     mock_doc1.page_content = "First document content"
+    mock_doc1.metadata = {"citation_url": "https://example.com/first"}
 
     mock_doc2 = mock.MagicMock()
     mock_doc2.page_content = "Second document content"
+    mock_doc2.metadata = {"source_url": "https://example.com/second"}
 
     documents = [mock_doc1, mock_doc2]
 
@@ -69,7 +71,10 @@ def test_document_retrieval_service_formats_context(doc_retrieval_service):
     context = doc_retrieval_service.format_documents_as_context(documents)
 
     # Verify the context is formatted correctly
-    expected_context = "First document content\n\nSecond document content"
+    expected_context = (
+        "Source: https://example.com/first\nFirst document content\n\n"
+        "Source: https://example.com/second\nSecond document content"
+    )
     assert context == expected_context
 
 
