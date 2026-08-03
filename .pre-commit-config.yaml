@@ -17,11 +17,6 @@ repos:
     hooks:
       - id: pyupgrade
         args: [--py313-plus]
-  - repo: https://github.com/asottile/add-trailing-comma
-    rev: v3.1.0
-    hooks:
-      - id: add-trailing-comma
-        args: [--py36-plus]
   - repo: https://github.com/astral-sh/ruff-pre-commit
     # Ruff version.
     rev: v0.15.20
@@ -31,44 +26,47 @@ repos:
         args: [--fix]
       # Run the formatter.
       - id: ruff-format
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v2.3.0
-    hooks:
-      - id: mypy
-        additional_dependencies:
-          - pydantic
-          - types-PyYAML
-          - types-lxml
-          - scrapy
-          - twisted
-          - pytest
-          - torch
-          - chromadb
-          - langchain-chroma
-          - langchain-core
-          - langchain-huggingface[full]
-          - langchain-text-splitters
-          - langchain-community
-          - langchain
-          - ollama
-          - html2text
-          - gradio
-          - typer
-          - python-frontmatter
-        # Using project's mypy.ini for configuration
-        args: [--config-file=mypy.ini, --no-incremental]
-        exclude: ^tests/
   - repo: https://github.com/google/keep-sorted
     rev: v0.6.0
     hooks:
       - id: keep-sorted
   - repo: local
     hooks:
-      - id: pyrefly
-        name: Pyrefly Code Check
-        entry: uv run pyrefly check
+      - id: mypy-crawler
+        name: Mypy crawler
+        entry: uv run --directory crawler mypy --config-file mypy.ini tapio_crawler
         language: system
-        types: [python]
+        files: ^crawler/.*\.py$
+        pass_filenames: false
+      - id: pyrefly-crawler
+        name: Pyrefly crawler
+        entry: uv run --directory crawler pyrefly check
+        language: system
+        files: ^crawler/.*\.py$
+        pass_filenames: false
+      - id: mypy-ingest
+        name: Mypy ingest
+        entry: uv run --directory ingest mypy tapio_ingest
+        language: system
+        files: ^ingest/.*\.py$
+        pass_filenames: false
+      - id: pyrefly-ingest
+        name: Pyrefly ingest
+        entry: uv run --directory ingest pyrefly check
+        language: system
+        files: ^ingest/.*\.py$
+        pass_filenames: false
+      - id: mypy-tapio
+        name: Mypy Tapio
+        entry: uv run --directory tapio mypy --config-file mypy.ini tapio
+        language: system
+        files: ^tapio/.*\.py$
+        pass_filenames: false
+      - id: pyrefly
+        name: Pyrefly Tapio
+        entry: uv run --directory tapio pyrefly check
+        language: system
+        files: ^tapio/.*\.py$
         pass_filenames: false
       # actionlint and markdownlint-cli2 are installed via mise (see mise.toml)
       # rather than as pre-commit-managed hook repos, since both already exist as
