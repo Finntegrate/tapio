@@ -9,10 +9,10 @@ from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from tapio.config.config_models import RAGConfig
+from tapio.retrieval import ChromaRetriever
 from tapio.services.document_retrieval_service import DocumentRetrievalService
 from tapio.services.llm_service import LLMService
 from tapio.services.rag_orchestrator import RAGOrchestrator
-from tapio.vectorstore.chroma_store import ChromaStore
 
 
 class RAGOrchestratorFactory:
@@ -49,25 +49,28 @@ class RAGOrchestratorFactory:
         """
         return HuggingFaceEmbeddings(model_name=self.config.embedding_model_name)
 
-    def create_chroma_store(self, embeddings: Embeddings | None = None) -> ChromaStore:
-        """Create ChromaDB vector store.
+    def create_retriever(self, embeddings: Embeddings | None = None) -> ChromaRetriever:
+        """Create the application-side vector retrieval client.
 
         Args:
             embeddings: Optional embeddings instance. If None, creates new instance.
 
         Returns:
-            Configured ChromaStore instance
+            Configured query-side retrieval client
         """
         if embeddings is None:
             embeddings = self.create_embeddings()
 
-        return ChromaStore(
+        return ChromaRetriever(
             collection_name=self.config.collection_name,
             embeddings=embeddings,
             persist_directory=self.config.persist_directory,
         )
 
-    def create_document_retrieval_service(self, chroma_store: ChromaStore | None = None) -> DocumentRetrievalService:
+    def create_document_retrieval_service(
+        self,
+        chroma_store: ChromaRetriever | None = None,
+    ) -> DocumentRetrievalService:
         """Create document retrieval service.
 
         Args:
@@ -77,7 +80,7 @@ class RAGOrchestratorFactory:
             Configured DocumentRetrievalService instance
         """
         if chroma_store is None:
-            chroma_store = self.create_chroma_store()
+            chroma_store = self.create_retriever()
 
         return DocumentRetrievalService(
             vector_store=chroma_store,
@@ -113,7 +116,7 @@ class RAGOrchestratorFactory:
         embeddings = self.create_embeddings()
 
         # Create vector store with embeddings
-        chroma_store = self.create_chroma_store(embeddings)
+        chroma_store = self.create_retriever(embeddings)
 
         # Create services
         doc_service = self.create_document_retrieval_service(chroma_store)

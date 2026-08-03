@@ -92,34 +92,6 @@ def mock_rag_orchestrator():
 
 
 @pytest.fixture
-def test_config_manager(tmp_path):
-    """ConfigManager with test configuration.
-
-    Creates a temporary YAML config file with test site configuration.
-    """
-    from tapio.config.config_manager import ConfigManager
-
-    config_yaml = tmp_path / "test_config.yaml"
-    config_yaml.write_text("""
-sites:
-  test_site:
-    base_url: "https://example.com"
-    description: "Test site"
-    parser_config:
-      title_selector: "//title"
-      content_selectors:
-        - "//main"
-        - "//article"
-      fallback_to_body: true
-    crawler_config:
-      max_depth: 1
-      delay_between_requests: 0.1
-      max_concurrent: 2
-""")
-    return ConfigManager(str(config_yaml))
-
-
-@pytest.fixture
 def tmp_chroma_db(tmp_path):
     """Temporary directory for ChromaDB in integration tests."""
     db_dir = tmp_path / "chroma_db"

@@ -12,10 +12,10 @@ from langchain_core.documents import Document  # type: ignore[import-not-found]
 
 from tapio.config.config_models import RAGConfig
 from tapio.factories import RAGOrchestratorFactory
+from tapio.retrieval import ChromaRetriever
 from tapio.services.document_retrieval_service import DocumentRetrievalService
 from tapio.services.llm_service import LLMService
 from tapio.services.rag_orchestrator import RAGOrchestrator
-from tapio.vectorstore.chroma_store import ChromaStore
 
 
 @pytest.mark.integration
@@ -28,8 +28,8 @@ def test_rag_pipeline_end_to_end(tmp_chroma_db, mock_embeddings):
     3. Creates a RAG orchestrator with mock LLM
     4. Queries the system and verifies document retrieval
     """
-    # Create ChromaStore with real Chroma and mock embeddings
-    chroma_store = ChromaStore(
+    # Create the app-side retrieval client with real Chroma and mock embeddings
+    chroma_store = ChromaRetriever(
         collection_name="test_integration",
         embeddings=mock_embeddings,
         persist_directory=tmp_chroma_db,
@@ -125,7 +125,7 @@ def test_rag_factory_integration(tmp_chroma_db, mock_embeddings):
 def test_document_retrieval_similarity_search(tmp_chroma_db, mock_embeddings):
     """Test that similar documents are retrieved correctly."""
     # Create ChromaStore
-    chroma_store = ChromaStore(
+    chroma_store = ChromaRetriever(
         collection_name="test_similarity",
         embeddings=mock_embeddings,
         persist_directory=tmp_chroma_db,

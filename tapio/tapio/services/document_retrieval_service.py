@@ -3,7 +3,7 @@
 import logging
 from typing import Any
 
-from tapio.vectorstore.chroma_store import ChromaStore
+from tapio.retrieval import ChromaRetriever
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class DocumentRetrievalService:
 
     def __init__(
         self,
-        vector_store: ChromaStore,
+        vector_store: ChromaRetriever,
         num_results: int = 5,
     ) -> None:
         """Initialize the document retrieval service.
@@ -29,11 +29,11 @@ class DocumentRetrievalService:
             num_results: Number of documents to retrieve from the vector store
 
         Example:
-            >>> from tapio.vectorstore.chroma_store import ChromaStore
+            >>> from tapio.retrieval import ChromaRetriever
             >>> from langchain_huggingface import HuggingFaceEmbeddings
             >>>
             >>> embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-            >>> store = ChromaStore("my_docs", embeddings)
+            >>> store = ChromaRetriever("my_docs", embeddings)
             >>> service = DocumentRetrievalService(vector_store=store, num_results=3)
         """
         self.num_results = num_results
