@@ -7,11 +7,11 @@ from contextlib import asynccontextmanager
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from tapio.agents.router import AgentRouter
-from tapio.config.config_models import RAGConfig
-from tapio.factories import RAGOrchestratorFactory
 
+from tapio_backend.agents.router import AgentRouter
 from tapio_backend.config import BackendSettings
+from tapio_backend.config.config_models import RAGConfig
+from tapio_backend.factories import RAGOrchestratorFactory
 from tapio_backend.routes import agents, chat, health
 
 logger = logging.getLogger(__name__)

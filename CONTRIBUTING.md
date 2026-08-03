@@ -54,32 +54,33 @@ graph TD
     end
 
     subgraph RAG System
-        E[User Query] -->|Input| F[Gradio Interface]
+        E[User Query] -->|POST /chat/stream| F[FastAPI + Agent Router]
         F -->|Query| G[Vector Search]
         G -->|Retrieve Docs| H[Context Assembly]
         H -->|Context + Query| I[Ollama LLM]
-        I -->|Generate Response| F
+        I -->|Stream Response| F
     end
 
     D --> G
+    F -->|SSE| Svelte[SvelteKit app/]
 
     subgraph Components
         J[crawler module] -.->|implements| A
         K[parsers module] -.->|implements| B --> C
         L[vectorstore module] -.->|implements| C
         M[utils module] -.->|supports| J & K & L
-        N[gradio_app.py] -.->|implements| F & G & H & I
+        N[backend/tapio_backend] -.->|implements| F & G & H & I
     end
 
     classDef neutral fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
     classDef component fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
     classDef vectorstore fill:#ffcb8c,stroke:#404040,stroke-width:2px,color:#232323
-    classDef gradio fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
+    classDef api fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
     classDef ollama fill:#a3ffb0,stroke:#404040,stroke-width:2px,color:#232323
-    class A,B,C,E,G,H neutral
+    class A,B,C,E,G,H,Svelte neutral
     class J,K,L,M,N component
     class D vectorstore
-    class F gradio
+    class F api
     class I ollama
 ```
 
@@ -328,27 +329,28 @@ def test_my_feature(mock_rag_orchestrator):
 
 ## Project Structure
 
-Tapio separates concerns across these modules:
+The repository is a monorepo of independently-managed projects (see [ADR 0002](docs/ADRs/0002-monorepo-service-split.md) and [ADR 0006](docs/ADRs/0006-retire-gradio.md)):
 
-- `crawler/`: Module responsible for crawling websites and saving HTML content
-- `parsers/`: Module responsible for parsing HTML content into structured formats
-- `vectorstore/`: Module responsible for vectorizing content and storing in ChromaDB
-- `services/`: RAG orchestration and LLM services
-- `config/`: Configuration settings for the project
-- `app.py`: Gradio interface for the RAG chatbot
-- `cli.py`: Command-line interface
-- `factories.py`: Factory classes for dependency injection
-- `utils/`: Utility modules for embedding generation, markdown processing, etc.
-- `tests/`: Test suite for all modules
+- `crawler/`: Crawls configured sites and writes Markdown with `source_url` frontmatter
+- `ingest/`: Chunks and embeds that Markdown into the shared `vectorstore/` collection
+- `backend/`: Owns the RAG/agent-routing orchestration and exposes it as a FastAPI HTTP/SSE API. Within `backend/tapio_backend/`:
+  - `agents/`: Guide definitions and routing logic
+  - `services/`: RAG orchestration and LLM services
+  - `config/`: Configuration settings
+  - `prompts/`: Prompt templates (shared + per-guide)
+  - `retrieval.py`, `factories.py`: Vector-store client and dependency wiring
+  - `routes/`, `main.py`, `streaming.py`, `schemas.py`: The FastAPI application itself
+- `app/`: The SvelteKit chat client that calls `backend/`
+- `tests/` (within each project): Test suite for that project's modules
 
 ## Programmatic API
 
-For developers who want to use Tapio as a library or extend its functionality:
+For developers who want to use the RAG/agent orchestration as a library, independent of the HTTP API — for example in a notebook or a script:
 
 ### Using Factory Pattern (Recommended)
 
 ```python
-from tapio import RAGConfig, RAGOrchestratorFactory
+from tapio_backend import RAGConfig, RAGOrchestratorFactory
 
 # Create configuration
 config = RAGConfig(
@@ -370,14 +372,14 @@ For full control over component creation:
 
 ```python
 from langchain_huggingface import HuggingFaceEmbeddings
-from tapio.vectorstore.chroma_store import ChromaStore
-from tapio.services.document_retrieval_service import DocumentRetrievalService
-from tapio.services.llm_service import LLMService
-from tapio.services.rag_orchestrator import RAGOrchestrator
+from tapio_backend.retrieval import ChromaRetriever
+from tapio_backend.services.document_retrieval_service import DocumentRetrievalService
+from tapio_backend.services.llm_service import LLMService
+from tapio_backend.services.rag_orchestrator import RAGOrchestrator
 
 # Create dependencies
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-chroma_store = ChromaStore("my_docs", embeddings, "./db")
+chroma_store = ChromaRetriever("my_docs", embeddings, "./db")
 doc_service = DocumentRetrievalService(chroma_store, num_results=5)
 llm_service = LLMService(model_name="gemma4:latest", max_tokens=1024)
 
@@ -390,7 +392,7 @@ orchestrator = RAGOrchestrator(doc_service, llm_service)
 - **RAGOrchestrator**: Main orchestrator that coordinates document retrieval and LLM generation
 - **DocumentRetrievalService**: Handles vector-based document retrieval
 - **LLMService**: Manages LLM interactions via Ollama
-- **ChromaStore**: Vector database abstraction layer
+- **ChromaRetriever**: Vector database abstraction layer
 - **Factories**: Simplify dependency wiring with sensible defaults
 
 ## Configuration System

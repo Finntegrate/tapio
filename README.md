@@ -9,15 +9,15 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 
 - `crawler/` collects source pages and emits Markdown with `source_url` frontmatter.
 - `ingest/` chunks that Markdown and writes it to the shared `vectorstore/` collection.
-- `tapio/` is the RAG/agent-routing orchestration library and only reads from that collection.
-- `backend/` is a FastAPI HTTP/SSE layer over `tapio/`, for the `app/` frontend to call.
+- `backend/` owns the RAG/agent-routing orchestration and only reads from that collection, exposing it as a FastAPI HTTP/SSE API.
+- `app/` is the SvelteKit chat client that calls `backend/`.
 
-Each project has its own dependency manifest and can be tested independently
-with `mise run test:crawl`, `mise run test:ingest`, `mise run test:tapio`, or
-`mise run test:backend`.
+`crawler/`, `ingest/`, and `backend/` each have their own dependency manifest and
+can be tested independently with `mise run test:crawl`, `mise run test:ingest`, or
+`mise run test:backend`. `app/` is tested with `npm run test:unit` (see its own README).
 
 ```text
-crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  tapio
+crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  backend  ──>  app
 ```
 
 `content/` and `vectorstore/` are local runtime data, not source code. They
@@ -74,7 +74,8 @@ mise install
 
 (cd crawler && uv sync)
 (cd ingest && uv sync)
-(cd tapio && uv sync)
+(cd backend && uv sync)
+(cd app && npm install)
 
 ollama pull gemma4:latest
 ```
@@ -90,8 +91,11 @@ mise run crawl
 # 2. Chunk and embed the Markdown written to content/.
 mise run ingest
 
-# 3. Start the chat application, which reads vectorstore/.
-mise run tapio
+# 3. Start the backend API, which reads vectorstore/.
+mise run backend
+
+# 4. In a second terminal, start the SvelteKit chat client.
+mise run app
 ```
 
 The crawler respects each site's `recrawl_interval_hours`; a site that is not
@@ -105,10 +109,10 @@ collection.
 | Directory | Written by | Read by | Local default | Deployment setting |
 | --- | --- | --- | --- | --- |
 | `content/` | `crawler` | `ingest` | repository root | `TAPIO_CONTENT_DIR` |
-| `vectorstore/` | `ingest` | `tapio` | repository root | `TAPIO_VECTORSTORE_DIR` |
+| `vectorstore/` | `ingest` | `backend` | repository root | `TAPIO_VECTORSTORE_DIR` |
 
 For deployment, mount the same content volume in `crawler` and `ingest`, and
-the same vector-store volume in `ingest` and `tapio`. Set the corresponding
+the same vector-store volume in `ingest` and `backend`. Set the corresponding
 environment variable to the mount path in each service. The services share
 files only; they do not import, invoke, or otherwise depend on one another.
 
@@ -118,17 +122,15 @@ files only; they do not import, invoke, or otherwise depend on one another.
 | --- | --- |
 | `mise run crawl` | Crawl every configured site with its configured settings; attempt all sites before reporting failures. |
 | `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
-| `mise run tapio` | Start the Gradio chat application. |
+| `mise run backend` | Start the FastAPI backend, which reads `vectorstore/`. |
+| `mise run app` | Start the SvelteKit chat client's dev server. |
 | `mise run test:crawl` | Run the crawler test suite. |
 | `mise run test:ingest` | Run the ingestion test suite. |
-| `mise run test:tapio` | Run the application test suite. |
+| `mise run test:backend` | Run the backend test suite. |
 
-Pass application or ingestion options after `--`:
+Pass ingestion options after `--`:
 
 ```bash
-# Use a different local Ollama model.
-mise run tapio -- --model-name <model-name>
-
 # Re-ingest one site's Markdown only.
 mise run ingest -- --site migri
 ```

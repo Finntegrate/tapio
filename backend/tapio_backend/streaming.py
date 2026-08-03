@@ -5,10 +5,10 @@ from collections.abc import AsyncIterator
 from typing import Any
 
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
-from tapio.agents.router import AgentRoute, AgentRouter
-from tapio.services.rag_orchestrator import RAGOrchestrator
 
+from tapio_backend.agents.router import AgentRoute, AgentRouter
 from tapio_backend.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, RoutingEvent, TokenEvent
+from tapio_backend.services.rag_orchestrator import RAGOrchestrator
 
 logger = logging.getLogger(__name__)
 

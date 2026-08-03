@@ -25,7 +25,7 @@ The feature serves people navigating life in Finland, especially newcomers who n
 - **Autonomous multi-agent debate:** Multiple agents will not independently discuss every message. It adds noise, cost, and ambiguity without helping the user.
 - **Permanent agent rooms:** The v1 is not a collection of specialist channels. A shared journey is more important than chat-room fidelity.
 - **Persistent saved conversations:** This depends on authentication and durable checkpoints; it is covered by [#16](https://github.com/Finntegrate/tapio/issues/16) and [#35](https://github.com/Finntegrate/tapio/issues/35).
-- **A production frontend replacement:** Gradio remains the prototype client. A mobile-first, accessible frontend decision belongs to [#36](https://github.com/Finntegrate/tapio/issues/36).
+- **Full frontend feature parity:** The SvelteKit `app/` client (see [ADR 0006](../ADRs/0006-retire-gradio.md)) replaces the retired Gradio prototype, but `@mention`-style guide selection and broader test coverage are a fast-follow, not part of the initial build.
 - **Legal, medical, or crisis support:** The feature must not impersonate a professional service. A dedicated safety classifier and escalation policy remain required before broad release ([#29](https://github.com/Finntegrate/tapio/issues/29)).
 
 ## Initial guide definitions
@@ -152,4 +152,4 @@ The needed observability and product metrics are tracked in [#37](https://github
 | Which multilingual languages and routing terms are included in the first public pilot? | Product and research | No — English prototype can proceed |
 | What is the approved crisis/escalation resource list, and how is it maintained? | Safety, legal, and partnerships | Yes for broad release |
 | What metrics/consent model are appropriate for pilot analytics? | Privacy and data | Yes before collecting usage data |
-| Which client replaces Gradio after the prototype is validated? | Engineering and design | No for initial implementation |
+| ~~Which client replaces Gradio after the prototype is validated?~~ Resolved: SvelteKit (`app/`), see [ADR 0006](../ADRs/0006-retire-gradio.md). | Engineering and design | Resolved |

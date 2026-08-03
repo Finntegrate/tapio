@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted
+Accepted. The `tapio/` portion of this split (and its Gradio UI) is superseded by [ADR 0006](0006-retire-gradio.md), which folds that project into `backend/`. The `crawler`/`ingest` split described below is unchanged.
 
 ## Date
 

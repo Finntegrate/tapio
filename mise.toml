@@ -11,14 +11,6 @@ prek = "latest"
 python = "3.14"
 uv = "latest"
 
-[tasks."test:tapio"]
-dir = "tapio"
-run = "uv run pytest --cov=tapio --cov-fail-under=80"
-
-[tasks.tapio]
-dir = "tapio"
-run = "uv run tapio serve"
-
 [tasks."test:crawl"]
 dir = "crawler"
 run = "uv run pytest --cov=tapio_crawler --cov-fail-under=80"
@@ -66,3 +58,7 @@ run = "uv run pytest --cov=tapio_backend --cov-fail-under=80"
 [tasks.backend]
 dir = "backend"
 run = "uv run uvicorn tapio_backend.main:app --reload --port 8000"
+
+[tasks.app]
+dir = "app"
+run = "npm run dev"

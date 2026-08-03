@@ -8,7 +8,8 @@ Tapio is an AI-powered Finnish immigration assistant built by the Finntegrate pr
 - **Embeddings**: `all-MiniLM-L6-v2`
 - **Vector store**: ChromaDB
 - **Orchestration**: LangChain → LangGraph (in progress)
-- **UI**: Gradio (being evaluated for replacement)
+- **Backend**: FastAPI (`backend/`), owns the RAG/agent orchestration and exposes it over HTTP/SSE
+- **UI**: SvelteKit (`app/`); the earlier Gradio prototype has been retired (see ADR 0006)
 - **Task runner**: mise (`mise.toml` at project root)
 - **Package manager**: uv
 - **CI target**: GitHub Actions + Codespaces

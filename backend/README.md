@@ -1,10 +1,10 @@
 # Tapio backend
 
-FastAPI HTTP/SSE layer over the `tapio/` RAG and agent-routing orchestration, built for the SvelteKit `app/` frontend (see [ADR 0002](../docs/ADRs/0002-monorepo-service-split.md) and [ADR 0005](../docs/ADRs/0005-multi-agent-chat-experience.md)).
+FastAPI HTTP/SSE layer over Tapio's RAG and agent-routing orchestration, built for the SvelteKit `app/` frontend (see [ADR 0002](../docs/ADRs/0002-monorepo-service-split.md), [ADR 0005](../docs/ADRs/0005-multi-agent-chat-experience.md), and [ADR 0006](../docs/ADRs/0006-retire-gradio.md)).
 
-It depends on `tapio/` as a local editable package rather than duplicating orchestration logic — `RAGOrchestrator`, `AgentRouter`, and the guide definitions all come from there unchanged.
+This project owns both the orchestration logic (`RAGOrchestrator`, `AgentRouter`, the guide definitions, prompt templates) and the API that exposes it — the standalone `tapio/` project and its Gradio UI have been retired.
 
-Run `uv sync`, then `uv run uvicorn tapio_backend.main:app --reload --port 8000`. It reads the same `../vectorstore/` collection as `tapio/`; requires a local Ollama instance with the configured model available (see `tapio/README.md`).
+Run `uv sync`, then `uv run uvicorn tapio_backend.main:app --reload --port 8000`. It reads the shared `../vectorstore/` collection written by `ingest/`; requires a local Ollama instance with the configured model available.
 
 ## Endpoints
 

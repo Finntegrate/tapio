@@ -22,9 +22,6 @@ jobs:
           - service: ingest
             package: tapio_ingest
             mypy_args: tapio_ingest
-          - service: tapio
-            package: tapio
-            mypy_args: --config-file mypy.ini tapio
           - service: backend
             package: tapio_backend
             mypy_args: --config-file mypy.ini tapio_backend

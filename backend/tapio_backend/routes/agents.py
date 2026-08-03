@@ -1,8 +1,8 @@
 """Guide roster endpoint."""
 
 from fastapi import APIRouter
-from tapio.agents.definitions import AGENTS
 
+from tapio_backend.agents.definitions import AGENTS
 from tapio_backend.schemas import AgentSummary
 
 router = APIRouter()
