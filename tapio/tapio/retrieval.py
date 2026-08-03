@@ -7,6 +7,8 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
+from tapio.config.settings import DEFAULT_VECTORSTORE_DIR
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,7 +19,7 @@ class ChromaRetriever:
         self,
         collection_name: str,
         embeddings: Embeddings,
-        persist_directory: str = "chroma_db",
+        persist_directory: str = DEFAULT_VECTORSTORE_DIR,
     ) -> None:
         """Connect to the collection produced by the ingestion service."""
         self.vector_db = Chroma(

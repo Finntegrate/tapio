@@ -8,7 +8,13 @@ Run `uv sync`, then install Crawl4AI's Playwright/Patchright browser binaries on
 uv run crawl4ai-setup
 ```
 
-Collect a configured site directly into `content/{site}/parsed/` Markdown:
+The crawler and ingestion service exchange files through one shared content
+directory. Locally this defaults to the repository's `content/` directory; in
+deployment, mount the same directory into both services and set
+`TAPIO_CONTENT_DIR` to its mount path.
+
+Collect a configured site directly into `{TAPIO_CONTENT_DIR}/{site}/parsed/`
+Markdown:
 
 ```bash
 uv run tapio-crawler crawl migri
@@ -22,11 +28,11 @@ Use `--depth 0` for a single-page smoke test. Each saved document includes
 Each site is crawled at most once every 30 days by default
 (`recrawl_interval_hours: 720`), with a per-site override in
 `tapio_crawler/config/site_configs.yaml`. A successful crawl records its time
-in `content/{site}/crawl_state.json`; use `--force` only when an immediate
+in `{TAPIO_CONTENT_DIR}/{site}/crawl_state.json`; use `--force` only when an immediate
 refresh is needed.
 
 When a site is due, Crawl4AI stores its persistent cache in
-`content/.crawl4ai/` and uses conditional freshness checks (`ETag`/
+`{TAPIO_CONTENT_DIR}/.crawl4ai/` and uses conditional freshness checks (`ETag`/
 `Last-Modified`) before rendering a cached page again. Mount `content/` as a
 persistent volume in deployment, or set `CRAWL4_AI_BASE_DIRECTORY` to another
 persistent location.
