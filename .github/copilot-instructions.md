@@ -70,7 +70,7 @@ We use Pyrefly for static code analysis to identify potential bugs.
 You can run the code analysis checker with the following command:
 
 ```shell
-uv run pyrefly check
+uv run --directory tapio pyrefly check
 ```
 
 Pyrefly will analyze your code for:
@@ -79,7 +79,7 @@ Pyrefly will analyze your code for:
 - Code quality issues
 - Type safety concerns
 
-Configuration for Pyrefly is stored in `pyrefly.toml`. Please address any issues reported by Pyrefly or provide justification for exceptions if needed.
+Configuration for Pyrefly is stored in each service's `pyrefly.toml`. Please address any issues reported by Pyrefly or provide justification for exceptions if needed.
 
 ## Ollama
 
@@ -121,13 +121,13 @@ We use Mypy for type checking. Please ensure your code passes all checks.
 You can run Mypy with the following command:
 
 ```shell
-uv run mypy .
+uv run --directory tapio mypy --config-file mypy.ini tapio
 ```
 
 You can also run Mypy with the `--strict` option to enable strict type checking:
 
 ```shell
-uv run mypy . --strict
+uv run --directory tapio mypy --config-file mypy.ini --strict tapio
 ```
 
 ### Ignoring Mypy Errors
