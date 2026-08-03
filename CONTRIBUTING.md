@@ -239,11 +239,15 @@ uv run ruff check . --fix
 
 ### Type Checking
 
-We run both [mypy](https://mypy-lang.org/) and [Pyrefly](https://pyrefly.org/) for static type checking. Both are enforced in CI (Continuous Integration), so run them locally before opening a pull request:
+Each service runs [mypy](https://mypy-lang.org/) and [Pyrefly](https://pyrefly.org/) from its own project directory. Both are enforced in CI (Continuous Integration), so run them locally before opening a pull request:
 
 ```bash
-uv run mypy tapio
-uv run pyrefly check
+uv run --directory crawler mypy --config-file mypy.ini tapio_crawler
+uv run --directory crawler pyrefly check
+uv run --directory ingest mypy tapio_ingest
+uv run --directory ingest pyrefly check
+uv run --directory tapio mypy --config-file mypy.ini tapio
+uv run --directory tapio pyrefly check
 ```
 
 ### Pre-commit Hooks (prek)
@@ -251,16 +255,16 @@ uv run pyrefly check
 We use [prek](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, to run formatting and linting checks automatically before each commit. Install the git hook once after cloning:
 
 ```bash
-uv run prek install
+uv run --directory tapio prek install
 ```
 
 To run all hooks against the full codebase (useful before submitting a pull request, or if you haven't installed the git hook):
 
 ```bash
-uv run prek run --all-files
+uv run --directory tapio prek run --all-files
 ```
 
-These are the same checks enforced in CI (excluding mypy and Pyrefly, which CI runs as separate steps against the project's own virtual environment). Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it.
+These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it.
 
 ## Testing Guidelines
 
@@ -524,7 +528,7 @@ When you want to brainstorm a batch of issues before pushing them to GitHub, cre
 ## Pull Request Process
 
 1. Update the README.md with details of changes to the interface, if appropriate.
-2. Run `uv run pytest`, `uv run prek run --all-files`, `uv run mypy tapio`, and `uv run pyrefly check` locally — these are all gated checks in CI, not just local conveniences.
+2. Run each service's tests and the type-check commands above, plus `uv run --directory tapio prek run --all-files`, locally — these are all gated checks in CI, not just local conveniences.
 3. Check that code coverage meets our standards (minimum 80%).
 4. Submit your pull request with a clear description of the changes, related issue numbers, and any special considerations.
 5. The pull request will be merged once it receives approval from the maintainers and all CI checks pass.

@@ -19,7 +19,15 @@ dependencies = [
 tapio-crawler = "tapio_crawler.cli:app"
 
 [dependency-groups]
-dev = ["pytest>=9.0.0", "pytest-asyncio>=1.0.0", "pytest-cov>=7.1.0", "ruff>=0.16.1"]
+dev = [
+    "mypy>=2.3.0",
+    "pyrefly>=1.1.1",
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.1",
+    "types-pyyaml>=6.0.12.20250402",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

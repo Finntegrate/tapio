@@ -19,7 +19,14 @@ dependencies = [
 tapio-ingest = "tapio_ingest.cli:app"
 
 [dependency-groups]
-dev = ["mypy>=2.3.0", "pytest>=9.0.0", "pytest-asyncio>=1.0.0", "pytest-cov>=7.1.0", "ruff>=0.16.1"]
+dev = [
+    "mypy>=2.3.0",
+    "pyrefly>=1.1.1",
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.0.0",
+    "pytest-cov>=7.1.0",
+    "ruff>=0.16.1",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

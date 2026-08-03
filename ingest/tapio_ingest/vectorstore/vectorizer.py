@@ -225,7 +225,10 @@ class MarkdownVectorizer:
                 chunk.metadata["total_chunks"] = len(chunks)
 
             # Add documents to the vector store
-            self.vector_db.add_documents(chunks, ids=self._chunk_ids(file_path, len(chunks)))
+            self.vector_db.add_documents(
+                chunks,
+                ids=self._chunk_ids(file_path, len(chunks)),
+            )
             # No need to explicitly persist as ChromaDB 0.4.x+ automatically persists documents
 
             logger.debug(

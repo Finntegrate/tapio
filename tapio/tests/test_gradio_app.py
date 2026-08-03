@@ -88,6 +88,53 @@ class TestGradioApp:
             agent_id="otso",
         )
 
+    def test_respond_stream_honours_a_manually_selected_guide(
+        self,
+        test_app: TapioAssistantApp,
+    ) -> None:
+        """Send a manually selected guide to the RAG orchestrator."""
+        outputs = list(
+            test_app.respond_stream(
+                "Can you help me understand a rental agreement?",
+                [],
+                "rauni",
+            ),
+        )
+
+        _, history, _, guide_status = outputs[-1]
+        assert "**Rauni**" in history[-1]["content"]
+        assert "You selected this guide." in guide_status
+        test_app.rag_orchestrator.query_stream.assert_called_once_with(
+            query_text="Can you help me understand a rental agreement?",
+            history=[],
+            agent_id="rauni",
+        )
+
+    def test_respond_stream_keeps_prior_turns_when_the_guide_changes(
+        self,
+        test_app: TapioAssistantApp,
+    ) -> None:
+        """Retain the shared conversation when routing changes specialists."""
+        test_app.rag_orchestrator.query_stream.side_effect = [
+            (iter(["Permit response"]), []),
+            (iter(["Housing response"]), []),
+        ]
+
+        first_outputs = list(test_app.respond_stream("How do I apply for a residence permit?", []))
+        prior_history = list(first_outputs[-1][1])
+        second_outputs = list(test_app.respond_stream("How do I find an apartment?", prior_history))
+
+        _, history, _, guide_status = second_outputs[-1]
+        assert len(history) == 4
+        assert "**Ilmarinen**" in history[1]["content"]
+        assert "**Otso**" in history[3]["content"]
+        assert "**Otso**" in guide_status
+        assert test_app.rag_orchestrator.query_stream.call_args_list[1].kwargs == {
+            "query_text": "How do I find an apartment?",
+            "history": first_outputs[-1][1],
+            "agent_id": "otso",
+        }
+
     def test_respond_stream_displays_the_empty_retrieval_message(self, test_app):
         test_app.rag_orchestrator.query_stream.return_value = (iter(["Response"]), [])
         test_app.rag_orchestrator.format_documents_for_display.return_value = "No relevant documents found."

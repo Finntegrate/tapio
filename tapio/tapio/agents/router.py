@@ -37,7 +37,8 @@ class AgentRouter:
 
         normalized_message = message.casefold()
         for agent in AGENTS:
-            if f"@{agent.id}" in normalized_message or f"@{agent.name.casefold()}" in normalized_message:
+            mention = rf"(?<![\w@])@{re.escape(agent.name)}(?!\w)"
+            if re.search(mention, message, flags=re.IGNORECASE):
                 return AgentRoute(agent=agent, reason=f"You mentioned @{agent.name}.", was_explicit=True)
 
         ranked_agents = [(self._score(agent, normalized_message), agent) for agent in AGENTS if agent.id != "tapio"]

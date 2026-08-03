@@ -164,7 +164,7 @@ class TestMarkdownVectorizer:
         assert mock_chunk3.metadata["total_chunks"] == 1
 
         # Verify stable IDs make the Chroma write an upsert on re-ingestion.
-        added_documents, = mock_vector_db.add_documents.call_args.args
+        (added_documents,) = mock_vector_db.add_documents.call_args.args
         chunk_ids = mock_vector_db.add_documents.call_args.kwargs["ids"]
         assert added_documents == [mock_chunk1, mock_chunk2, mock_chunk3]
         assert len(chunk_ids) == 3
@@ -231,7 +231,7 @@ class TestMarkdownVectorizer:
         assert mock_chunk2.metadata["total_chunks"] == 2
 
         # Verify add_documents was called with deterministic chunk IDs.
-        added_documents, = mock_vector_db.add_documents.call_args.args
+        (added_documents,) = mock_vector_db.add_documents.call_args.args
         chunk_ids = mock_vector_db.add_documents.call_args.kwargs["ids"]
         assert added_documents == [mock_chunk1, mock_chunk2]
         assert len(chunk_ids) == 2

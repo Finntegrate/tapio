@@ -47,7 +47,8 @@ class CachedMarkdown:
 
 
 def test_run_config_uses_content_filtering_and_bounded_bfs(
-    tmp_path, monkeypatch
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler(
@@ -94,7 +95,7 @@ def test_fallback_config_disables_brittle_cleanup() -> None:
 
 def test_markdown_uses_cached_raw_markdown_when_filtered_value_is_empty() -> None:
     raw_result_with_cached_markdown = SimpleNamespace(
-        markdown=CachedMarkdown("Cached document content")
+        markdown=CachedMarkdown("Cached document content"),
     )
 
     assert Crawl4AICrawler._markdown(raw_result_with_cached_markdown) == (
@@ -139,7 +140,7 @@ async def test_crawl_skips_site_within_recrawl_interval(tmp_path, monkeypatch) -
                 "last_successful_crawl_at": (
                     datetime.now(UTC) - timedelta(hours=1)
                 ).isoformat(),
-            }
+            },
         ),
         encoding="utf-8",
     )
@@ -173,7 +174,8 @@ async def test_force_crawl_ignores_recrawl_interval(tmp_path, monkeypatch) -> No
 
 @pytest.mark.asyncio
 async def test_crawl_rejects_failed_and_near_empty_results(
-    tmp_path, monkeypatch
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
@@ -181,7 +183,7 @@ async def test_crawl_rejects_failed_and_near_empty_results(
     browser.__aenter__ = AsyncMock(return_value=browser)
     browser.__aexit__ = AsyncMock(return_value=None)
     browser.arun = AsyncMock(
-        return_value=[raw_result(success=False), raw_result(markdown="short")]
+        return_value=[raw_result(success=False), raw_result(markdown="short")],
     )
 
     with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler", return_value=browser):
@@ -195,14 +197,17 @@ async def test_crawl_rejects_failed_and_near_empty_results(
 
 @pytest.mark.asyncio
 async def test_crawl_retries_cleanup_induced_near_empty_result(
-    tmp_path, monkeypatch
+    tmp_path,
+    monkeypatch,
 ) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
     browser = MagicMock()
     browser.__aenter__ = AsyncMock(return_value=browser)
     browser.__aexit__ = AsyncMock(return_value=None)
-    browser.arun = AsyncMock(side_effect=[[raw_result(markdown="short")], [raw_result()]])
+    browser.arun = AsyncMock(
+        side_effect=[[raw_result(markdown="short")], [raw_result()]],
+    )
 
     with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler", return_value=browser):
         results = await crawler.crawl()

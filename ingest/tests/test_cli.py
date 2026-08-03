@@ -16,7 +16,9 @@ def test_ingest_exits_nonzero_when_source_directory_is_unreadable(
     vectorizer_class: Mock,
 ) -> None:
     """Do not report a successful ingest when discovery is denied."""
-    vectorizer_class.return_value.process_directory.side_effect = PermissionError("Permission denied")
+    vectorizer_class.return_value.process_directory.side_effect = PermissionError(
+        "Permission denied",
+    )
 
     result = CliRunner().invoke(app, ["unreadable"])
 

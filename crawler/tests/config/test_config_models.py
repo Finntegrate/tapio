@@ -27,7 +27,8 @@ def test_crawler_config_rejects_invalid_delay_range() -> None:
 
 
 @pytest.mark.parametrize(
-    "field,value", [("max_depth", -1), ("max_pages", 0), ("max_concurrent", 0)]
+    "field,value",
+    [("max_depth", -1), ("max_pages", 0), ("max_concurrent", 0)],
 )
 def test_crawler_config_enforces_bounds(field: str, value: int) -> None:
     with pytest.raises(ValidationError):

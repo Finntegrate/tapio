@@ -7,7 +7,7 @@ import os
 import re
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import NotRequired, TypedDict
+from typing import NotRequired, TypedDict, cast
 from urllib.parse import urlparse
 
 import frontmatter
@@ -29,6 +29,7 @@ from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
 from crawl4ai.models import CrawlResult as Crawl4AIResult
+from crawl4ai.models import CrawlResultContainer
 
 logger = logging.getLogger(__name__)
 
@@ -98,9 +99,19 @@ class Crawl4AICrawler:
             check_cache_freshness=cache_mode is CacheMode.ENABLED,
             page_timeout=self.config.page_timeout * 1_000,
             excluded_tags=EXCLUDED_TAGS,
-            css_selector=self.config.css_selector if apply_content_cleanup else None,
+            # Crawl4AI accepts ``None`` for both options despite declaring the
+            # parameters as non-optional. Preserve its documented defaults.
+            css_selector=cast(
+                "str",
+                self.config.css_selector if apply_content_cleanup else None,
+            ),
             target_elements=(
-                self.config.target_elements or None if apply_content_cleanup else None
+                cast(
+                    "list[str]",
+                    self.config.target_elements or None
+                    if apply_content_cleanup
+                    else None,
+                )
             ),
             markdown_generator=markdown_generator,
             deep_crawl_strategy=(
@@ -140,9 +151,12 @@ class Crawl4AICrawler:
         browser_config = BrowserConfig(headless=True, verbose=False)
         try:
             async with AsyncWebCrawler(config=browser_config) as crawler:
-                raw_results = await crawler.arun(
-                    str(self.site_config.base_url),
-                    config=self._run_config(),
+                raw_results = cast(
+                    "CrawlResultContainer[Crawl4AIResult]",
+                    await crawler.arun(
+                        str(self.site_config.base_url),
+                        config=self._run_config(),
+                    ),
                 )
                 self.summary["fetched"] = len(raw_results)
                 saved_results = await self._save_usable_results(crawler, raw_results)
@@ -154,14 +168,16 @@ class Crawl4AICrawler:
         if saved_results:
             self._write_crawl_state()
         logger.info(
-            "Crawl summary for %s: %s", self.site_name, self.summary
+            "Crawl summary for %s: %s",
+            self.site_name,
+            self.summary,
         )
         return saved_results
 
     async def _save_usable_results(
         self,
         crawler: AsyncWebCrawler,
-        raw_results: object,
+        raw_results: CrawlResultContainer[Crawl4AIResult],
     ) -> list[CrawlResult]:
         """Persist useful results and retry cleanup-induced near-empty results once."""
         saved_results: list[CrawlResult] = []
@@ -189,7 +205,10 @@ class Crawl4AICrawler:
                 if not raw_result.success or (
                     len(markdown.strip()) < self.config.minimum_content_length
                 ):
-                    logger.warning("Skipping unrecoverable near-empty result for %s", raw_result.url)
+                    logger.warning(
+                        "Skipping unrecoverable near-empty result for %s",
+                        raw_result.url,
+                    )
                     continue
                 self.summary["fallback_recoveries"] += 1
 
@@ -233,13 +252,18 @@ class Crawl4AICrawler:
         try:
             state = json.loads(self.state_path.read_text(encoding="utf-8"))
             last_crawl = datetime.fromisoformat(state["last_successful_crawl_at"])
-        except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        except (
+            FileNotFoundError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
             return True
 
         if last_crawl.tzinfo is None:
             last_crawl = last_crawl.replace(tzinfo=UTC)
         return datetime.now(UTC) >= last_crawl + timedelta(
-            hours=self.config.recrawl_interval_hours
+            hours=self.config.recrawl_interval_hours,
         )
 
     def _write_crawl_state(self) -> None:
