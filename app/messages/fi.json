@@ -1,4 +1,11 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from fi!"
+	"hello_world": "Hello, {name} from fi!",
+	"chat_placeholder": "Kysy Suomeen muuttamisesta...",
+	"chat_send": "Lähetä",
+	"chat_auto_route": "Automaattinen — anna Tapion valita",
+	"chat_thinking": "Mietitään…",
+	"chat_sources_heading": "Lähteet",
+	"chat_agents_error": "Oppaiden listaa ei voitu ladata.",
+	"chat_send_error": "Jokin meni pieleen. Yritä uudelleen."
 }
