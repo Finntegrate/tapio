@@ -8,6 +8,7 @@ from tapio.config.settings import (
     DEFAULT_LLM_MODEL,
     DEFAULT_MAX_TOKENS,
     DEFAULT_NUM_RESULTS,
+    DEFAULT_VECTORSTORE_DIR,
 )
 
 
@@ -16,7 +17,7 @@ class RAGConfig:
     """Settings needed by the query-side RAG application."""
 
     collection_name: str = DEFAULT_CHROMA_COLLECTION
-    persist_directory: str = "chroma_db"
+    persist_directory: str = DEFAULT_VECTORSTORE_DIR
     embedding_model_name: str = DEFAULT_EMBEDDING_MODEL
     llm_model_name: str = DEFAULT_LLM_MODEL
     max_tokens: int = DEFAULT_MAX_TOKENS

@@ -11,14 +11,50 @@ prek = "latest"
 python = "3.14"
 uv = "latest"
 
-[tasks."tapio:test"]
+[tasks."test:tapio"]
 dir = "tapio"
 run = "uv run pytest --cov=tapio --cov-fail-under=80"
 
-[tasks."crawler:test"]
+[tasks.tapio]
+dir = "tapio"
+run = "uv run tapio serve"
+
+[tasks."test:crawl"]
 dir = "crawler"
 run = "uv run pytest --cov=tapio_crawler --cov-fail-under=80"
 
-[tasks."ingest:test"]
+[tasks.crawl]
+dir = "crawler"
+run = """
+sites=$(uv run tapio-crawler list-sites)
+site_list_status=$?
+if [ "$site_list_status" -ne 0 ]; then
+  echo "Unable to list configured crawler sites." >&2
+  exit "$site_list_status"
+fi
+
+if [ -z "$sites" ]; then
+  echo "No crawler sites are configured." >&2
+  exit 1
+fi
+
+failed=0
+while IFS= read -r site; do
+  [ -z "$site" ] && continue
+  if ! uv run tapio-crawler crawl "$site"; then
+    failed=1
+  fi
+done <<EOF
+$sites
+EOF
+
+exit "$failed"
+"""
+
+[tasks."test:ingest"]
 dir = "ingest"
 run = "uv run pytest --cov=tapio_ingest --cov-fail-under=80"
+
+[tasks.ingest]
+dir = "ingest"
+run = "uv run tapio-ingest"

@@ -178,6 +178,7 @@ cython_debug/
 
 # Chroma
 chroma_db/
+/vectorstore/
 
 # Web scraping results
 results.json
