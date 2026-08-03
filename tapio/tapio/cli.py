@@ -10,6 +10,11 @@ from tapio.factories import RAGOrchestratorFactory
 app = typer.Typer(help="Run the Tapio chat application.")
 
 
+@app.callback()
+def cli() -> None:
+    """Expose application commands without starting the interface itself."""
+
+
 @app.command(name="serve")
 def serve(
     model_name: str = typer.Option(DEFAULT_LLM_MODEL, "--model-name"),
