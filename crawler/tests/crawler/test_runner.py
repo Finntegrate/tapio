@@ -21,3 +21,13 @@ async def test_runner_wires_site_config_to_crawl4ai_crawler() -> None:
     crawler_type.assert_called_once_with("example", config)
     assert results == [{"source_url": "https://example.com"}]
     assert runner.last_summary is crawler_type.return_value.summary
+
+
+def test_runner_runs_crawler_synchronously() -> None:
+    config = SiteConfig(base_url=HttpUrl("https://example.com"))
+    with patch("tapio_crawler.crawler.runner.Crawl4AICrawler") as crawler_type:
+        crawler_type.return_value.crawl = AsyncMock(return_value=[])
+
+        assert CrawlerRunner().run("example", config) == []
+
+    crawler_type.assert_called_once_with("example", config)

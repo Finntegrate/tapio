@@ -52,7 +52,10 @@ class SiteConfig(BaseModel):
 
     @property
     def base_dir(self) -> str:
-        """Return the hostname used for output organisation."""
+        """Return the hostname used for output organisation.
+
+        :raises ValueError: If ``base_url`` does not contain a valid hostname.
+        """
         host = urlparse(str(self.base_url)).hostname
         if not host:
             msg = f"Invalid base_url: {self.base_url!s}"

@@ -35,3 +35,11 @@ def test_config_manager_rejects_missing_base_url(tmp_path) -> None:
 
     with pytest.raises(ValidationError):
         ConfigManager.from_file(str(path))
+
+
+def test_config_manager_rejects_empty_configuration(tmp_path) -> None:
+    path = tmp_path / "empty.yaml"
+    path.write_text("", encoding="utf-8")
+
+    with pytest.raises(ValueError, match="Configuration file is empty"):
+        ConfigManager.from_file(str(path))

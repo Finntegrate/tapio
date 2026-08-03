@@ -1,5 +1,6 @@
 """Crawl4AI-backed crawler that writes RAG-ready Markdown documents."""
 
+import hashlib
 import json
 import logging
 import os
@@ -27,6 +28,7 @@ from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
+from crawl4ai.models import CrawlResult as Crawl4AIResult
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +65,12 @@ class Crawl4AICrawler:
     """Collect one site with automatic content pruning and bounded traversal."""
 
     def __init__(self, site_name: str, site_config: SiteConfig) -> None:
+        """Initialize a crawler for one configured site.
+
+        Args:
+            site_name: Identifier used for output and crawl state paths.
+            site_config: Site-specific collection and extraction settings.
+        """
         self.site_name = site_name
         self.site_config = site_config
         self.config = site_config.crawler_config
@@ -130,13 +138,17 @@ class Crawl4AICrawler:
             return []
 
         browser_config = BrowserConfig(headless=True, verbose=False)
-        async with AsyncWebCrawler(config=browser_config) as crawler:
-            raw_results = await crawler.arun(
-                str(self.site_config.base_url),
-                config=self._run_config(),
-            )
-            self.summary["fetched"] = len(raw_results)
-            saved_results = await self._save_usable_results(crawler, raw_results)
+        try:
+            async with AsyncWebCrawler(config=browser_config) as crawler:
+                raw_results = await crawler.arun(
+                    str(self.site_config.base_url),
+                    config=self._run_config(),
+                )
+                self.summary["fetched"] = len(raw_results)
+                saved_results = await self._save_usable_results(crawler, raw_results)
+        except Exception:
+            logger.exception("Crawl failed for site %s", self.site_name)
+            return []
 
         self.summary["saved"] = len(saved_results)
         if saved_results:
@@ -188,7 +200,7 @@ class Crawl4AICrawler:
         self,
         crawler: AsyncWebCrawler,
         url: str,
-    ) -> object:
+    ) -> Crawl4AIResult:
         """Retry one page without DOM cleanup or brittle selector overrides."""
         fallback_results = await crawler.arun(
             url,
@@ -202,7 +214,7 @@ class Crawl4AICrawler:
         )
         return next(iter(fallback_results))
 
-    def _record_status(self, raw_result: object) -> None:
+    def _record_status(self, raw_result: Crawl4AIResult) -> None:
         """Record HTTP and cache statuses from the primary bounded crawl."""
         status_code = getattr(raw_result, "status_code", None)
         if status_code is not None:
@@ -255,19 +267,33 @@ class Crawl4AICrawler:
         }
 
     @staticmethod
-    def _markdown(raw_result: object) -> str:
+    def _markdown(raw_result: Crawl4AIResult) -> str:
         """Prefer the content-filtered Markdown that Crawl4AI exposes."""
-        markdown = getattr(raw_result, "markdown", None)
+        markdown = raw_result.markdown
         if markdown is None:
             return ""
-        filtered = getattr(markdown, "fit_markdown", None)
+        filtered = markdown.fit_markdown
         # Crawl4AI caches raw Markdown and may restore ``fit_markdown`` as an
         # empty string. Prefer the filtered form only when it contains content.
-        return str(filtered or markdown)
+        if filtered and filtered.strip():
+            return str(filtered)
+        raw_markdown = markdown.raw_markdown
+        if raw_markdown and raw_markdown.strip():
+            return str(raw_markdown)
+        return ""
 
-    def _save_result(self, raw_result: object, markdown: str) -> CrawlResult:
-        metadata = getattr(raw_result, "metadata", None) or {}
-        source_url = str(metadata.get("url") or raw_result.url)  # type: ignore[attr-defined]
+    def _save_result(self, raw_result: Crawl4AIResult, markdown: str) -> CrawlResult:
+        """Write a crawled page to its deterministic Markdown output path.
+
+        Args:
+            raw_result: Crawl4AI result supplying source metadata.
+            markdown: Non-empty Markdown content selected for persistence.
+
+        Returns:
+            Metadata describing the saved Markdown document.
+        """
+        metadata = raw_result.metadata or {}
+        source_url = str(metadata.get("url") or raw_result.url)
         title = str(metadata.get("title") or "Untitled document")
         crawl_timestamp = datetime.now(UTC).isoformat()
         output_file = self.output_dir / self._filename(source_url)
@@ -297,4 +323,7 @@ class Crawl4AICrawler:
         if parsed.query:
             query = re.sub(r"[^A-Za-z0-9._-]+", "-", parsed.query).strip("-.")
             stem = f"{stem}-{query}" if query else stem
-        return f"{stem}.md"
+        digest = hashlib.sha256(source_url.encode("utf-8")).hexdigest()[:12]
+        max_stem_length = 255 - len(".md") - len(digest) - 1
+        stem = stem[:max_stem_length].rstrip("-.") or "document"
+        return f"{stem}-{digest}.md"

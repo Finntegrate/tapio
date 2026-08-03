@@ -55,6 +55,9 @@ class ConfigManager:
         try:
             with Path(config_path).open(encoding="utf-8") as file:
                 config_data = yaml.safe_load(file)
+                if config_data is None:
+                    msg = "Configuration file is empty"
+                    raise ValueError(msg)
                 return SiteConfigRegistry(**config_data)
         except FileNotFoundError:
             self.logger.exception("Configuration file not found: %s", config_path)

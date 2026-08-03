@@ -19,6 +19,16 @@ class CrawlerRunner:
         *,
         force: bool = False,
     ) -> list[CrawlResult]:
+        """Crawl one site asynchronously and retain its execution summary.
+
+        Args:
+            site_name: Identifier for the configured site.
+            site_config: Collection settings for that site.
+            force: Whether to bypass the configured re-crawl interval.
+
+        Returns:
+            Metadata for the Markdown documents written during this run.
+        """
         crawler = Crawl4AICrawler(site_name, site_config)
         results = await crawler.crawl(force=force)
         self.last_summary = crawler.summary

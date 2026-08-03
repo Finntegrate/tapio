@@ -1,5 +1,6 @@
 """Tests for the Crawl4AI-backed crawler."""
 
+import hashlib
 import json
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -37,13 +38,18 @@ def raw_result(
     )
 
 
-class CachedMarkdown(str):
+class CachedMarkdown:
     """Cached Crawl4AI Markdown whose filtered field was not persisted."""
 
-    fit_markdown = ""
+    def __init__(self, content: str) -> None:
+        self.fit_markdown = ""
+        self.raw_markdown = content
 
 
-def test_run_config_uses_content_filtering_and_bounded_bfs() -> None:
+def test_run_config_uses_content_filtering_and_bounded_bfs(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler(
         "example",
         site_config(
@@ -114,7 +120,11 @@ async def test_crawl_writes_frontmatter_markdown(tmp_path, monkeypatch) -> None:
     assert document.metadata["source_url"] == "https://example.com/permit?id=1"
     assert document.metadata["title"] == "Residence permit"
     assert "Useful content" in document.content
-    assert output.name == "permit-id-1.md"
+    digest = hashlib.sha256(b"https://example.com/permit?id=1").hexdigest()[:12]
+    assert output.name == f"permit-id-1-{digest}.md"
+    assert Crawl4AICrawler._filename("https://example.com/permit#one") != (
+        Crawl4AICrawler._filename("https://example.com/permit#two")
+    )
     state = json.loads((tmp_path / "example" / "crawl_state.json").read_text())
     assert state["recrawl_interval_hours"] == 720
 
@@ -206,3 +216,16 @@ async def test_crawl_retries_cleanup_induced_near_empty_result(
     assert fallback_config.deep_crawl_strategy is None
     assert fallback_config.remove_consent_popups is False
     assert fallback_config.cache_mode.name == "WRITE_ONLY"
+
+
+@pytest.mark.asyncio
+async def test_crawl_handles_browser_launch_failure(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
+    crawler = Crawl4AICrawler("example", site_config())
+    browser = MagicMock()
+    browser.__aenter__ = AsyncMock(side_effect=RuntimeError("browser unavailable"))
+
+    with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler", return_value=browser):
+        assert await crawler.crawl() == []
+
+    assert crawler.summary["fetched"] == 0
