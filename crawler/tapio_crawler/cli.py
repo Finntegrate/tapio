@@ -28,28 +28,37 @@ def crawl(
         site_config.crawler_config.max_depth = depth
     runner = CrawlerRunner()
     results = runner.run(site, site_config, force=force)
-    summary = runner.last_summary or {}
+    summary = runner.last_summary
+    if summary is None:
+        msg = "Crawler finished without a summary."
+        raise RuntimeError(msg)
     if summary.get("skipped"):
         typer.echo(
             f"Skipped {site}; it was crawled within its "
             f"{site_config.crawler_config.recrawl_interval_hours}-hour interval. "
-            "Use --force to crawl it now."
+            "Use --force to crawl it now.",
         )
         return
-    status_codes = ", ".join(
-        f"{status}={count}"
-        for status, count in summary.get("status_codes", {}).items()
-    ) or "none"
-    cache_statuses = ", ".join(
-        f"{status}={count}"
-        for status, count in summary.get("cache_statuses", {}).items()
-    ) or "none"
+    status_codes = (
+        ", ".join(
+            f"{status}={count}"
+            for status, count in summary.get("status_codes", {}).items()
+        )
+        or "none"
+    )
+    cache_statuses = (
+        ", ".join(
+            f"{status}={count}"
+            for status, count in summary.get("cache_statuses", {}).items()
+        )
+        or "none"
+    )
     typer.echo(
         f"Wrote {len(results)} Markdown documents for {site}. "
         f"Fetched {summary.get('fetched', 0)}; failed {summary.get('failed', 0)}; "
         f"near-empty {summary.get('near_empty', 0)}; "
         f"fallback recoveries {summary.get('fallback_recoveries', 0)}; "
-        f"HTTP statuses: {status_codes}; cache: {cache_statuses}."
+        f"HTTP statuses: {status_codes}; cache: {cache_statuses}.",
     )
 
 
