@@ -61,8 +61,8 @@ are ignored by Git and are the only handoffs between the services.
 ### First-time setup
 
 Clone the repository, then install the tools specified in `mise.toml`, prepare
-each service environment, install Crawl4AI's browser, and download the chat
-model:
+each service environment, install Google Chrome for the crawler, and download
+the chat model:
 
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
@@ -70,7 +70,7 @@ cd tapio
 
 mise install
 
-(cd crawler && uv sync && uv run crawl4ai-setup)
+(cd crawler && uv sync)
 (cd ingest && uv sync)
 (cd tapio && uv sync)
 
@@ -149,8 +149,9 @@ Then return to the repository root and run `mise run ingest -- --site migri`.
 - **“No relevant documents found”** — Run `mise run ingest` after a crawl and
   restart the app. The app must be started after the shared vector collection
   has been written.
-- **Crawl4AI cannot start a browser** — Run
-  `cd crawler && uv run crawl4ai-setup` once to install its browser binary.
+- **Crawl4AI cannot start a browser** — Install the stable Google Chrome
+  release through your operating system. Crawl4AI launches it through
+  Playwright's `chrome` channel.
 - **The app cannot generate an answer** — Ensure the Ollama service is running
   and the selected model has been pulled, for example `ollama pull gemma4:latest`.
 - **A mounted directory is not used** — Set `TAPIO_CONTENT_DIR` and/or
