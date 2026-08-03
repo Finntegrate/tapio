@@ -1,20 +1,32 @@
 """Crawl4AI-backed crawler that writes RAG-ready Markdown documents."""
 
+import json
 import logging
+import os
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import NotRequired, TypedDict
 from urllib.parse import urlparse
 
 import frontmatter
+
+from tapio_crawler.config.config_models import SiteConfig
+from tapio_crawler.config.settings import (
+    DEFAULT_CONTENT_DIR,
+    DEFAULT_CRAWL4AI_BASE_DIRECTORY,
+    DEFAULT_DIRS,
+)
+
+# Crawl4AI reads this when its database module is imported. This default keeps
+# cache entries durable alongside the crawler's Markdown output, while allowing
+# deployments to select a mounted volume explicitly.
+os.environ.setdefault("CRAWL4_AI_BASE_DIRECTORY", DEFAULT_CRAWL4AI_BASE_DIRECTORY)
+
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.content_filter_strategy import PruningContentFilter
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
 from crawl4ai.markdown_generation_strategy import DefaultMarkdownGenerator
-
-from tapio_crawler.config.config_models import SiteConfig
-from tapio_crawler.config.settings import DEFAULT_CONTENT_DIR, DEFAULT_DIRS
 
 logger = logging.getLogger(__name__)
 
@@ -43,6 +55,8 @@ class CrawlSummary(TypedDict):
     fallback_retries: int
     fallback_recoveries: int
     status_codes: dict[str, int]
+    cache_statuses: dict[str, int]
+    skipped: bool
 
 
 class Crawl4AICrawler:
@@ -56,6 +70,7 @@ class Crawl4AICrawler:
             Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["PARSED_DIR"]
         )
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.state_path = self.output_dir.parent / "crawl_state.json"
         self.summary: CrawlSummary = self._empty_summary()
 
     def _run_config(
@@ -63,6 +78,7 @@ class Crawl4AICrawler:
         *,
         deep_crawl: bool = True,
         apply_content_cleanup: bool = True,
+        cache_mode: CacheMode = CacheMode.ENABLED,
     ) -> CrawlerRunConfig:
         """Build the versioned Crawl4AI configuration from our stable schema."""
         markdown_generator = DefaultMarkdownGenerator(
@@ -70,7 +86,8 @@ class Crawl4AICrawler:
             options=self.config.markdown_config.model_dump(),
         )
         return CrawlerRunConfig(
-            cache_mode=CacheMode.BYPASS,
+            cache_mode=cache_mode,
+            check_cache_freshness=cache_mode is CacheMode.ENABLED,
             page_timeout=self.config.page_timeout * 1_000,
             excluded_tags=EXCLUDED_TAGS,
             css_selector=self.config.css_selector if apply_content_cleanup else None,
@@ -100,9 +117,18 @@ class Crawl4AICrawler:
             verbose=False,
         )
 
-    async def crawl(self) -> list[CrawlResult]:
+    async def crawl(self, *, force: bool = False) -> list[CrawlResult]:
         """Run the Crawl4AI job and save each useful result as Markdown."""
         self.summary = self._empty_summary()
+        if not force and not self._is_due():
+            self.summary["skipped"] = True
+            logger.info(
+                "Skipping %s; its %s-hour re-crawl interval has not elapsed",
+                self.site_name,
+                self.config.recrawl_interval_hours,
+            )
+            return []
+
         browser_config = BrowserConfig(headless=True, verbose=False)
         async with AsyncWebCrawler(config=browser_config) as crawler:
             raw_results = await crawler.arun(
@@ -113,6 +139,8 @@ class Crawl4AICrawler:
             saved_results = await self._save_usable_results(crawler, raw_results)
 
         self.summary["saved"] = len(saved_results)
+        if saved_results:
+            self._write_crawl_state()
         logger.info(
             "Crawl summary for %s: %s", self.site_name, self.summary
         )
@@ -164,18 +192,53 @@ class Crawl4AICrawler:
         """Retry one page without DOM cleanup or brittle selector overrides."""
         fallback_results = await crawler.arun(
             url,
-            config=self._run_config(deep_crawl=False, apply_content_cleanup=False),
+            config=self._run_config(
+                deep_crawl=False,
+                apply_content_cleanup=False,
+                # The current cache entry produced unusable Markdown. Re-fetch the
+                # page once and replace that entry rather than retrying the same hit.
+                cache_mode=CacheMode.WRITE_ONLY,
+            ),
         )
         return next(iter(fallback_results))
 
     def _record_status(self, raw_result: object) -> None:
-        """Record HTTP response codes from the primary bounded crawl."""
+        """Record HTTP and cache statuses from the primary bounded crawl."""
         status_code = getattr(raw_result, "status_code", None)
         if status_code is not None:
             status = str(status_code)
             self.summary["status_codes"][status] = (
                 self.summary["status_codes"].get(status, 0) + 1
             )
+        cache_status = getattr(raw_result, "cache_status", None)
+        if cache_status:
+            self.summary["cache_statuses"][cache_status] = (
+                self.summary["cache_statuses"].get(cache_status, 0) + 1
+            )
+
+    def _is_due(self) -> bool:
+        """Return whether this site has passed its successful-crawl interval."""
+        try:
+            state = json.loads(self.state_path.read_text(encoding="utf-8"))
+            last_crawl = datetime.fromisoformat(state["last_successful_crawl_at"])
+        except (FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+            return True
+
+        if last_crawl.tzinfo is None:
+            last_crawl = last_crawl.replace(tzinfo=UTC)
+        return datetime.now(UTC) >= last_crawl + timedelta(
+            hours=self.config.recrawl_interval_hours
+        )
+
+    def _write_crawl_state(self) -> None:
+        """Atomically record a successful crawl for site-level scheduling."""
+        state = {
+            "last_successful_crawl_at": datetime.now(UTC).isoformat(),
+            "recrawl_interval_hours": self.config.recrawl_interval_hours,
+        }
+        temporary_path = self.state_path.with_suffix(".tmp")
+        temporary_path.write_text(json.dumps(state, indent=2) + "\n", encoding="utf-8")
+        temporary_path.replace(self.state_path)
 
     @staticmethod
     def _empty_summary() -> CrawlSummary:
@@ -187,6 +250,8 @@ class Crawl4AICrawler:
             "fallback_retries": 0,
             "fallback_recoveries": 0,
             "status_codes": {},
+            "cache_statuses": {},
+            "skipped": False,
         }
 
     @staticmethod
@@ -196,7 +261,9 @@ class Crawl4AICrawler:
         if markdown is None:
             return ""
         filtered = getattr(markdown, "fit_markdown", None)
-        return str(filtered if filtered is not None else markdown)
+        # Crawl4AI caches raw Markdown and may restore ``fit_markdown`` as an
+        # empty string. Prefer the filtered form only when it contains content.
+        return str(filtered or markdown)
 
     def _save_result(self, raw_result: object, markdown: str) -> CrawlResult:
         metadata = getattr(raw_result, "metadata", None) or {}

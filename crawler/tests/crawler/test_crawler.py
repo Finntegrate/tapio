@@ -1,5 +1,7 @@
 """Tests for the Crawl4AI-backed crawler."""
 
+import json
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -35,6 +37,12 @@ def raw_result(
     )
 
 
+class CachedMarkdown(str):
+    """Cached Crawl4AI Markdown whose filtered field was not persisted."""
+
+    fit_markdown = ""
+
+
 def test_run_config_uses_content_filtering_and_bounded_bfs() -> None:
     crawler = Crawl4AICrawler(
         "example",
@@ -53,6 +61,8 @@ def test_run_config_uses_content_filtering_and_bounded_bfs() -> None:
     assert config.mean_delay == 1
     assert config.max_range == 1
     assert config.semaphore_count == 3
+    assert config.cache_mode.name == "ENABLED"
+    assert config.check_cache_freshness is True
     assert config.remove_consent_popups is True
     assert config.remove_overlay_elements is True
 
@@ -76,6 +86,16 @@ def test_fallback_config_disables_brittle_cleanup() -> None:
     assert config.remove_overlay_elements is False
 
 
+def test_markdown_uses_cached_raw_markdown_when_filtered_value_is_empty() -> None:
+    raw_result_with_cached_markdown = SimpleNamespace(
+        markdown=CachedMarkdown("Cached document content")
+    )
+
+    assert Crawl4AICrawler._markdown(raw_result_with_cached_markdown) == (
+        "Cached document content"
+    )
+
+
 @pytest.mark.asyncio
 async def test_crawl_writes_frontmatter_markdown(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
@@ -95,6 +115,50 @@ async def test_crawl_writes_frontmatter_markdown(tmp_path, monkeypatch) -> None:
     assert document.metadata["title"] == "Residence permit"
     assert "Useful content" in document.content
     assert output.name == "permit-id-1.md"
+    state = json.loads((tmp_path / "example" / "crawl_state.json").read_text())
+    assert state["recrawl_interval_hours"] == 720
+
+
+@pytest.mark.asyncio
+async def test_crawl_skips_site_within_recrawl_interval(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
+    crawler = Crawl4AICrawler("example", site_config(recrawl_interval_hours=720))
+    crawler.state_path.write_text(
+        json.dumps(
+            {
+                "last_successful_crawl_at": (
+                    datetime.now(UTC) - timedelta(hours=1)
+                ).isoformat(),
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler") as crawler_type:
+        assert await crawler.crawl() == []
+
+    crawler_type.assert_not_called()
+    assert crawler.summary["skipped"] is True
+
+
+@pytest.mark.asyncio
+async def test_force_crawl_ignores_recrawl_interval(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
+    crawler = Crawl4AICrawler("example", site_config())
+    crawler.state_path.write_text(
+        json.dumps({"last_successful_crawl_at": datetime.now(UTC).isoformat()}),
+        encoding="utf-8",
+    )
+    browser = MagicMock()
+    browser.__aenter__ = AsyncMock(return_value=browser)
+    browser.__aexit__ = AsyncMock(return_value=None)
+    browser.arun = AsyncMock(return_value=[raw_result()])
+
+    with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler", return_value=browser):
+        results = await crawler.crawl(force=True)
+
+    assert len(results) == 1
+    assert crawler.summary["skipped"] is False
 
 
 @pytest.mark.asyncio
@@ -141,3 +205,4 @@ async def test_crawl_retries_cleanup_induced_near_empty_result(
     fallback_config = browser.arun.await_args_list[1].kwargs["config"]
     assert fallback_config.deep_crawl_strategy is None
     assert fallback_config.remove_consent_popups is False
+    assert fallback_config.cache_mode.name == "WRITE_ONLY"

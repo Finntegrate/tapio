@@ -16,12 +16,20 @@ class CrawlerRunner:
         self,
         site_name: str,
         site_config: SiteConfig,
+        *,
+        force: bool = False,
     ) -> list[CrawlResult]:
         crawler = Crawl4AICrawler(site_name, site_config)
-        results = await crawler.crawl()
+        results = await crawler.crawl(force=force)
         self.last_summary = crawler.summary
         return results
 
-    def run(self, site_name: str, site_config: SiteConfig) -> list[CrawlResult]:
+    def run(
+        self,
+        site_name: str,
+        site_config: SiteConfig,
+        *,
+        force: bool = False,
+    ) -> list[CrawlResult]:
         """Synchronous convenience wrapper for the Typer command."""
-        return asyncio.run(self.run_async(site_name, site_config))
+        return asyncio.run(self.run_async(site_name, site_config, force=force))

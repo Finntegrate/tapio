@@ -26,6 +26,7 @@ class CrawlerConfig(BaseModel):
     min_delay: Annotated[float, Field(ge=0.0)] = 1.0
     max_delay: Annotated[float, Field(ge=0.0)] = 3.0
     max_concurrent: Annotated[int, Field(ge=1, le=20)] = 3
+    recrawl_interval_hours: Annotated[int, Field(ge=1, le=8_760)] = 720
     minimum_content_length: Annotated[int, Field(ge=1)] = 100
     css_selector: str | None = None
     target_elements: list[str] = Field(default_factory=list)

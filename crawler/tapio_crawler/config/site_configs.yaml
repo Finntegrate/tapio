@@ -6,6 +6,7 @@ sites:
     crawler_config:
       max_depth: 1
       max_pages: 50
+      recrawl_interval_hours: 720
       min_delay: 1.0
       max_delay: 3.0
       max_concurrent: 3
@@ -19,6 +20,7 @@ sites:
     crawler_config:
       max_depth: 1
       max_pages: 50
+      recrawl_interval_hours: 720
       min_delay: 1.5
       max_delay: 3.0
       max_concurrent: 3
@@ -32,6 +34,7 @@ sites:
     crawler_config:
       max_depth: 1
       max_pages: 50
+      recrawl_interval_hours: 720
       min_delay: 1.2
       max_delay: 3.0
       max_concurrent: 4
@@ -44,6 +47,7 @@ sites:
     crawler_config:
       max_depth: 1
       max_pages: 50
+      recrawl_interval_hours: 720
       min_delay: 1.0
       max_delay: 3.0
       max_concurrent: 4
@@ -57,6 +61,7 @@ sites:
     crawler_config:
       max_depth: 1
       max_pages: 50
+      recrawl_interval_hours: 720
       min_delay: 1.0
       max_delay: 3.0
       max_concurrent: 4
