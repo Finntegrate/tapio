@@ -22,8 +22,20 @@ def crawl(site: str, depth: int | None = typer.Option(None, "--depth", "-d")) ->
     site_config = config.get_site_config(site)
     if depth is not None:
         site_config.crawler_config.max_depth = depth
-    results = CrawlerRunner().run(site, site_config)
-    typer.echo(f"Wrote {len(results)} Markdown documents for {site}.")
+    runner = CrawlerRunner()
+    results = runner.run(site, site_config)
+    summary = runner.last_summary or {}
+    status_codes = ", ".join(
+        f"{status}={count}"
+        for status, count in summary.get("status_codes", {}).items()
+    ) or "none"
+    typer.echo(
+        f"Wrote {len(results)} Markdown documents for {site}. "
+        f"Fetched {summary.get('fetched', 0)}; failed {summary.get('failed', 0)}; "
+        f"near-empty {summary.get('near_empty', 0)}; "
+        f"fallback recoveries {summary.get('fallback_recoveries', 0)}; "
+        f"HTTP statuses: {status_codes}."
+    )
 
 
 if __name__ == "__main__":

@@ -36,7 +36,15 @@ def raw_result(
 
 
 def test_run_config_uses_content_filtering_and_bounded_bfs() -> None:
-    crawler = Crawl4AICrawler("example", site_config(min_delay=1, max_delay=2))
+    crawler = Crawl4AICrawler(
+        "example",
+        site_config(
+            min_delay=1,
+            max_delay=2,
+            remove_consent_popups=True,
+            remove_overlay_elements=True,
+        ),
+    )
     config = crawler._run_config()
 
     assert config.excluded_tags == ["nav", "header", "footer", "form"]
@@ -45,6 +53,27 @@ def test_run_config_uses_content_filtering_and_bounded_bfs() -> None:
     assert config.mean_delay == 1
     assert config.max_range == 1
     assert config.semaphore_count == 3
+    assert config.remove_consent_popups is True
+    assert config.remove_overlay_elements is True
+
+
+def test_fallback_config_disables_brittle_cleanup() -> None:
+    crawler = Crawl4AICrawler(
+        "example",
+        site_config(
+            css_selector="#content-root",
+            remove_consent_popups=True,
+            remove_overlay_elements=True,
+        ),
+    )
+
+    config = crawler._run_config(deep_crawl=False, apply_content_cleanup=False)
+
+    assert config.deep_crawl_strategy is None
+    assert config.css_selector is None
+    assert config.target_elements == []
+    assert config.remove_consent_popups is False
+    assert config.remove_overlay_elements is False
 
 
 @pytest.mark.asyncio
@@ -83,3 +112,32 @@ async def test_crawl_rejects_failed_and_near_empty_results(
 
     with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler", return_value=browser):
         assert await crawler.crawl() == []
+
+    assert crawler.summary["failed"] == 1
+    assert crawler.summary["near_empty"] == 1
+    assert crawler.summary["fallback_retries"] == 1
+    assert crawler.summary["fallback_recoveries"] == 0
+
+
+@pytest.mark.asyncio
+async def test_crawl_retries_cleanup_induced_near_empty_result(
+    tmp_path, monkeypatch
+) -> None:
+    monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
+    crawler = Crawl4AICrawler("example", site_config())
+    browser = MagicMock()
+    browser.__aenter__ = AsyncMock(return_value=browser)
+    browser.__aexit__ = AsyncMock(return_value=None)
+    browser.arun = AsyncMock(side_effect=[[raw_result(markdown="short")], [raw_result()]])
+
+    with patch("tapio_crawler.crawler.crawler.AsyncWebCrawler", return_value=browser):
+        results = await crawler.crawl()
+
+    assert len(results) == 1
+    assert crawler.summary["near_empty"] == 1
+    assert crawler.summary["fallback_retries"] == 1
+    assert crawler.summary["fallback_recoveries"] == 1
+    assert crawler.summary["status_codes"] == {"200": 1}
+    fallback_config = browser.arun.await_args_list[1].kwargs["config"]
+    assert fallback_config.deep_crawl_strategy is None
+    assert fallback_config.remove_consent_popups is False

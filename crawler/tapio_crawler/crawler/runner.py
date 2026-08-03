@@ -3,18 +3,24 @@
 import asyncio
 
 from tapio_crawler.config.config_models import SiteConfig
-from tapio_crawler.crawler.crawler import Crawl4AICrawler, CrawlResult
+from tapio_crawler.crawler.crawler import Crawl4AICrawler, CrawlResult, CrawlSummary
 
 
 class CrawlerRunner:
     """Run one configured Crawl4AI collection job."""
+
+    def __init__(self) -> None:
+        self.last_summary: CrawlSummary | None = None
 
     async def run_async(
         self,
         site_name: str,
         site_config: SiteConfig,
     ) -> list[CrawlResult]:
-        return await Crawl4AICrawler(site_name, site_config).crawl()
+        crawler = Crawl4AICrawler(site_name, site_config)
+        results = await crawler.crawl()
+        self.last_summary = crawler.summary
+        return results
 
     def run(self, site_name: str, site_config: SiteConfig) -> list[CrawlResult]:
         """Synchronous convenience wrapper for the Typer command."""

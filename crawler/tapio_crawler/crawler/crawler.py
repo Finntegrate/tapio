@@ -33,6 +33,18 @@ class CrawlResult(TypedDict):
     status_code: NotRequired[int | None]
 
 
+class CrawlSummary(TypedDict):
+    """Counters describing a completed crawl, including discarded results."""
+
+    fetched: int
+    saved: int
+    failed: int
+    near_empty: int
+    fallback_retries: int
+    fallback_recoveries: int
+    status_codes: dict[str, int]
+
+
 class Crawl4AICrawler:
     """Collect one site with automatic content pruning and bounded traversal."""
 
@@ -44,8 +56,14 @@ class Crawl4AICrawler:
             Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["PARSED_DIR"]
         )
         self.output_dir.mkdir(parents=True, exist_ok=True)
+        self.summary: CrawlSummary = self._empty_summary()
 
-    def _run_config(self) -> CrawlerRunConfig:
+    def _run_config(
+        self,
+        *,
+        deep_crawl: bool = True,
+        apply_content_cleanup: bool = True,
+    ) -> CrawlerRunConfig:
         """Build the versioned Crawl4AI configuration from our stable schema."""
         markdown_generator = DefaultMarkdownGenerator(
             content_filter=PruningContentFilter(),
@@ -55,13 +73,25 @@ class Crawl4AICrawler:
             cache_mode=CacheMode.BYPASS,
             page_timeout=self.config.page_timeout * 1_000,
             excluded_tags=EXCLUDED_TAGS,
-            css_selector=self.config.css_selector,
-            target_elements=self.config.target_elements or None,
+            css_selector=self.config.css_selector if apply_content_cleanup else None,
+            target_elements=(
+                self.config.target_elements or None if apply_content_cleanup else None
+            ),
             markdown_generator=markdown_generator,
-            deep_crawl_strategy=BFSDeepCrawlStrategy(
-                max_depth=self.config.max_depth,
-                max_pages=self.config.max_pages,
-                include_external=False,
+            deep_crawl_strategy=(
+                BFSDeepCrawlStrategy(
+                    max_depth=self.config.max_depth,
+                    max_pages=self.config.max_pages,
+                    include_external=False,
+                )
+                if deep_crawl
+                else None
+            ),
+            remove_consent_popups=(
+                self.config.remove_consent_popups if apply_content_cleanup else False
+            ),
+            remove_overlay_elements=(
+                self.config.remove_overlay_elements if apply_content_cleanup else False
             ),
             # BFSDeepCrawlStrategy uses these when it calls arun_many for each level.
             mean_delay=self.config.min_delay,
@@ -72,16 +102,33 @@ class Crawl4AICrawler:
 
     async def crawl(self) -> list[CrawlResult]:
         """Run the Crawl4AI job and save each useful result as Markdown."""
+        self.summary = self._empty_summary()
         browser_config = BrowserConfig(headless=True, verbose=False)
         async with AsyncWebCrawler(config=browser_config) as crawler:
             raw_results = await crawler.arun(
                 str(self.site_config.base_url),
                 config=self._run_config(),
             )
+            self.summary["fetched"] = len(raw_results)
+            saved_results = await self._save_usable_results(crawler, raw_results)
 
+        self.summary["saved"] = len(saved_results)
+        logger.info(
+            "Crawl summary for %s: %s", self.site_name, self.summary
+        )
+        return saved_results
+
+    async def _save_usable_results(
+        self,
+        crawler: AsyncWebCrawler,
+        raw_results: object,
+    ) -> list[CrawlResult]:
+        """Persist useful results and retry cleanup-induced near-empty results once."""
         saved_results: list[CrawlResult] = []
         for raw_result in raw_results:
+            self._record_status(raw_result)
             if not raw_result.success:
+                self.summary["failed"] += 1
                 logger.warning(
                     "Skipping failed crawl for %s: %s",
                     raw_result.url,
@@ -91,19 +138,56 @@ class Crawl4AICrawler:
 
             markdown = self._markdown(raw_result)
             if len(markdown.strip()) < self.config.minimum_content_length:
+                self.summary["near_empty"] += 1
+                self.summary["fallback_retries"] += 1
                 logger.warning(
-                    "Skipping near-empty Crawl4AI result for %s (%d characters)",
+                    "Retrying near-empty Crawl4AI result for %s without cleanup",
                     raw_result.url,
-                    len(markdown.strip()),
                 )
-                continue
+                raw_result = await self._fallback_result(crawler, raw_result.url)
+                markdown = self._markdown(raw_result)
+                if not raw_result.success or (
+                    len(markdown.strip()) < self.config.minimum_content_length
+                ):
+                    logger.warning("Skipping unrecoverable near-empty result for %s", raw_result.url)
+                    continue
+                self.summary["fallback_recoveries"] += 1
 
             saved_results.append(self._save_result(raw_result, markdown))
-
-        logger.info(
-            "Saved %d Markdown documents for %s", len(saved_results), self.site_name
-        )
         return saved_results
+
+    async def _fallback_result(
+        self,
+        crawler: AsyncWebCrawler,
+        url: str,
+    ) -> object:
+        """Retry one page without DOM cleanup or brittle selector overrides."""
+        fallback_results = await crawler.arun(
+            url,
+            config=self._run_config(deep_crawl=False, apply_content_cleanup=False),
+        )
+        return next(iter(fallback_results))
+
+    def _record_status(self, raw_result: object) -> None:
+        """Record HTTP response codes from the primary bounded crawl."""
+        status_code = getattr(raw_result, "status_code", None)
+        if status_code is not None:
+            status = str(status_code)
+            self.summary["status_codes"][status] = (
+                self.summary["status_codes"].get(status, 0) + 1
+            )
+
+    @staticmethod
+    def _empty_summary() -> CrawlSummary:
+        return {
+            "fetched": 0,
+            "saved": 0,
+            "failed": 0,
+            "near_empty": 0,
+            "fallback_retries": 0,
+            "fallback_recoveries": 0,
+            "status_codes": {},
+        }
 
     @staticmethod
     def _markdown(raw_result: object) -> str:

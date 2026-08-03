@@ -29,6 +29,8 @@ class CrawlerConfig(BaseModel):
     minimum_content_length: Annotated[int, Field(ge=1)] = 100
     css_selector: str | None = None
     target_elements: list[str] = Field(default_factory=list)
+    remove_consent_popups: bool = False
+    remove_overlay_elements: bool = False
     markdown_config: MarkdownConfig = Field(default_factory=MarkdownConfig)
 
     @model_validator(mode="after")

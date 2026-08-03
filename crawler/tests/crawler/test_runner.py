@@ -15,7 +15,9 @@ async def test_runner_wires_site_config_to_crawl4ai_crawler() -> None:
             return_value=[{"source_url": "https://example.com"}]
         )
 
-        results = await CrawlerRunner().run_async("example", config)
+        runner = CrawlerRunner()
+        results = await runner.run_async("example", config)
 
     crawler_type.assert_called_once_with("example", config)
     assert results == [{"source_url": "https://example.com"}]
+    assert runner.last_summary is crawler_type.return_value.summary
