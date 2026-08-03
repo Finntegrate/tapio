@@ -252,7 +252,12 @@ class Crawl4AICrawler:
         try:
             state = json.loads(self.state_path.read_text(encoding="utf-8"))
             last_crawl = datetime.fromisoformat(state["last_successful_crawl_at"])
-        except FileNotFoundError, KeyError, TypeError, ValueError, json.JSONDecodeError:
+        except (
+            FileNotFoundError,
+            KeyError,
+            TypeError,
+            ValueError,
+        ):
             return True
 
         if last_crawl.tzinfo is None:

@@ -36,37 +36,37 @@ repos:
         name: Mypy crawler
         entry: uv run --directory crawler mypy --config-file mypy.ini tapio_crawler
         language: system
-        files: ^crawler/.*\.py$
+        files: ^crawler/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       - id: pyrefly-crawler
         name: Pyrefly crawler
         entry: uv run --directory crawler pyrefly check
         language: system
-        files: ^crawler/.*\.py$
+        files: ^crawler/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       - id: mypy-ingest
         name: Mypy ingest
         entry: uv run --directory ingest mypy tapio_ingest
         language: system
-        files: ^ingest/.*\.py$
+        files: ^ingest/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       - id: pyrefly-ingest
         name: Pyrefly ingest
         entry: uv run --directory ingest pyrefly check
         language: system
-        files: ^ingest/.*\.py$
+        files: ^ingest/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       - id: mypy-tapio
         name: Mypy Tapio
         entry: uv run --directory tapio mypy --config-file mypy.ini tapio
         language: system
-        files: ^tapio/.*\.py$
+        files: ^tapio/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       - id: pyrefly
         name: Pyrefly Tapio
         entry: uv run --directory tapio pyrefly check
         language: system
-        files: ^tapio/.*\.py$
+        files: ^tapio/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       # actionlint and markdownlint-cli2 are installed via mise (see mise.toml)
       # rather than as pre-commit-managed hook repos, since both already exist as

@@ -152,6 +152,20 @@ def test_rag_orchestrator_adds_specialist_prompt(rag_orchestrator):
         assert call_args["system_prompt"] == "Tapio's shared system prompt\n\nSampo's specialist prompt"
 
 
+def test_rag_orchestrator_uses_only_the_shared_prompt_for_tapio(rag_orchestrator):
+    with mock.patch("tapio.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+        mock_load_prompt.side_effect = ["Tapio's shared system prompt", "User prompt"]
+
+        rag_orchestrator.query("Where should I start?")
+
+        assert mock_load_prompt.call_args_list == [
+            mock.call("system_prompt"),
+            mock.call("user_query", context="Test document content", question="Where should I start?"),
+        ]
+        call_args = rag_orchestrator.mock_llm_service.generate_response.call_args.kwargs
+        assert call_args["system_prompt"] == "Tapio's shared system prompt"
+
+
 def test_rag_orchestrator_check_model_availability(rag_orchestrator):
     """Test that RAG orchestrator correctly checks model availability."""
     # Mock LLM model availability check

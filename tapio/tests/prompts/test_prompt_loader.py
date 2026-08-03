@@ -7,7 +7,7 @@ from unittest import mock
 
 import pytest
 
-from tapio.agents import AGENTS
+from tapio.agents import AGENTS, AgentDefinition
 from tapio.prompts.prompt_loader import get_prompt_path, load_prompt
 
 
@@ -87,7 +87,8 @@ def test_system_prompt_requires_sources_for_all_factual_guidance():
     [agent for agent in AGENTS if agent.specialist_prompt is not None],
     ids=lambda agent: agent.id,
 )
-def test_specialist_prompts_define_scope_and_a_tapio_handoff(agent):
+def test_specialist_prompts_define_scope_and_a_tapio_handoff(agent: AgentDefinition) -> None:
+    """Keep each specialist prompt scoped and able to hand work back to Tapio."""
     prompt = load_prompt(agent.specialist_prompt)
 
     assert f"You are {agent.name}" in prompt

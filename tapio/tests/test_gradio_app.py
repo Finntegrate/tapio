@@ -88,7 +88,11 @@ class TestGradioApp:
             agent_id="otso",
         )
 
-    def test_respond_stream_honours_a_manually_selected_guide(self, test_app):
+    def test_respond_stream_honours_a_manually_selected_guide(
+        self,
+        test_app: TapioAssistantApp,
+    ) -> None:
+        """Send a manually selected guide to the RAG orchestrator."""
         outputs = list(
             test_app.respond_stream(
                 "Can you help me understand a rental agreement?",
@@ -106,7 +110,11 @@ class TestGradioApp:
             agent_id="rauni",
         )
 
-    def test_respond_stream_keeps_prior_turns_when_the_guide_changes(self, test_app):
+    def test_respond_stream_keeps_prior_turns_when_the_guide_changes(
+        self,
+        test_app: TapioAssistantApp,
+    ) -> None:
+        """Retain the shared conversation when routing changes specialists."""
         test_app.rag_orchestrator.query_stream.side_effect = [
             (iter(["Permit response"]), []),
             (iter(["Housing response"]), []),
