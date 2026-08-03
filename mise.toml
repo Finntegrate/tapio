@@ -13,12 +13,12 @@ uv = "latest"
 
 [tasks."tapio:test"]
 dir = "tapio"
-run = "uv run pytest"
+run = "uv run pytest --cov=tapio --cov-fail-under=80"
 
 [tasks."crawler:test"]
 dir = "crawler"
-run = "uv run pytest"
+run = "uv run pytest --cov=tapio_crawler --cov-fail-under=80"
 
 [tasks."ingest:test"]
 dir = "ingest"
-run = "uv run pytest"
+run = "uv run pytest --cov=tapio_ingest --cov-fail-under=80"

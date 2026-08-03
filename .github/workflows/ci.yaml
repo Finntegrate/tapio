@@ -15,7 +15,13 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [crawler, ingest, tapio]
+        include:
+          - service: crawler
+            package: tapio_crawler
+          - service: ingest
+            package: tapio_ingest
+          - service: tapio
+            package: tapio
     defaults:
       run:
         working-directory: ${{ matrix.service }}
@@ -39,4 +45,4 @@ jobs:
         run: uv run ruff check .
 
       - name: Test
-        run: uv run pytest -q
+        run: uv run pytest -q --cov=${{ matrix.package }} --cov-fail-under=80
