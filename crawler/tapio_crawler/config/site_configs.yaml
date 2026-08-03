@@ -1,84 +1,69 @@
-# Default configuration file for HTML content parsers
+# Default configuration for Crawl4AI source collection.
 sites:
   migri:
     base_url: "https://migri.fi"
     description: "Finnish Immigration Service website"
     crawler_config:
-      delay_between_requests: 1.0
+      max_depth: 1
+      max_pages: 50
+      recrawl_interval_hours: 720
+      min_delay: 1.0
+      max_delay: 3.0
       max_concurrent: 3
-    parser_config:
-      title_selector: "//title"
-      content_selectors:
-        - '//div[@id="main-content"]'
-        - "//main"
-        - "//article"
-        - '//div[@class="content"]'
-      fallback_to_body: true
-      markdown_config:
-        ignore_links: false
-        body_width: 0
-        protect_links: true
-        unicode_snob: true
-        ignore_images: false
-        ignore_tables: false
+      remove_consent_popups: true
+      remove_overlay_elements: true
 
   # Example configuration for TE Services website
   tyomarkkinatori:
     base_url: "https://tyomarkkinatori.fi/"
     description: "Work assistance and employment services website"
     crawler_config:
-      delay_between_requests: 1.5
+      max_depth: 1
+      max_pages: 50
+      recrawl_interval_hours: 720
+      min_delay: 1.5
+      max_delay: 3.0
       max_concurrent: 3
-    parser_config:
-      title_selector: "//title"
-      content_selectors:
-        - '//div[@class="content-main"]'
-        - '//main[@role="main"]'
-      fallback_to_body: true
-      markdown_config:
-        ignore_tables: false
+      remove_consent_popups: true
+      remove_overlay_elements: true
 
   # Example configuration for Kela website
   kela:
     base_url: "https://www.kela.fi"
     description: "Kela (Social Insurance Institution of Finland) website"
     crawler_config:
-      delay_between_requests: 1.2
+      max_depth: 1
+      max_pages: 50
+      recrawl_interval_hours: 720
+      min_delay: 1.2
+      max_delay: 3.0
       max_concurrent: 4
-    parser_config:
-      title_selector: "//h1 | //title"
-      content_selectors:
-        - '//div[@id="content-root"]'
-      fallback_to_body: true
-      markdown_config:
-        ignore_images: true
+      css_selector: "#content-root"
 
   # Example configuration for Vero website
   vero:
     base_url: "https://www.vero.fi/en/"
     description: "Vero (Guidance about taxation in Finland) website"
     crawler_config:
-      delay_between_requests: 1.0
+      max_depth: 1
+      max_pages: 50
+      recrawl_interval_hours: 720
+      min_delay: 1.0
+      max_delay: 3.0
       max_concurrent: 4
-    parser_config:
-      title_selector: "//h1 | //title"
-      content_selectors:
-        - '//main[@id="content-container"]'
-      fallback_to_body: true
-      markdown_config:
-        ignore_images: true
+      remove_consent_popups: true
+      remove_overlay_elements: true
 
   # Example configuration for DVV website
   dvv:
     base_url: "https://dvv.fi/"
     description: "DVV (Digital and population data services agency) website"
     crawler_config:
-      delay_between_requests: 1.0
+      max_depth: 1
+      max_pages: 50
+      recrawl_interval_hours: 720
+      min_delay: 1.0
+      max_delay: 3.0
       max_concurrent: 4
-    parser_config:
-      title_selector: "//h1 | //title"
-      content_selectors:
-        - '//section[@id="content"]'
-      fallback_to_body: true
-      markdown_config:
-        ignore_images: true
+      remove_consent_popups: true
+      remove_overlay_elements: true

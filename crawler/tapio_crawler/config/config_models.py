@@ -1,127 +1,69 @@
-"""Configuration models for HTML content parsers.
+"""Configuration models for Crawl4AI collection jobs."""
 
-This module contains Pydantic models that define the configuration for
-site-specific HTML parsing, including content selectors and HTML-to-Markdown
-conversion settings.
-"""
-
-from typing import Annotated, Any
+from typing import Annotated
 from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, HttpUrl
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 
-class HtmlToMarkdownConfig(BaseModel):
-    """Configuration settings for HTML to Markdown conversion.
-
-    Customizes how HTML elements are converted to Markdown. These settings are
-    mapped to html2text options.
-    """
+class MarkdownConfig(BaseModel):
+    """Options forwarded to Crawl4AI's html2text-compatible generator."""
 
     ignore_links: bool = False
-    body_width: int = 0  # Don't wrap text
-    protect_links: bool = True  # Don't wrap links
-    unicode_snob: bool = True  # Use Unicode instead of ASCII
-    ignore_images: bool = False  # Include images
-    ignore_tables: bool = False  # Include tables
+    body_width: Annotated[int, Field(ge=0)] = 0
+    protect_links: bool = True
+    unicode_snob: bool = True
+    ignore_images: bool = False
+    ignore_tables: bool = False
 
 
 class CrawlerConfig(BaseModel):
-    """Configuration settings for web crawling behavior.
+    """Bounded, polite settings for a site's Crawl4AI job."""
 
-    Defines crawler-specific settings such as rate limiting, concurrency limits,
-    and other behavioral parameters to prevent overwhelming target servers.
-    """
+    max_depth: Annotated[int, Field(ge=0, le=10)] = 1
+    max_pages: Annotated[int, Field(ge=1, le=1_000)] = 50
+    page_timeout: Annotated[int, Field(ge=1, le=120)] = 30
+    min_delay: Annotated[float, Field(ge=0.0)] = 1.0
+    max_delay: Annotated[float, Field(ge=0.0)] = 3.0
+    max_concurrent: Annotated[int, Field(ge=1, le=20)] = 3
+    recrawl_interval_hours: Annotated[int, Field(ge=1, le=8_760)] = 720
+    minimum_content_length: Annotated[int, Field(ge=1)] = 100
+    css_selector: str | None = None
+    target_elements: list[str] = Field(default_factory=list)
+    remove_consent_popups: bool = False
+    remove_overlay_elements: bool = False
+    markdown_config: MarkdownConfig = Field(default_factory=MarkdownConfig)
 
-    delay_between_requests: Annotated[
-        float,
-        Field(
-            ge=0.0,
-            description="Delay between requests in seconds to avoid rate limiting",
-        ),
-    ] = 1.0
-    max_concurrent: Annotated[
-        int, Field(ge=1, le=50, description="Maximum number of concurrent requests")
-    ] = 5
-    max_depth: Annotated[
-        int, Field(ge=1, le=10, description="Maximum crawling depth from starting URLs")
-    ] = 1
-
-
-class ParserConfig(BaseModel):
-    """Configuration settings for HTML content parsing.
-
-    Defines parser-specific settings such as content selectors, title selectors,
-    and HTML-to-Markdown conversion options.
-    """
-
-    title_selector: str = "//title"
-    content_selectors: list[str] = Field(
-        default_factory=lambda: ["//main", "//article", "//body"],
-        description="Priority-ordered list of XPath selectors to find content",
-    )
-    fallback_to_body: bool = True
-    markdown_config: HtmlToMarkdownConfig = Field(default_factory=HtmlToMarkdownConfig)
-
-    def get_content_selector(self, tree: Any) -> Any | None:
-        """Find the first matching content element using the configured selectors.
-
-        Args:
-            tree: An lxml HTML tree to search
-
-        Returns:
-            The first matching element or None if no match is found
-        """
-        for selector in self.content_selectors:
-            elements = tree.xpath(selector)
-            if elements:
-                return elements[0]
-        return None
+    @model_validator(mode="after")
+    def validate_delay_range(self) -> CrawlerConfig:
+        """Require a valid jitter range for Crawl4AI's rate limiter."""
+        if self.min_delay > self.max_delay:
+            msg = "min_delay must not be greater than max_delay"
+            raise ValueError(msg)
+        return self
 
 
 class SiteConfig(BaseModel):
-    """Configuration for site-specific operations.
-
-    Defines the overall configuration for a site, including base URL, description,
-    and references to both parser and crawler configurations.
-    """
+    """Configuration for one source site and its Crawl4AI job."""
 
     base_url: HttpUrl
     description: str | None = None
-    parser_config: ParserConfig = Field(default_factory=ParserConfig)
     crawler_config: CrawlerConfig = Field(default_factory=CrawlerConfig)
 
     @property
     def base_dir(self) -> str:
-        """Derive base directory from base_url.
+        """Return the hostname used for output organisation.
 
-        Extracts the domain from the base URL to use as the directory name.
-
-        Returns:
-            Domain name without protocol prefix (e.g., 'migri.fi')
+        :raises ValueError: If ``base_url`` does not contain a valid hostname.
         """
-        url_str = str(self.base_url)
-        parsed = urlparse(url_str)
-        # Use hostname to strip any port, and ensure a non-empty result
-        host = parsed.hostname
+        host = urlparse(str(self.base_url)).hostname
         if not host:
-            msg = f"Invalid base_url: {url_str!r}"
+            msg = f"Invalid base_url: {self.base_url!s}"
             raise ValueError(msg)
         return host
 
-    def get_content_selector(self, tree: Any) -> Any | None:
-        """Find the first matching content element using the configured selectors.
 
-        Args:
-            tree: An lxml HTML tree to search
-
-        Returns:
-            The first matching element or None if no match is found
-        """
-        return self.parser_config.get_content_selector(tree)
-
-
-class ParserConfigRegistry(BaseModel):
-    """Registry of all site parser configurations."""
+class SiteConfigRegistry(BaseModel):
+    """Registry of all configured source sites."""
 
     sites: dict[str, SiteConfig]

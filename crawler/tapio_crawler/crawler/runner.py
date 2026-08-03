@@ -1,75 +1,45 @@
-"""Runner that wires configuration into the crawler."""
+"""Runner that wires a site configuration into the Crawl4AI crawler."""
 
 import asyncio
-import logging
 
 from tapio_crawler.config.config_models import SiteConfig
-from tapio_crawler.crawler.crawler import BaseCrawler, CrawlResult
+from tapio_crawler.crawler.crawler import Crawl4AICrawler, CrawlResult, CrawlSummary
 
 
 class CrawlerRunner:
-    """Runs an async crawler process to crawl websites and save HTML content.
-
-    This class provides a high-level interface to run a crawler using site configurations
-    and collect the scraped results.
-    """
+    """Run one configured Crawl4AI collection job."""
 
     def __init__(self) -> None:
-        """Initialize the crawler runner with logging configuration."""
-        self.logger = logging.getLogger(__name__)
-        self.setup_logging()
-
-    def setup_logging(self) -> None:
-        """Set up logging configuration for the crawler runner."""
-        logging.basicConfig(
-            level=logging.INFO,
-            format="%(asctime)s [%(levelname)s] %(message)s",
-            handlers=[logging.StreamHandler()],
-        )
+        self.last_summary: CrawlSummary | None = None
 
     async def run_async(
         self,
         site_name: str,
         site_config: SiteConfig,
+        *,
+        force: bool = False,
     ) -> list[CrawlResult]:
-        """Run the crawler asynchronously and return crawled page data.
+        """Crawl one site asynchronously and retain its execution summary.
 
         Args:
-            site_name: Name/identifier of the site being crawled.
-            site_config: Site configuration containing all crawler settings.
+            site_name: Identifier for the configured site.
+            site_config: Collection settings for that site.
+            force: Whether to bypass the configured re-crawl interval.
 
         Returns:
-            List of CrawlResult dictionaries containing page data.
+            Metadata for the Markdown documents written during this run.
         """
-        self.logger.info(
-            "Starting async crawl for site '%s' with URL: %s",
-            site_name,
-            site_config.base_url,
-        )
-
-        # Create and configure the crawler
-        crawler = BaseCrawler(site_name, site_config)
-
-        # Run the crawler
-        results = await crawler.crawl()
-
-        self.logger.info("Async crawling completed. Processed %d items.", len(results))
+        crawler = Crawl4AICrawler(site_name, site_config)
+        results = await crawler.crawl(force=force)
+        self.last_summary = crawler.summary
         return results
 
     def run(
         self,
         site_name: str,
         site_config: SiteConfig,
+        *,
+        force: bool = False,
     ) -> list[CrawlResult]:
-        """Run the crawler synchronously and return crawled page data.
-
-        This is a convenience method that wraps the async version.
-
-        Args:
-            site_name: Name/identifier of the site being crawled.
-            site_config: Site configuration containing all crawler settings.
-
-        Returns:
-            List of CrawlResult dictionaries containing page data.
-        """
-        return asyncio.run(self.run_async(site_name, site_config))
+        """Synchronous convenience wrapper for the Typer command."""
+        return asyncio.run(self.run_async(site_name, site_config, force=force))

@@ -10,7 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 @pytest.fixture
 def test_config_manager(tmp_path):
-    """A site configuration isolated from the repository's crawl output."""
+    """A Crawl4AI site configuration isolated from repository output."""
     from tapio_crawler.config import ConfigManager
 
     config_path = tmp_path / "sites.yaml"
@@ -19,9 +19,10 @@ def test_config_manager(tmp_path):
   test_site:
     base_url: https://example.com
     crawler_config:
-      max_depth: 1
-      delay_between_requests: 0
-      max_concurrent: 1
+      max_depth: 0
+      max_pages: 1
+      min_delay: 0
+      max_delay: 0
 """,
         encoding="utf-8",
     )

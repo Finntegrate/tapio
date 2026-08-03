@@ -6,14 +6,16 @@ for source-site collection and Markdown output.
 
 from tapio_crawler.config.config_manager import ConfigManager
 from tapio_crawler.config.config_models import (
-    HtmlToMarkdownConfig,
-    ParserConfigRegistry,
+    CrawlerConfig,
+    MarkdownConfig,
     SiteConfig,
+    SiteConfigRegistry,
 )
 
 __all__ = [
     "ConfigManager",
-    "HtmlToMarkdownConfig",
-    "ParserConfigRegistry",
+    "CrawlerConfig",
+    "MarkdownConfig",
     "SiteConfig",
+    "SiteConfigRegistry",
 ]

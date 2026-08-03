@@ -1,11 +1,12 @@
 """Filesystem and network defaults owned by the crawler service."""
 
 DEFAULT_CONTENT_DIR = "content"
+# Crawl4AI stores its reusable HTTP cache in ``{base}/.crawl4ai``. Keep it on
+# the same persistent volume as collected Markdown unless deployment overrides
+# ``CRAWL4_AI_BASE_DIRECTORY``.
+DEFAULT_CRAWL4AI_BASE_DIRECTORY = DEFAULT_CONTENT_DIR
 
-# Default directory paths
+# Default directory paths. Crawl4AI writes directly to parsed Markdown.
 DEFAULT_DIRS = {
-    "CRAWLED_DIR": "crawled",
     "PARSED_DIR": "parsed",
 }
-
-DEFAULT_CRAWLER_TIMEOUT = 30

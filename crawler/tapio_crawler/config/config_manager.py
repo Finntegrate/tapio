@@ -9,7 +9,7 @@ from pathlib import Path
 
 import yaml
 
-from tapio_crawler.config.config_models import ParserConfigRegistry, SiteConfig
+from tapio_crawler.config.config_models import SiteConfig, SiteConfigRegistry
 
 
 class ConfigManager:
@@ -30,8 +30,9 @@ class ConfigManager:
         self._config_registry = self._load_config_registry(config_path)
 
     def _load_config_registry(
-        self, config_path: str | None = None
-    ) -> ParserConfigRegistry:
+        self,
+        config_path: str | None = None,
+    ) -> SiteConfigRegistry:
         """Load site configuration registry from YAML.
 
         Args:
@@ -39,7 +40,7 @@ class ConfigManager:
                          If not provided, the default configuration file is used.
 
         Returns:
-            ParserConfigRegistry containing all site configurations
+            SiteConfigRegistry containing all site configurations
 
         Raises:
             FileNotFoundError: If the configuration file doesn't exist
@@ -54,7 +55,10 @@ class ConfigManager:
         try:
             with Path(config_path).open(encoding="utf-8") as file:
                 config_data = yaml.safe_load(file)
-                return ParserConfigRegistry(**config_data)
+                if config_data is None:
+                    msg = "Configuration file is empty"
+                    raise ValueError(msg)
+                return SiteConfigRegistry(**config_data)
         except FileNotFoundError:
             self.logger.exception("Configuration file not found: %s", config_path)
             raise
