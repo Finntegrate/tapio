@@ -93,6 +93,14 @@ def test_fallback_config_disables_brittle_cleanup() -> None:
     assert config.remove_overlay_elements is False
 
 
+def test_crawl_uses_the_installed_chrome_channel() -> None:
+    crawler = Crawl4AICrawler("example", site_config())
+    browser_config = crawler._browser_config()
+
+    assert browser_config.browser_type == "chromium"
+    assert browser_config.chrome_channel == "chrome"
+
+
 def test_markdown_uses_cached_raw_markdown_when_filtered_value_is_empty() -> None:
     raw_result_with_cached_markdown = SimpleNamespace(
         markdown=CachedMarkdown("Cached document content"),

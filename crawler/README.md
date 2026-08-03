@@ -2,11 +2,9 @@
 
 This service owns source-site configuration and produces Markdown documents with `source_url` frontmatter. It does not access the vector store or serve user requests.
 
-Run `uv sync`, then install Crawl4AI's Playwright/Patchright browser binaries once:
-
-```bash
-uv run crawl4ai-setup
-```
+Run `uv sync`. Crawl4AI launches Playwright with the installed stable Google
+Chrome channel, so install Google Chrome through your operating system before
+starting a crawl; no Crawl4AI browser download is required.
 
 The crawler and ingestion service exchange files through one shared content
 directory. Locally this defaults to the repository's `content/` directory; in

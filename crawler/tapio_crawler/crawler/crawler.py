@@ -136,6 +136,16 @@ class Crawl4AICrawler:
             verbose=False,
         )
 
+    @staticmethod
+    def _browser_config() -> BrowserConfig:
+        """Configure Crawl4AI to launch the installed stable Google Chrome."""
+        return BrowserConfig(
+            browser_type="chromium",
+            chrome_channel="chrome",
+            headless=True,
+            verbose=False,
+        )
+
     async def crawl(self, *, force: bool = False) -> list[CrawlResult]:
         """Run the Crawl4AI job and save each useful result as Markdown."""
         self.summary = self._empty_summary()
@@ -148,7 +158,7 @@ class Crawl4AICrawler:
             )
             return []
 
-        browser_config = BrowserConfig(headless=True, verbose=False)
+        browser_config = self._browser_config()
         try:
             async with AsyncWebCrawler(config=browser_config) as crawler:
                 raw_results = cast(
