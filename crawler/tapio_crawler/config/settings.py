@@ -2,10 +2,7 @@
 
 DEFAULT_CONTENT_DIR = "content"
 
-# Default directory paths
+# Default directory paths. Crawl4AI writes directly to parsed Markdown.
 DEFAULT_DIRS = {
-    "CRAWLED_DIR": "crawled",
     "PARSED_DIR": "parsed",
 }
-
-DEFAULT_CRAWLER_TIMEOUT = 30
