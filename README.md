@@ -93,8 +93,10 @@ mise run tapio
 ```
 
 The crawler respects each site's `recrawl_interval_hours`; a site that is not
-due is skipped. When new pages are crawled, rerun `mise run ingest`, then
-restart the app so it opens the refreshed vector collection.
+due is skipped. It attempts every configured site even if an earlier one fails,
+then returns a non-zero status if any site failed. When new pages are crawled,
+rerun `mise run ingest`, then restart the app so it opens the refreshed vector
+collection.
 
 ### Shared runtime directories
 
@@ -112,7 +114,7 @@ files only; they do not import, invoke, or otherwise depend on one another.
 
 | Command | Purpose |
 | --- | --- |
-| `mise run crawl` | Crawl every configured site with its configured settings. |
+| `mise run crawl` | Crawl every configured site with its configured settings; attempt all sites before reporting failures. |
 | `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
 | `mise run tapio` | Start the Gradio chat application. |
 | `mise run test:crawl` | Run the crawler test suite. |

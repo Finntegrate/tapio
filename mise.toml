@@ -26,9 +26,24 @@ run = "uv run pytest --cov=tapio_crawler --cov-fail-under=80"
 [tasks.crawl]
 dir = "crawler"
 run = """
-for site in $(uv run tapio-crawler list-sites); do
-  uv run tapio-crawler crawl "$site" || exit $?
+if ! sites=$(uv run tapio-crawler list-sites); then
+  echo "Unable to list configured crawler sites." >&2
+  exit 1
+fi
+
+if [ -z "$sites" ]; then
+  echo "No crawler sites are configured." >&2
+  exit 1
+fi
+
+failed=0
+for site in $sites; do
+  if ! uv run tapio-crawler crawl "$site"; then
+    failed=1
+  fi
 done
+
+exit "$failed"
 """
 
 [tasks."test:ingest"]
