@@ -177,9 +177,14 @@ class TestChromaStore:
     def test_query_with_embedding(self, mock_chroma, mock_embeddings):
         """Test querying the vector store with embedding."""
         # Set up mocks
-        mock_doc = Document(page_content="Test content", metadata={"source_url": "https://example.com/doc"})
+        mock_doc = Document(
+            page_content="Test content",
+            metadata={"source_url": "https://example.com/doc"},
+        )
         mock_vector_db = Mock()
-        mock_vector_db.similarity_search_by_vector_with_relevance_scores.return_value = [(mock_doc, 0.1)]
+        mock_vector_db.similarity_search_by_vector_with_relevance_scores.return_value = [
+            (mock_doc, 0.1),
+        ]
         mock_chroma.return_value = mock_vector_db
 
         # Initialize ChromaStore with injected embeddings

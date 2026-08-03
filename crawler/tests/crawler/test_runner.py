@@ -12,7 +12,7 @@ async def test_runner_wires_site_config_to_crawl4ai_crawler() -> None:
     config = SiteConfig(base_url=HttpUrl("https://example.com"))
     with patch("tapio_crawler.crawler.runner.Crawl4AICrawler") as crawler_type:
         crawler_type.return_value.crawl = AsyncMock(
-            return_value=[{"source_url": "https://example.com"}]
+            return_value=[{"source_url": "https://example.com"}],
         )
 
         runner = CrawlerRunner()

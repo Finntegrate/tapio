@@ -72,7 +72,10 @@ def find_markdown_files(directory: str, site_filter: str | None = None) -> list[
             else:
                 markdown_files.append(file_path)
     except PermissionError:
-        logger.exception("Permission denied while finding markdown files in %s", directory)
+        logger.exception(
+            "Permission denied while finding markdown files in %s",
+            directory,
+        )
         raise
     except Exception:
         logger.exception("Error finding markdown files")

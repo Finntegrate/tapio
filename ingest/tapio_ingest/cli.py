@@ -19,8 +19,15 @@ def ingest(
 ) -> None:
     """Chunk and index Markdown while preserving its frontmatter citations."""
     embeddings = HuggingFaceEmbeddings(model_name=embedding_model)
-    store = Chroma(collection_name=collection, embedding_function=embeddings, persist_directory=persist_directory)
-    vectorizer = MarkdownVectorizer(store, MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200))
+    store = Chroma(
+        collection_name=collection,
+        embedding_function=embeddings,
+        persist_directory=persist_directory,
+    )
+    vectorizer = MarkdownVectorizer(
+        store,
+        MarkdownTextSplitter(chunk_size=1000, chunk_overlap=200),
+    )
     typer.echo(f"Ingested {vectorizer.process_directory(input_dir)} documents.")
 
 
