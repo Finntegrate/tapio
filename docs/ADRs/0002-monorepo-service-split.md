@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Date
 
@@ -23,7 +23,7 @@ A recent fail-fast experiment (2026-07-25, see [ADR 0003](0003-crawl4ai-crawler.
 
 ## Decision
 
-We will restructure the repository into a monorepo containing three independently-managed root-level `uv` projects, each with its own `pyproject.toml` and `uv.lock`:
+We will restructure the repository into a monorepo containing three independently-managed root-level `uv` projects, each with its own `pyproject.toml` and `uv.lock`. The initial implementation preserves the existing crawler and Chroma adapters behind their new service boundaries; ADRs 0003 and 0004 can evolve those internals without changing the project split:
 
 - **`crawler/`** — Sole responsibility: produce Markdown output (with YAML frontmatter carrying the canonical `source_url`) from the configured government/informational sites. Owns the crawling engine and its dependencies. Technology choice covered in [ADR 0003](0003-crawl4ai-crawler.md).
 - **`ingest/`** — Sole responsibility: ingest the Markdown (and PDF) output produced by `crawler/` into a vector database. Owns the chunking/embedding/vector-store dependencies. Technology choice covered in [ADR 0004](0004-cocoindex-ingestion.md).
