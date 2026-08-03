@@ -43,7 +43,7 @@ jobs:
         run: uv sync --locked --all-groups --no-build --no-install-project
 
       - name: Lint
-        run: uv run --no-sync ruff check .
+        run: uv run --no-sync --no-build ruff check .
 
       - name: Test
-        run: uv run --no-sync pytest -q --cov=${{ matrix.package }} --cov-fail-under=80
+        run: uv run --no-sync --no-build pytest -q --cov=${{ matrix.package }} --cov-fail-under=80
