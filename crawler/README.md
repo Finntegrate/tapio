@@ -16,3 +16,17 @@ uv run tapio-crawler crawl migri
 
 Use `--depth 0` for a single-page smoke test. Each saved document includes
 `title`, `source_url`, and `crawl_timestamp` YAML frontmatter for ingestion.
+
+## Polite re-crawls
+
+Each site is crawled at most once every 30 days by default
+(`recrawl_interval_hours: 720`), with a per-site override in
+`tapio_crawler/config/site_configs.yaml`. A successful crawl records its time
+in `content/{site}/crawl_state.json`; use `--force` only when an immediate
+refresh is needed.
+
+When a site is due, Crawl4AI stores its persistent cache in
+`content/.crawl4ai/` and uses conditional freshness checks (`ETag`/
+`Last-Modified`) before rendering a cached page again. Mount `content/` as a
+persistent volume in deployment, or set `CRAWL4_AI_BASE_DIRECTORY` to another
+persistent location.
