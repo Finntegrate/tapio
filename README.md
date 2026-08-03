@@ -8,15 +8,23 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 ## Projects
 
 - `crawler/` collects source pages and emits Markdown with `source_url` frontmatter.
-- `ingest/` chunks that Markdown and writes it to the configured vector collection.
+- `ingest/` chunks that Markdown and writes it to the shared `vectorstore/` collection.
 - `tapio/` is the user-facing chat application and only reads from that collection.
 
-Each project has its own dependency manifest and can be tested independently with `mise run <project>:test`.
+Each project has its own dependency manifest and can be tested independently
+with `mise run test:<project>`.
+
+```text
+crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  tapio
+```
+
+`content/` and `vectorstore/` are local runtime data, not source code. They
+are ignored by Git and are the only handoffs between the services.
 
 ## Features
 
-- **Multi-site support** - Configurable site-specific crawling and parsing
-- **End-to-end pipeline** - Crawl → Parse → Vectorize → Query workflow
+- **Multi-site support** - Configurable site-specific crawling and extraction
+- **End-to-end pipeline** - Crawl → Ingest → Query workflow
 - **Local LLM integration** - Uses Ollama for private, local inference
 - **Semantic search** - ChromaDB vector database for relevant content retrieval
 - **Interactive chatbot** - Web interface for natural language queries
@@ -37,94 +45,115 @@ Each project has its own dependency manifest and can be tested independently wit
 - Finding relevant, accurate information quickly
 - Practice conversations on specific topics (family reunification, work permits, etc.)
 
-## Installation and Setup
+## Run the pipeline
 
 ### Prerequisites
 
-- Python 3.14 or higher
-- [uv](https://github.com/astral-sh/uv) - Fast Python package installer
-- [Ollama](https://ollama.com/) - For local LLM inference
+- [mise](https://mise.jdx.dev/) to install and run the pinned development tools
+- Network access for the initial Crawl4AI browser and embedding-model downloads
+- [Ollama](https://ollama.com/) running locally, for the chat model
 
 ### System requirements
 
 - Enough available RAM for the selected Ollama model; `gemma4:latest` is the default
 - For low-resource environments such as GitHub Codespaces, choose a smaller model explicitly with `--model-name`
 
-### Installing Ollama
+### First-time setup
 
-**Linux:**
-
-```bash
-curl -fsSL https://ollama.com/install.sh | sh
-```
-
-**macOS and Windows:** Download from [ollama.com/download](https://ollama.com/download)
-
-After installing, make sure the Ollama daemon is running before pulling models.
-
-### Quick Start
-
-1. Clone and setup:
+Clone the repository, then install the tools specified in `mise.toml`, prepare
+each service environment, install Crawl4AI's browser, and download the chat
+model:
 
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
-uv sync
-```
 
-1. Install required Ollama model:
+mise install
 
-```bash
+(cd crawler && uv sync && uv run crawl4ai-setup)
+(cd ingest && uv sync)
+(cd tapio && uv sync)
+
 ollama pull gemma4:latest
 ```
 
-To use a different model, pull it and pass its name when launching Tapio:
+### End-to-end quick start
+
+Run these commands from the repository root, in this order:
 
 ```bash
-ollama pull <model-name>
-uv run tapio serve --model-name <model-name>
+# 1. Crawl every configured site using its configured depth, limits, and schedule.
+mise run crawl
+
+# 2. Chunk and embed the Markdown written to content/.
+mise run ingest
+
+# 3. Start the chat application, which reads vectorstore/.
+mise run tapio
 ```
 
-## Usage
+The crawler respects each site's `recrawl_interval_hours`; a site that is not
+due is skipped. When new pages are crawled, rerun `mise run ingest`, then
+restart the app so it opens the refreshed vector collection.
 
-### CLI Overview
+### Shared runtime directories
 
-Tapio provides a three-stage workflow:
+| Directory | Written by | Read by | Local default | Deployment setting |
+| --- | --- | --- | --- | --- |
+| `content/` | `crawler` | `ingest` | repository root | `TAPIO_CONTENT_DIR` |
+| `vectorstore/` | `ingest` | `tapio` | repository root | `TAPIO_VECTORSTORE_DIR` |
 
-1. **crawler** - Collect and normalize source content
-2. **ingest** - Create vector embeddings from crawler Markdown
-3. **tapio** - Launch the interactive chatbot interface
+For deployment, mount the same content volume in `crawler` and `ingest`, and
+the same vector-store volume in `ingest` and `tapio`. Set the corresponding
+environment variable to the mount path in each service. The services share
+files only; they do not import, invoke, or otherwise depend on one another.
 
-Run commands from the owning project: `cd crawler && uv run tapio-crawler --help`, `cd ingest && uv run tapio-ingest --help`, or `cd tapio && uv run tapio --help`.
+### Mise task reference
 
-### Quick Example
+| Command | Purpose |
+| --- | --- |
+| `mise run crawl` | Crawl every configured site with its configured settings. |
+| `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
+| `mise run tapio` | Start the Gradio chat application. |
+| `mise run test:crawl` | Run the crawler test suite. |
+| `mise run test:ingest` | Run the ingestion test suite. |
+| `mise run test:tapio` | Run the application test suite. |
 
-Complete workflow for the Migri website:
+Pass application or ingestion options after `--`:
 
 ```bash
-# 1. Crawl and normalize content (uses site configuration)
-cd crawler && uv run tapio-crawler crawl migri --depth 2 && uv run tapio-crawler parse migri
+# Use a different local Ollama model.
+mise run tapio -- --model-name <model-name>
 
-# 2. Create vector embeddings from crawler output
-cd ../ingest && uv run tapio-ingest ../content
-
-# 3. Launch the chat application
-cd ../tapio && uv run tapio serve
+# Re-ingest one site's Markdown only.
+mise run ingest -- --site migri
 ```
 
-### Available Sites
+### Work with an individual site
 
-To list configured sites:
+The root crawl task intentionally collects every configured source. For a
+single-site crawl or a shallow smoke test, use the crawler CLI directly:
 
 ```bash
-cd crawler && uv run tapio-crawler list-sites
+cd crawler
+uv run tapio-crawler list-sites
+uv run tapio-crawler crawl migri --depth 0
 ```
 
-To view detailed site configurations:
+Then return to the repository root and run `mise run ingest -- --site migri`.
 
-```bash
-cd crawler && uv run tapio-crawler crawl --help
-```
+### Troubleshooting
+
+- **“No relevant documents found”** — Run `mise run ingest` after a crawl and
+  restart the app. The app must be started after the shared vector collection
+  has been written.
+- **Crawl4AI cannot start a browser** — Run
+  `cd crawler && uv run crawl4ai-setup` once to install its browser binary.
+- **The app cannot generate an answer** — Ensure the Ollama service is running
+  and the selected model has been pulled, for example `ollama pull gemma4:latest`.
+- **A mounted directory is not used** — Set `TAPIO_CONTENT_DIR` and/or
+  `TAPIO_VECTORSTORE_DIR` to the absolute mount path before running the relevant
+  service.
 
 For technical details on site configurations, programmatic API usage, and adding new sites, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
