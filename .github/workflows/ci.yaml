@@ -5,13 +5,12 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-
 jobs:
   check:
     name: ${{ matrix.service }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -22,9 +21,9 @@ jobs:
           - service: ingest
             package: tapio_ingest
             mypy_args: tapio_ingest
-          - service: tapio
-            package: tapio
-            mypy_args: --config-file mypy.ini tapio
+          - service: backend
+            package: app
+            mypy_args: --config-file mypy.ini app
     defaults:
       run:
         working-directory: ${{ matrix.service }}
@@ -47,14 +46,331 @@ jobs:
       - name: Install locked dependencies
         run: uv sync --locked --all-groups --no-build --no-install-project
 
+      # Each check below is continue-on-error so a lint failure doesn't hide a
+      # separate type-check or test failure -- the report job surfaces all of
+      # them together, and "Fail if any check failed" at the end of this job
+      # still turns the job (and its matrix leg) red.
       - name: Lint
-        run: uv run --no-sync --no-build ruff check .
+        id: ruff
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run --no-sync --no-build ruff check . 2>&1 | tee /tmp/ruff-output.txt
+
+      - name: Capture lint output
+        id: ruff-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/ruff-output.txt
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Type check
-        run: uv run --no-sync --no-build mypy ${{ matrix.mypy_args }}
+        id: mypy
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run --no-sync --no-build mypy ${{ matrix.mypy_args }} 2>&1 | tee /tmp/mypy-output.txt
+
+      - name: Capture type check output
+        id: mypy-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/mypy-output.txt
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Pyrefly type check
-        run: uv run --no-sync --no-build pyrefly check
+        id: pyrefly
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run --no-sync --no-build pyrefly check 2>&1 | tee /tmp/pyrefly-output.txt
+
+      - name: Capture pyrefly output
+        id: pyrefly-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/pyrefly-output.txt
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Test
-        run: uv run --no-sync --no-build pytest -q --cov=${{ matrix.package }} --cov-fail-under=80
+        id: pytest
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          uv run --no-sync --no-build pytest -q --cov=${{ matrix.package }} --cov-fail-under=80 2>&1 | tee /tmp/pytest-output.txt
+
+      - name: Capture test output
+        id: pytest-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/pytest-output.txt
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      # Matrix jobs can't expose per-leg data via `outputs:` (a downstream job only
+      # sees one arbitrary leg's value), so each leg writes its own result file and
+      # uploads it as a separately-named artifact for the report job to collect.
+      - name: Write result for report job
+        if: always()
+        env:
+          SERVICE: ${{ matrix.service }}
+          MYPY_ARGS: ${{ matrix.mypy_args }}
+          PACKAGE: ${{ matrix.package }}
+          RUFF_OUTCOME: ${{ steps.ruff.outcome }}
+          RUFF_OUTPUT: ${{ steps.ruff-summary.outputs.output }}
+          MYPY_OUTCOME: ${{ steps.mypy.outcome }}
+          MYPY_OUTPUT: ${{ steps.mypy-summary.outputs.output }}
+          PYREFLY_OUTCOME: ${{ steps.pyrefly.outcome }}
+          PYREFLY_OUTPUT: ${{ steps.pyrefly-summary.outputs.output }}
+          PYTEST_OUTCOME: ${{ steps.pytest.outcome }}
+          PYTEST_OUTPUT: ${{ steps.pytest-summary.outputs.output }}
+        run: |
+          jq -n \
+            --arg service "$SERVICE" \
+            --arg mypy_args "$MYPY_ARGS" \
+            --arg package "$PACKAGE" \
+            --arg ruff_outcome "$RUFF_OUTCOME" --arg ruff_output "$RUFF_OUTPUT" \
+            --arg mypy_outcome "$MYPY_OUTCOME" --arg mypy_output "$MYPY_OUTPUT" \
+            --arg pyrefly_outcome "$PYREFLY_OUTCOME" --arg pyrefly_output "$PYREFLY_OUTPUT" \
+            --arg pytest_outcome "$PYTEST_OUTCOME" --arg pytest_output "$PYTEST_OUTPUT" \
+            '{
+              service: $service,
+              checks: {
+                "ruff (lint)": {outcome: $ruff_outcome, output: $ruff_output, fix: "uv run --directory \($service) ruff check ."},
+                "mypy": {outcome: $mypy_outcome, output: $mypy_output, fix: "uv run --directory \($service) mypy \($mypy_args)"},
+                "pyrefly": {outcome: $pyrefly_outcome, output: $pyrefly_output, fix: "uv run --directory \($service) pyrefly check"},
+                "pytest + coverage": {outcome: $pytest_outcome, output: $pytest_output, fix: "uv run --directory \($service) pytest --cov=\($package) --cov-fail-under=80"}
+              }
+            }' > result.json
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: check-result-${{ matrix.service }}
+          path: ${{ matrix.service }}/result.json
+          retention-days: 1
+
+      - name: Fail if any check failed
+        if: always()
+        run: |
+          if [ "${{ steps.ruff.outcome }}" != "success" ] || \
+             [ "${{ steps.mypy.outcome }}" != "success" ] || \
+             [ "${{ steps.pyrefly.outcome }}" != "success" ] || \
+             [ "${{ steps.pytest.outcome }}" != "success" ]; then
+            echo "One or more checks failed for ${{ matrix.service }}. See the job summary above."
+            exit 1
+          fi
+
+  app:
+    name: app
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.5.0
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - name: Install locked dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Lint
+        id: lint
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run lint 2>&1 | tee /tmp/app-lint-output.txt
+
+      - name: Capture lint output
+        id: lint-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/app-lint-output.txt
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Write result for report job
+        if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          LINT_OUTPUT: ${{ steps.lint-summary.outputs.output }}
+        run: |
+          jq -n \
+            --arg lint_outcome "$LINT_OUTCOME" --arg lint_output "$LINT_OUTPUT" \
+            '{
+              service: "app",
+              checks: {
+                "lint (eslint + prettier)": {outcome: $lint_outcome, output: $lint_output, fix: "npm run lint --prefix app"}
+              }
+            }' > result.json
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        if: always()
+        with:
+          name: check-result-app
+          path: app/result.json
+          retention-days: 1
+
+      - name: Fail if lint failed
+        if: always()
+        run: |
+          if [ "${{ steps.lint.outcome }}" != "success" ]; then
+            echo "Lint failed for app. See the job summary above."
+            exit 1
+          fi
+
+  # Aggregates the check matrix (crawler/ingest/backend) and the app job. Runs even
+  # if they failed (if: always()) so the summary/comment/gate below reflect every
+  # service's outcome, not just the first to fail.
+  report:
+    name: Report results
+    needs: [check, app]
+    if: always()
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Download check results
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: check-result-*
+          path: results
+
+      # Renders the aggregated pass/fail table on the workflow run's Summary tab and,
+      # for pull_request runs, writes a PR comment body to an artifact instead of
+      # posting it directly. GITHUB_TOKEN is read-only here (no pull-requests
+      # permission on this job at all), so this job can never post to the PR itself
+      # -- the actual posting happens in comment-on-pr.yml, triggered by
+      # workflow_run, which runs with the base repo's permissions regardless of
+      # where the PR came from. That's the standard, GitHub-recommended pattern for
+      # commenting on fork PRs without handing the fork's code an elevated token.
+      #
+      # Check output/fix text is read from the downloaded result.json files, not
+      # interpolated via ${{ }}, since it's tool output derived from PR file
+      # contents -- treating it as data (not a script template) keeps a crafted
+      # file name or error message from running as code.
+      - name: Build summary and PR comment
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            const resultsDir = 'results';
+            const serviceOrder = ['crawler', 'ingest', 'backend', 'app'];
+            const results = fs.existsSync(resultsDir)
+              ? fs.readdirSync(resultsDir)
+                  .map((dir) => path.join(resultsDir, dir, 'result.json'))
+                  .filter((file) => fs.existsSync(file))
+                  .map((file) => JSON.parse(fs.readFileSync(file, 'utf8')))
+              : [];
+            results.sort((a, b) => serviceOrder.indexOf(a.service) - serviceOrder.indexOf(b.service));
+
+            const failures = [];
+            const summaryRows = [];
+            for (const result of results) {
+              for (const [checkName, check] of Object.entries(result.checks)) {
+                const passed = check.outcome === 'success';
+                summaryRows.push(`| ${result.service} | ${checkName} | ${passed ? '✅ Passed' : '❌ Failed'} |`);
+                if (!passed) {
+                  failures.push({ service: result.service, checkName, ...check });
+                }
+              }
+            }
+            const anyFailed = failures.length > 0;
+
+            const failureDetails = (heading) => [
+              heading,
+              '',
+              ...failures.flatMap((f) => [
+                `<details><summary>❌ ${f.service} — ${f.checkName}</summary>`,
+                '',
+                '```',
+                f.output || '(no output captured)',
+                '```',
+                '',
+                `Run \`${f.fix}\` locally to reproduce and fix.`,
+                '</details>',
+                '',
+              ]),
+            ];
+
+            const summaryLines = [
+              '## CI Results',
+              '',
+              '| Service | Check | Result |',
+              '|---|---|---|',
+              ...summaryRows,
+              '',
+              ...(anyFailed ? failureDetails('### Failures') : []),
+            ];
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, summaryLines.join('\n') + '\n');
+
+            if (context.eventName !== 'pull_request') return;
+
+            const marker = '<!-- tapio-ci-report -->';
+            const author = context.payload.pull_request.user.login;
+
+            // Mentioning the author only happens once per PR in practice: GitHub
+            // notifies on comment creation, and this step updates the same sticky
+            // comment on reruns rather than creating a new one, so re-running CI
+            // doesn't re-ping them.
+            const greeting = anyFailed
+              ? [`👋 Hi @${author}, thanks for the pull request! Before this can be merged, please address the failing checks below.`, '']
+              : [];
+
+            const body = [
+              marker,
+              ...greeting,
+              '## CI Results',
+              '',
+              '| Service | Check | Result |',
+              '|---|---|---|',
+              ...summaryRows,
+              '',
+              ...(anyFailed ? failureDetails('## CI Failures') : ['All checks passed. 🎉']),
+            ].join('\n');
+
+            fs.writeFileSync('pr-comment.json', JSON.stringify({ pr_number: context.issue.number, marker, body }));
+
+      - name: Upload PR comment artifact
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: pr-comment
+          path: pr-comment.json
+          retention-days: 1
+
+      - name: Fail if any service failed
+        run: |
+          if [ "${{ needs.check.result }}" != "success" ] || [ "${{ needs.app.result }}" != "success" ]; then
+            echo "One or more services failed. See the job summary above."
+            exit 1
+          fi

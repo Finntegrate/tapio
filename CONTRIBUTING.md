@@ -18,6 +18,7 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Ruff](#ruff)
     - [Type Checking](#type-checking)
     - [Pre-commit Hooks (prek)](#pre-commit-hooks-prek)
+    - [Frontend (app/)](#frontend-app)
   - [Testing Guidelines](#testing-guidelines)
     - [Running Tests](#running-tests)
     - [Code Coverage](#code-coverage)
@@ -29,6 +30,7 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Manual Dependency Injection (Advanced)](#manual-dependency-injection-advanced)
     - [Key Components](#key-components)
   - [Configuration System](#configuration-system)
+    - [Backend Settings](#backend-settings)
     - [Default Settings](#default-settings)
   - [Site Configurations](#site-configurations)
     - [Configuration Structure](#configuration-structure)
@@ -48,38 +50,36 @@ Tapio is a RAG (Retrieval-Augmented Generation) application with three main part
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#f0f0f0', 'primaryTextColor': '#323232', 'primaryBorderColor': '#606060', 'lineColor': '#404040', 'secondaryColor': '#c0c0c0', 'tertiaryColor': '#e0e0e0' }}}%%
 graph TD
     subgraph Data Pipeline
-        A[Website Content] -->|Crawl| B[Raw HTML]
-        B -->|Parse| C[Structured Markdown]
-        C -->|Vectorize| D[ChromaDB Vector Store]
+        A[Website Content] -->|Crawl| B[Markdown + source_url]
+        B -->|Chunk + Embed| D[ChromaDB Vector Store]
     end
 
     subgraph RAG System
-        E[User Query] -->|Input| F[Gradio Interface]
+        E[User Query] -->|POST /chat/stream| F[FastAPI + Agent Router]
         F -->|Query| G[Vector Search]
         G -->|Retrieve Docs| H[Context Assembly]
         H -->|Context + Query| I[Ollama LLM]
-        I -->|Generate Response| F
+        I -->|Stream Response| F
     end
 
     D --> G
+    F -->|SSE| Svelte[SvelteKit app/]
 
     subgraph Components
-        J[crawler module] -.->|implements| A
-        K[parsers module] -.->|implements| B --> C
-        L[vectorstore module] -.->|implements| C
-        M[utils module] -.->|supports| J & K & L
-        N[gradio_app.py] -.->|implements| F & G & H & I
+        J[crawler] -.->|implements| A --> B
+        K[ingest] -.->|implements| B --> D
+        N[backend/app] -.->|implements| F & G & H & I
     end
 
     classDef neutral fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
     classDef component fill:#e8e8e8,stroke:#404040,stroke-width:1px,color:#232323
     classDef vectorstore fill:#ffcb8c,stroke:#404040,stroke-width:2px,color:#232323
-    classDef gradio fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
+    classDef api fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
     classDef ollama fill:#a3ffb0,stroke:#404040,stroke-width:2px,color:#232323
-    class A,B,C,E,G,H neutral
-    class J,K,L,M,N component
+    class A,B,E,G,H,Svelte neutral
+    class J,K,N component
     class D vectorstore
-    class F gradio
+    class F api
     class I ollama
 ```
 
@@ -246,45 +246,59 @@ uv run --directory crawler mypy --config-file mypy.ini tapio_crawler
 uv run --directory crawler pyrefly check
 uv run --directory ingest mypy tapio_ingest
 uv run --directory ingest pyrefly check
-uv run --directory tapio mypy --config-file mypy.ini tapio
-uv run --directory tapio pyrefly check
+uv run --directory backend mypy --config-file mypy.ini app
+uv run --directory backend pyrefly check
 ```
 
 ### Pre-commit Hooks (prek)
 
-We use [prek](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, to run formatting and linting checks automatically before each commit. Install the git hook once after cloning:
+We use [prek](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, to run formatting and linting checks automatically before each commit. `prek` itself is a `backend/` dev dependency; install the git hook once after cloning:
 
 ```bash
-uv run --directory tapio prek install
+uv run --directory backend prek install
 ```
 
 To run all hooks against the full codebase (useful before submitting a pull request, or if you haven't installed the git hook):
 
 ```bash
-uv run --directory tapio prek run --all-files
+uv run --directory backend prek run --all-files
 ```
 
-These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it.
+These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it. The `prettier-app`/`eslint-app` hooks require `app/node_modules` to exist (`npm ci --prefix app`).
+
+### Frontend (app/)
+
+The SvelteKit app in `app/` uses [ESLint](https://eslint.org/) and [Prettier](https://prettier.io/), both enforced in CI and via the `prettier-app`/`eslint-app` prek hooks above. Run them locally with:
+
+```bash
+npm run lint --prefix app
+```
 
 ## Testing Guidelines
 
 ### Running Tests
 
-When adding features, always include appropriate tests. Run the entire test suite with:
+Each service (`crawler/`, `ingest/`, `backend/`) has its own test suite. When adding features, always include appropriate tests. Run a service's tests from its directory:
 
 ```bash
-uv run pytest
+uv run --directory crawler pytest
+uv run --directory ingest pytest
+uv run --directory backend pytest
 ```
+
+Or via `mise` from the repo root: `mise run test:crawl`, `mise run test:ingest`, `mise run test:backend`.
 
 ### Code Coverage
 
 We require at least 80% test coverage for new code. Check coverage with:
 
 ```bash
-uv run pytest --cov=tapio                          # terminal summary
-uv run pytest --cov=tapio --cov-report=html        # HTML report in htmlcov/index.html
-uv run pytest --cov=tapio.utils tests/utils/        # for a specific module
+uv run --directory backend pytest --cov=app                          # terminal summary
+uv run --directory backend pytest --cov=app --cov-report=html        # HTML report in backend/htmlcov/index.html
+uv run --directory backend pytest --cov=app.services tests/services/ # for a specific module
 ```
+
+Swap `--directory backend` / `--cov=app` for `--directory crawler` / `--cov=tapio_crawler` or `--directory ingest` / `--cov=tapio_ingest` to check the other services.
 
 ### Test Categories
 
@@ -293,30 +307,32 @@ We maintain different types of tests:
 **Unit Tests** - Fast, isolated tests with mocked dependencies:
 
 ```bash
-uv run pytest -m "not integration"
+uv run --directory backend pytest -m "not integration"
 ```
 
 **Integration Tests** - Tests using real components (marked with `@pytest.mark.integration`):
 
 ```bash
-uv run pytest -m integration
+uv run --directory backend pytest -m integration
 ```
 
 **All Tests**:
 
 ```bash
-uv run pytest
+uv run --directory backend pytest
 ```
 
 ### Test Fixtures
 
-`tests/conftest.py` provides these common mock fixtures:
+`backend/tests/conftest.py` provides these common fixtures:
 
 - `mock_embeddings` - Mocked HuggingFace embeddings
-- `mock_chroma_store` - Mocked ChromaDB vector store
+- `mock_chroma_store` - Mocked `ChromaRetriever`
 - `mock_llm_service` - Mocked LLM service
 - `mock_doc_retrieval_service` - Mocked document retrieval service
-- `mock_rag_orchestrator` - Mocked RAG orchestrator
+- `mock_rag_orchestrator` - Mocked RAG orchestrator, for route/API tests
+- `fake_agent_router` - Real `AgentRouter` (deterministic, safe to use unmocked)
+- `client` - FastAPI `TestClient` with the orchestrator/router dependencies overridden
 
 Use these fixtures in your tests for consistent mocking:
 
@@ -328,27 +344,28 @@ def test_my_feature(mock_rag_orchestrator):
 
 ## Project Structure
 
-Tapio separates concerns across these modules:
+The repository is a monorepo of independently-managed projects (see [ADR 0002](docs/ADRs/0002-monorepo-service-split.md) and [ADR 0006](docs/ADRs/0006-retire-gradio.md)):
 
-- `crawler/`: Module responsible for crawling websites and saving HTML content
-- `parsers/`: Module responsible for parsing HTML content into structured formats
-- `vectorstore/`: Module responsible for vectorizing content and storing in ChromaDB
-- `services/`: RAG orchestration and LLM services
-- `config/`: Configuration settings for the project
-- `app.py`: Gradio interface for the RAG chatbot
-- `cli.py`: Command-line interface
-- `factories.py`: Factory classes for dependency injection
-- `utils/`: Utility modules for embedding generation, markdown processing, etc.
-- `tests/`: Test suite for all modules
+- `crawler/`: Crawls configured sites and writes Markdown with `source_url` frontmatter
+- `ingest/`: Chunks and embeds that Markdown into the shared `vectorstore/` collection
+- `backend/`: Owns the RAG/agent-routing orchestration and exposes it as a FastAPI HTTP/SSE API. Within `backend/app/`:
+  - `agents/`: Guide definitions and routing logic
+  - `services/`: RAG orchestration and LLM services
+  - `config/`: Configuration settings
+  - `prompts/`: Prompt templates (shared + per-guide)
+  - `retrieval.py`, `factories.py`: Vector-store client and dependency wiring
+  - `routes/`, `main.py`, `streaming.py`, `schemas.py`: The FastAPI application itself
+- `app/`: The SvelteKit chat client that calls `backend/`
+- `tests/` (within each project): Test suite for that project's modules
 
 ## Programmatic API
 
-For developers who want to use Tapio as a library or extend its functionality:
+For developers who want to use the RAG/agent orchestration as a library, independent of the HTTP API — for example in a notebook or a script:
 
 ### Using Factory Pattern (Recommended)
 
 ```python
-from tapio import RAGConfig, RAGOrchestratorFactory
+from app import RAGConfig, RAGOrchestratorFactory
 
 # Create configuration
 config = RAGConfig(
@@ -370,14 +387,14 @@ For full control over component creation:
 
 ```python
 from langchain_huggingface import HuggingFaceEmbeddings
-from tapio.vectorstore.chroma_store import ChromaStore
-from tapio.services.document_retrieval_service import DocumentRetrievalService
-from tapio.services.llm_service import LLMService
-from tapio.services.rag_orchestrator import RAGOrchestrator
+from app.retrieval import ChromaRetriever
+from app.services.document_retrieval_service import DocumentRetrievalService
+from app.services.llm_service import LLMService
+from app.services.rag_orchestrator import RAGOrchestrator
 
 # Create dependencies
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-chroma_store = ChromaStore("my_docs", embeddings, "./db")
+chroma_store = ChromaRetriever("my_docs", embeddings, "./db")
 doc_service = DocumentRetrievalService(chroma_store, num_results=5)
 llm_service = LLMService(model_name="gemma4:latest", max_tokens=1024)
 
@@ -390,68 +407,88 @@ orchestrator = RAGOrchestrator(doc_service, llm_service)
 - **RAGOrchestrator**: Main orchestrator that coordinates document retrieval and LLM generation
 - **DocumentRetrievalService**: Handles vector-based document retrieval
 - **LLMService**: Manages LLM interactions via Ollama
-- **ChromaStore**: Vector database abstraction layer
+- **ChromaRetriever**: Vector database abstraction layer
 - **Factories**: Simplify dependency wiring with sensible defaults
 
 ## Configuration System
 
-The application uses a centralized configuration system:
+Configuration is split per service, matching the monorepo layout ([ADR 0002](docs/ADRs/0002-monorepo-service-split.md), [ADR 0006](docs/ADRs/0006-retire-gradio.md)):
 
-- `config/settings.py`: Contains global configuration settings used across different components
-- `config/site_configs.yaml`: Site-specific parser configurations
-- `config/config_models.py`: Pydantic models for configuration
-- `config/config_manager.py`: Central manager for accessing configurations
+- `backend/app/config/` — settings for the RAG pipeline and the FastAPI process itself
+- `crawler/tapio_crawler/config/` — settings for site collection (see [Site Configurations](#site-configurations) below)
+
+**`backend/app/config/`:**
+
+- `settings.py` — module-level defaults for the RAG pipeline (`DEFAULT_CHROMA_COLLECTION`, `DEFAULT_VECTORSTORE_DIR`, `DEFAULT_EMBEDDING_MODEL`, `DEFAULT_LLM_MODEL`, `DEFAULT_MAX_TOKENS`, `DEFAULT_NUM_RESULTS`)
+- `config_models.py` — `RAGConfig`, a dataclass built from those defaults
+- `backend_settings.py` — `BackendSettings`, a `pydantic-settings` model for the FastAPI process (host, port, CORS)
 
 When adding new features that require configuration values:
 
-1. Use existing settings from `DEFAULT_DIRS` when possible
-2. For new configuration needs, add them to the appropriate config file
-3. Avoid hardcoding values that might need to change in the future
-4. Use descriptive keys for configuration values
+1. Prefer extending `RAGConfig` or `BackendSettings` over inventing a new config object.
+2. Add new defaults to `settings.py` rather than hardcoding values in application code.
+3. `BackendSettings` fields are overridable via `TAPIO_BACKEND_*` environment variables; keep new fields consistent with that prefix.
+
+### Backend Settings
+
+`BackendSettings` (`backend/app/config/backend_settings.py`) configures the FastAPI process itself — the interface uvicorn binds to, and which origins may call the API:
+
+```python
+class BackendSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="TAPIO_BACKEND_")
+
+    host: str = "127.0.0.1"
+    port: int = 8000
+    cors_origins: list[str] = ["http://localhost:5173"]
+```
+
+Values are read from environment variables prefixed `TAPIO_BACKEND_` — for example, `TAPIO_BACKEND_PORT=9000` overrides the port. `cors_origins` defaults to the SvelteKit dev server origin.
 
 ### Default Settings
 
-Centralized configuration in `tapio/config/settings.py`:
+`RAGConfig` (`backend/app/config/config_models.py`) is built from the defaults in `backend/app/config/settings.py`:
 
 ```python
-DEFAULT_DIRS = {
-    "CRAWLED_DIR": "content/crawled",  # HTML storage
-    "PARSED_DIR": "content/parsed",  # Markdown storage
-    "CHROMA_DIR": "chroma_db",  # Vector database
-}
-
-DEFAULT_CHROMA_COLLECTION = "tapio"  # ChromaDB collection name
+DEFAULT_CHROMA_COLLECTION = "tapio_knowledge"
+DEFAULT_VECTORSTORE_DIR = os.environ.get(
+    "TAPIO_VECTORSTORE_DIR",
+    str(Path(__file__).resolve().parents[3] / "vectorstore"),
+)
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "gemma4:latest"
 DEFAULT_MAX_TOKENS = 1024
 DEFAULT_NUM_RESULTS = 5
 ```
 
+`DEFAULT_VECTORSTORE_DIR` defaults to the monorepo's shared `vectorstore/` directory (populated by `ingest/`, see [ADR 0004](docs/ADRs/0004-cocoindex-ingestion.md)) and is overridable via `TAPIO_VECTORSTORE_DIR`.
+
 ## Site Configurations
 
-Site configurations define how to crawl and parse specific websites. They're stored in `tapio/config/site_configs.yaml` and used by both crawl and parse commands. Selectors below use XPath, a query language for selecting elements in HTML/XML documents.
+Site configurations define how the crawler service collects and normalizes content from a source website. They're owned by the `crawler/` project, stored in `crawler/tapio_crawler/config/site_configs.yaml`, and loaded via `ConfigManager` (`crawler/tapio_crawler/config/config_manager.py`). Collection runs on [Crawl4AI](docs/ADRs/0003-crawl4ai-crawler.md), so the configurable settings are Crawl4AI job parameters — there's no separate HTML-parsing stage or XPath selectors to configure.
 
 ### Configuration Structure
 
 ```yaml
 sites:
   migri:
-    base_url: "https://migri.fi"                # Used for crawling and converting relative links
+    base_url: "https://migri.fi" # Used for crawling and resolving relative links
     description: "Finnish Immigration Service website"
-    crawler_config:                            # Crawling behavior
-      delay_between_requests: 1.0              # Seconds between requests
-      max_concurrent: 3                        # Concurrent request limit
-    parser_config:                              # Parser-specific configuration
-      title_selector: "//title"                # XPath for page titles
-      content_selectors:                       # Priority-ordered content extraction
-        - '//div[@id="main-content"]'
-        - "//main"
-        - "//article"
-        - '//div[@class="content"]'
-      fallback_to_body: true                   # Use <body> if selectors fail
-      markdown_config:                         # HTML-to-Markdown options
+    crawler_config: # Crawl4AI job settings
+      max_depth: 1 # Link-following depth from the base URL
+      max_pages: 50 # Page budget for the crawl
+      page_timeout: 30 # Seconds before a page load times out
+      min_delay: 1.0 # Minimum seconds between requests
+      max_delay: 3.0 # Maximum seconds between requests (randomized within this range)
+      max_concurrent: 3 # Concurrent request limit
+      recrawl_interval_hours: 720 # Minimum hours between recrawls of this site
+      minimum_content_length: 100 # Discard pages with less extracted content than this
+      css_selector: null # Optional CSS selector scoping extraction
+      target_elements: [] # Optional list of elements for Crawl4AI to target
+      remove_consent_popups: true # Strip cookie/consent banners before extraction
+      remove_overlay_elements: true # Strip modal/overlay elements before extraction
+      markdown_config: # HTML-to-Markdown options
         ignore_links: false
-        body_width: 0                          # No text wrapping
+        body_width: 0 # No text wrapping
         protect_links: true
         unicode_snob: true
         ignore_images: false
@@ -467,27 +504,33 @@ sites:
 **Optional (with defaults):**
 
 - `description` - Human-readable description
-- `parser_config` - Parser-specific settings (uses defaults if omitted)
-  - `title_selector` - Page title XPath (default: "//title")
-  - `content_selectors` - XPath selectors for content extraction (default: ["//main", "//article", "//body"])
-  - `fallback_to_body` - Use full-body content if selectors fail (default: true)
-  - `markdown_config` - HTML conversion settings (uses defaults if omitted)
-- `crawler_config` - Crawling behavior settings (uses defaults if omitted)
-  - `delay_between_requests` - Delay between requests in seconds (default: 1.0)
-  - `max_concurrent` - Maximum concurrent requests (default: 5)
+- `crawler_config` - Crawl4AI job settings (uses `CrawlerConfig` defaults if omitted); every field within it is itself optional:
+  - `max_depth` (default: 1), `max_pages` (default: 50), `page_timeout` (default: 30)
+  - `min_delay` (default: 1.0), `max_delay` (default: 3.0), `max_concurrent` (default: 3)
+  - `recrawl_interval_hours` (default: 720), `minimum_content_length` (default: 100)
+  - `css_selector` (default: none), `target_elements` (default: empty list)
+  - `remove_consent_popups` / `remove_overlay_elements` (default: false)
+  - `markdown_config` - HTML-to-Markdown conversion options (uses `MarkdownConfig` defaults if omitted)
 
 ### Adding New Sites
 
-1. Analyze the target website's structure and identify XPath selectors for its content
-2. Add an entry to `site_configs.yaml` following the structure above — only `base_url` is required
-3. Run the workflow against the new site by name:
+1. Add an entry to `crawler/tapio_crawler/config/site_configs.yaml` — only `base_url` is required.
+2. Confirm it's picked up:
 
-```bash
-uv run -m tapio.cli crawl my_site
-uv run -m tapio.cli parse my_site
-uv run -m tapio.cli vectorize
-uv run -m tapio.cli tapio-app
-```
+   ```bash
+   cd crawler
+   uv run tapio-crawler list-sites
+   ```
+
+3. Run the pipeline for the new site:
+
+   ```bash
+   uv run tapio-crawler crawl my_site                                   # crawler/: collect + normalize to Markdown
+   cd ../ingest && uv run tapio-ingest                                  # ingest/: vectorize into the shared vector store
+   cd ../backend && uv run uvicorn app.main:app --reload --port 8000    # backend/: serve the API
+   ```
+
+   Or via `mise` from the repo root: `mise run crawl` (all configured sites), `mise run ingest`, `mise run backend`.
 
 ## AI-assisted development with Claude Code
 
@@ -528,7 +571,7 @@ When you want to brainstorm a batch of issues before pushing them to GitHub, cre
 ## Pull Request Process
 
 1. Update the README.md with details of changes to the interface, if appropriate.
-2. Run each service's tests and the type-check commands above, plus `uv run --directory tapio prek run --all-files`, locally — these are all gated checks in CI, not just local conveniences.
+2. Run each service's tests and the type-check commands above, plus `uv run --directory backend prek run --all-files`, locally — these are all gated checks in CI, not just local conveniences.
 3. Check that code coverage meets our standards (minimum 80%).
 4. Submit your pull request with a clear description of the changes, related issue numbers, and any special considerations.
 5. The pull request will be merged once it receives approval from the maintainers and all CI checks pass.

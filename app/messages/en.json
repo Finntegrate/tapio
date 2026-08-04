@@ -1,4 +1,12 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"hello_world": "Hello, {name} from en!"
+	"hello_world": "Hello, {name} from en!",
+	"chat_placeholder": "Ask about Finnish immigration...",
+	"chat_send": "Send",
+	"chat_auto_route": "Auto — let Tapio choose",
+	"chat_thinking": "Thinking…",
+	"chat_sources_heading": "Sources",
+	"chat_agents_error": "Could not load the guide list.",
+	"chat_send_error": "Something went wrong. Please try again.",
+	"chat_sidebar_tagline": "Finnish immigration guides"
 }
