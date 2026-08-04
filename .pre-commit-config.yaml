@@ -59,17 +59,17 @@ repos:
         language: system
         files: ^ingest/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
-      - id: mypy-tapio
-        name: Mypy Tapio
-        entry: uv run --directory tapio mypy --config-file mypy.ini tapio
+      - id: mypy-backend
+        name: Mypy backend
+        entry: uv run --directory backend mypy --config-file mypy.ini app
         language: system
-        files: ^tapio/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
+        files: ^backend/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
-      - id: pyrefly
-        name: Pyrefly Tapio
-        entry: uv run --directory tapio pyrefly check
+      - id: pyrefly-backend
+        name: Pyrefly backend
+        entry: uv run --directory backend pyrefly check
         language: system
-        files: ^tapio/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
+        files: ^backend/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
       # actionlint and markdownlint-cli2 are installed via mise (see mise.toml)
       # rather than as pre-commit-managed hook repos, since both already exist as
