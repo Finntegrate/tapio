@@ -27,6 +27,26 @@ describe('ChatInput.svelte', () => {
 		expect(onsend).not.toHaveBeenCalled();
 	});
 
+	it('does not send on Enter while an IME composition is in progress', async () => {
+		const onsend = vi.fn();
+		render(ChatInput, { onsend });
+
+		const textbox = page.getByRole('textbox');
+		await userEvent.fill(textbox, '日本');
+		const element = textbox.element() as HTMLTextAreaElement;
+		element.dispatchEvent(
+			new KeyboardEvent('keydown', {
+				key: 'Enter',
+				isComposing: true,
+				bubbles: true,
+				cancelable: true
+			})
+		);
+
+		expect(onsend).not.toHaveBeenCalled();
+		await expect.element(textbox).toHaveValue('日本');
+	});
+
 	it('disables the send button while disabled', async () => {
 		render(ChatInput, { disabled: true, onsend: vi.fn() });
 

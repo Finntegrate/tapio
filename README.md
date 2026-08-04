@@ -101,8 +101,9 @@ mise run app
 The crawler respects each site's `recrawl_interval_hours`; a site that is not
 due is skipped. It attempts every configured site even if an earlier one fails,
 then returns a non-zero status if any site failed. When new pages are crawled,
-rerun `mise run ingest`, then restart the app so it opens the refreshed vector
-collection.
+rerun `mise run ingest`, then restart the backend (`backend/` is what reads
+`vectorstore/`; the SvelteKit `app/` only calls the backend's API) so it opens
+the refreshed vector collection.
 
 ### Shared runtime directories
 
@@ -151,8 +152,8 @@ Then return to the repository root and run `mise run ingest -- --site migri`.
 ### Troubleshooting
 
 - **“No relevant documents found”** — Run `mise run ingest` after a crawl and
-  restart the app. The app must be started after the shared vector collection
-  has been written.
+  restart the backend. The backend must be started after the shared vector
+  collection has been written.
 - **Crawl4AI cannot start a browser** — Install the stable Google Chrome
   release through your operating system. Crawl4AI launches it through
   Playwright's `chrome` channel.

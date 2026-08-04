@@ -9,7 +9,7 @@ from app.schemas import HealthResponse
 router = APIRouter()
 
 
-@router.get("/health", response_model=HealthResponse)
+@router.get("/health")
 async def health(orchestrator: OrchestratorDep) -> HealthResponse:
     """Report whether the configured Ollama model is reachable and loaded.
 

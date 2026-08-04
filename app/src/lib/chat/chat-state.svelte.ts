@@ -37,13 +37,10 @@ export class ChatStore {
 			content: message.content
 		}));
 
-		this.messages.push({ id: crypto.randomUUID(), role: 'user', content: trimmed });
-		this.messages.push({
-			id: crypto.randomUUID(),
-			role: 'assistant',
-			content: '',
-			isStreaming: true
-		});
+		this.messages.push(
+			{ id: crypto.randomUUID(), role: 'user', content: trimmed },
+			{ id: crypto.randomUUID(), role: 'assistant', content: '', isStreaming: true }
+		);
 		// Re-read the pushed message back out of the $state array so mutations below
 		// go through Svelte's reactive proxy, not the original plain object reference.
 		const assistantMessage = this.messages[this.messages.length - 1];

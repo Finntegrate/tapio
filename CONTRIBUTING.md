@@ -50,9 +50,8 @@ Tapio is a RAG (Retrieval-Augmented Generation) application with three main part
 %%{init: {'theme': 'base', 'themeVariables': { 'primaryColor': '#f0f0f0', 'primaryTextColor': '#323232', 'primaryBorderColor': '#606060', 'lineColor': '#404040', 'secondaryColor': '#c0c0c0', 'tertiaryColor': '#e0e0e0' }}}%%
 graph TD
     subgraph Data Pipeline
-        A[Website Content] -->|Crawl| B[Raw HTML]
-        B -->|Parse| C[Structured Markdown]
-        C -->|Vectorize| D[ChromaDB Vector Store]
+        A[Website Content] -->|Crawl| B[Markdown + source_url]
+        B -->|Chunk + Embed| D[ChromaDB Vector Store]
     end
 
     subgraph RAG System
@@ -67,10 +66,8 @@ graph TD
     F -->|SSE| Svelte[SvelteKit app/]
 
     subgraph Components
-        J[crawler module] -.->|implements| A
-        K[parsers module] -.->|implements| B --> C
-        L[vectorstore module] -.->|implements| C
-        M[utils module] -.->|supports| J & K & L
+        J[crawler] -.->|implements| A --> B
+        K[ingest] -.->|implements| B --> D
         N[backend/app] -.->|implements| F & G & H & I
     end
 
@@ -79,8 +76,8 @@ graph TD
     classDef vectorstore fill:#ffcb8c,stroke:#404040,stroke-width:2px,color:#232323
     classDef api fill:#9cd3ff,stroke:#404040,stroke-width:2px,color:#232323
     classDef ollama fill:#a3ffb0,stroke:#404040,stroke-width:2px,color:#232323
-    class A,B,C,E,G,H,Svelte neutral
-    class J,K,L,M,N component
+    class A,B,E,G,H,Svelte neutral
+    class J,K,N component
     class D vectorstore
     class F api
     class I ollama

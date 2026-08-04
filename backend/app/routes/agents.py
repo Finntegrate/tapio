@@ -8,7 +8,7 @@ from app.schemas import AgentSummary
 router = APIRouter()
 
 
-@router.get("/agents", response_model=list[AgentSummary])
+@router.get("/agents")
 async def list_agents() -> list[AgentSummary]:
     """Return the user-facing guide roster.
 

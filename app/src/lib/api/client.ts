@@ -1,4 +1,5 @@
 import { env } from '$env/dynamic/public';
+import * as m from '$lib/paraglide/messages.js';
 import { parseSSEStream } from './sse';
 import type {
 	AgentSummary,
@@ -31,8 +32,6 @@ interface ChatStreamRequest {
 	agent_id: string;
 }
 
-const UNREACHABLE_MESSAGE = 'Could not reach the assistant. Please try again.';
-
 /** Stream one chat turn's SSE events: routing, citation, token(s), then done or error. */
 export async function* streamChat(
 	body: ChatStreamRequest,
@@ -46,7 +45,7 @@ export async function* streamChat(
 	});
 
 	if (!response.ok || !response.body) {
-		yield { kind: 'error', data: { message: UNREACHABLE_MESSAGE } };
+		yield { kind: 'error', data: { message: m.chat_send_error() } };
 		return;
 	}
 

@@ -24,6 +24,7 @@
 	<nav class="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
 		<button
 			type="button"
+			aria-pressed={selectedAgentId === AUTO_ROUTE}
 			onclick={() => onchange(AUTO_ROUTE)}
 			class="w-full rounded-lg p-3 text-left transition-colors hover:bg-pine-800 {selectedAgentId ===
 			AUTO_ROUTE
@@ -36,6 +37,7 @@
 		{#each agents as agent (agent.id)}
 			<button
 				type="button"
+				aria-pressed={selectedAgentId === agent.id}
 				onclick={() => onchange(agent.id)}
 				class="w-full rounded-lg p-3 text-left transition-colors hover:bg-pine-800 {selectedAgentId ===
 				agent.id

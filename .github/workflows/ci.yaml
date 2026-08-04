@@ -5,13 +5,12 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-
 jobs:
   check:
     name: ${{ matrix.service }}
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -180,6 +179,8 @@ jobs:
   app:
     name: app
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: app
@@ -195,7 +196,7 @@ jobs:
           cache-dependency-path: app/package-lock.json
 
       - name: Install locked dependencies
-        run: npm ci
+        run: npm ci --ignore-scripts
 
       - name: Lint
         id: lint

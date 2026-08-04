@@ -32,7 +32,8 @@ export async function* parseSSEStream(response: Response): AsyncGenerator<RawSSE
 			const { done, value } = await reader.read();
 			if (done) break;
 
-			buffer += decoder.decode(value, { stream: true }).replace(/\r\n/g, '\n');
+			buffer += decoder.decode(value, { stream: true });
+			buffer = buffer.replaceAll('\r\n', '\n');
 
 			let boundary = buffer.indexOf('\n\n');
 			while (boundary !== -1) {

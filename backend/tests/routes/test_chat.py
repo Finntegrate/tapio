@@ -1,6 +1,7 @@
 """Tests for POST /chat/stream."""
 
 import json
+from unittest.mock import Mock
 
 from fastapi.testclient import TestClient
 
@@ -63,3 +64,23 @@ def test_chat_stream_auto_routes_without_explicit_agent(client: TestClient) -> N
 
     assert routing_data["agent_id"] == "otso"
     assert routing_data["was_explicit"] is False
+
+
+def test_chat_stream_emits_error_event_when_orchestrator_fails(client: TestClient, mock_rag_orchestrator: Mock) -> None:
+    mock_rag_orchestrator.query_stream.side_effect = RuntimeError("boom")
+
+    response = client.post(
+        "/chat/stream",
+        json={"message": "How do I apply for a residence permit?", "agent_id": "ilmarinen"},
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    event_types = [event_type for event_type, _ in events]
+
+    assert event_types[0] == "routing"
+    assert event_types[-1] == "error"
+    assert "done" not in event_types
+
+    error_data = events[-1][1]
+    assert error_data["message"] == "I encountered an error while processing your query. Please try again."

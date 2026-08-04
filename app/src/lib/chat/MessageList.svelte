@@ -11,6 +11,11 @@
 
 	$effect(() => {
 		const count = messages.length;
+		const last = messages[count - 1];
+		// Track the streaming message's own state, not just array length, so
+		// autoscroll keeps pace as tokens are appended to the same bubble.
+		void last?.content;
+		void last?.isStreaming;
 		if (count > 0) {
 			scrollAnchor?.scrollIntoView({ behavior: 'smooth', block: 'end' });
 		}
