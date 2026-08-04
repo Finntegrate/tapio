@@ -29,6 +29,7 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Manual Dependency Injection (Advanced)](#manual-dependency-injection-advanced)
     - [Key Components](#key-components)
   - [Configuration System](#configuration-system)
+    - [Backend Settings](#backend-settings)
     - [Default Settings](#default-settings)
   - [Site Configurations](#site-configurations)
     - [Configuration Structure](#configuration-structure)
@@ -397,63 +398,83 @@ orchestrator = RAGOrchestrator(doc_service, llm_service)
 
 ## Configuration System
 
-The application uses a centralized configuration system:
+Configuration is split per service, matching the monorepo layout ([ADR 0002](docs/ADRs/0002-monorepo-service-split.md), [ADR 0006](docs/ADRs/0006-retire-gradio.md)):
 
-- `config/settings.py`: Contains global configuration settings used across different components
-- `config/site_configs.yaml`: Site-specific parser configurations
-- `config/config_models.py`: Pydantic models for configuration
-- `config/config_manager.py`: Central manager for accessing configurations
+- `backend/app/config/` — settings for the RAG pipeline and the FastAPI process itself
+- `crawler/tapio_crawler/config/` — settings for site collection (see [Site Configurations](#site-configurations) below)
+
+**`backend/app/config/`:**
+
+- `settings.py` — module-level defaults for the RAG pipeline (`DEFAULT_CHROMA_COLLECTION`, `DEFAULT_VECTORSTORE_DIR`, `DEFAULT_EMBEDDING_MODEL`, `DEFAULT_LLM_MODEL`, `DEFAULT_MAX_TOKENS`, `DEFAULT_NUM_RESULTS`)
+- `config_models.py` — `RAGConfig`, a dataclass built from those defaults
+- `backend_settings.py` — `BackendSettings`, a `pydantic-settings` model for the FastAPI process (host, port, CORS)
 
 When adding new features that require configuration values:
 
-1. Use existing settings from `DEFAULT_DIRS` when possible
-2. For new configuration needs, add them to the appropriate config file
-3. Avoid hardcoding values that might need to change in the future
-4. Use descriptive keys for configuration values
+1. Prefer extending `RAGConfig` or `BackendSettings` over inventing a new config object.
+2. Add new defaults to `settings.py` rather than hardcoding values in application code.
+3. `BackendSettings` fields are overridable via `TAPIO_BACKEND_*` environment variables; keep new fields consistent with that prefix.
+
+### Backend Settings
+
+`BackendSettings` (`backend/app/config/backend_settings.py`) configures the FastAPI process itself — the interface uvicorn binds to, and which origins may call the API:
+
+```python
+class BackendSettings(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="TAPIO_BACKEND_")
+
+    host: str = "127.0.0.1"
+    port: int = 8000
+    cors_origins: list[str] = ["http://localhost:5173"]
+```
+
+Values are read from environment variables prefixed `TAPIO_BACKEND_` — for example, `TAPIO_BACKEND_PORT=9000` overrides the port. `cors_origins` defaults to the SvelteKit dev server origin.
 
 ### Default Settings
 
-Centralized configuration in `tapio/config/settings.py`:
+`RAGConfig` (`backend/app/config/config_models.py`) is built from the defaults in `backend/app/config/settings.py`:
 
 ```python
-DEFAULT_DIRS = {
-    "CRAWLED_DIR": "content/crawled",  # HTML storage
-    "PARSED_DIR": "content/parsed",  # Markdown storage
-    "CHROMA_DIR": "chroma_db",  # Vector database
-}
-
-DEFAULT_CHROMA_COLLECTION = "tapio"  # ChromaDB collection name
+DEFAULT_CHROMA_COLLECTION = "tapio_knowledge"
+DEFAULT_VECTORSTORE_DIR = os.environ.get(
+    "TAPIO_VECTORSTORE_DIR",
+    str(Path(__file__).resolve().parents[3] / "vectorstore"),
+)
 DEFAULT_EMBEDDING_MODEL = "all-MiniLM-L6-v2"
 DEFAULT_LLM_MODEL = "gemma4:latest"
 DEFAULT_MAX_TOKENS = 1024
 DEFAULT_NUM_RESULTS = 5
 ```
 
+`DEFAULT_VECTORSTORE_DIR` defaults to the monorepo's shared `vectorstore/` directory (populated by `ingest/`, see [ADR 0004](docs/ADRs/0004-cocoindex-ingestion.md)) and is overridable via `TAPIO_VECTORSTORE_DIR`.
+
 ## Site Configurations
 
-Site configurations define how to crawl and parse specific websites. They're stored in `tapio/config/site_configs.yaml` and used by both crawl and parse commands. Selectors below use XPath, a query language for selecting elements in HTML/XML documents.
+Site configurations define how the crawler service collects and normalizes content from a source website. They're owned by the `crawler/` project, stored in `crawler/tapio_crawler/config/site_configs.yaml`, and loaded via `ConfigManager` (`crawler/tapio_crawler/config/config_manager.py`). Collection runs on [Crawl4AI](docs/ADRs/0003-crawl4ai-crawler.md), so the configurable settings are Crawl4AI job parameters — there's no separate HTML-parsing stage or XPath selectors to configure.
 
 ### Configuration Structure
 
 ```yaml
 sites:
   migri:
-    base_url: "https://migri.fi"                # Used for crawling and converting relative links
+    base_url: "https://migri.fi" # Used for crawling and resolving relative links
     description: "Finnish Immigration Service website"
-    crawler_config:                            # Crawling behavior
-      delay_between_requests: 1.0              # Seconds between requests
-      max_concurrent: 3                        # Concurrent request limit
-    parser_config:                              # Parser-specific configuration
-      title_selector: "//title"                # XPath for page titles
-      content_selectors:                       # Priority-ordered content extraction
-        - '//div[@id="main-content"]'
-        - "//main"
-        - "//article"
-        - '//div[@class="content"]'
-      fallback_to_body: true                   # Use <body> if selectors fail
-      markdown_config:                         # HTML-to-Markdown options
+    crawler_config: # Crawl4AI job settings
+      max_depth: 1 # Link-following depth from the base URL
+      max_pages: 50 # Page budget for the crawl
+      page_timeout: 30 # Seconds before a page load times out
+      min_delay: 1.0 # Minimum seconds between requests
+      max_delay: 3.0 # Maximum seconds between requests (randomized within this range)
+      max_concurrent: 3 # Concurrent request limit
+      recrawl_interval_hours: 720 # Minimum hours between recrawls of this site
+      minimum_content_length: 100 # Discard pages with less extracted content than this
+      css_selector: null # Optional CSS selector scoping extraction
+      target_elements: [] # Optional list of elements for Crawl4AI to target
+      remove_consent_popups: true # Strip cookie/consent banners before extraction
+      remove_overlay_elements: true # Strip modal/overlay elements before extraction
+      markdown_config: # HTML-to-Markdown options
         ignore_links: false
-        body_width: 0                          # No text wrapping
+        body_width: 0 # No text wrapping
         protect_links: true
         unicode_snob: true
         ignore_images: false
@@ -469,27 +490,33 @@ sites:
 **Optional (with defaults):**
 
 - `description` - Human-readable description
-- `parser_config` - Parser-specific settings (uses defaults if omitted)
-  - `title_selector` - Page title XPath (default: "//title")
-  - `content_selectors` - XPath selectors for content extraction (default: ["//main", "//article", "//body"])
-  - `fallback_to_body` - Use full-body content if selectors fail (default: true)
-  - `markdown_config` - HTML conversion settings (uses defaults if omitted)
-- `crawler_config` - Crawling behavior settings (uses defaults if omitted)
-  - `delay_between_requests` - Delay between requests in seconds (default: 1.0)
-  - `max_concurrent` - Maximum concurrent requests (default: 5)
+- `crawler_config` - Crawl4AI job settings (uses `CrawlerConfig` defaults if omitted); every field within it is itself optional:
+  - `max_depth` (default: 1), `max_pages` (default: 50), `page_timeout` (default: 30)
+  - `min_delay` (default: 1.0), `max_delay` (default: 3.0), `max_concurrent` (default: 3)
+  - `recrawl_interval_hours` (default: 720), `minimum_content_length` (default: 100)
+  - `css_selector` (default: none), `target_elements` (default: empty list)
+  - `remove_consent_popups` / `remove_overlay_elements` (default: false)
+  - `markdown_config` - HTML-to-Markdown conversion options (uses `MarkdownConfig` defaults if omitted)
 
 ### Adding New Sites
 
-1. Analyze the target website's structure and identify XPath selectors for its content
-2. Add an entry to `site_configs.yaml` following the structure above — only `base_url` is required
-3. Run the workflow against the new site by name:
+1. Add an entry to `crawler/tapio_crawler/config/site_configs.yaml` — only `base_url` is required.
+2. Confirm it's picked up:
 
-```bash
-uv run -m tapio.cli crawl my_site
-uv run -m tapio.cli parse my_site
-uv run -m tapio.cli vectorize
-uv run -m tapio.cli tapio-app
-```
+   ```bash
+   cd crawler
+   uv run tapio-crawler list-sites
+   ```
+
+3. Run the pipeline for the new site:
+
+   ```bash
+   uv run tapio-crawler crawl my_site                                   # crawler/: collect + normalize to Markdown
+   cd ../ingest && uv run tapio-ingest                                  # ingest/: vectorize into the shared vector store
+   cd ../backend && uv run uvicorn app.main:app --reload --port 8000    # backend/: serve the API
+   ```
+
+   Or via `mise` from the repo root: `mise run crawl` (all configured sites), `mise run ingest`, `mise run backend`.
 
 ## AI-assisted development with Claude Code
 
