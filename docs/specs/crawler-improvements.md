@@ -144,6 +144,16 @@ one uniform "large sitemap = slow" story:
   prices in for discovery (since it reuses the same sitemap fetches), not an
   additional one. This is recommended as a concrete Phase 0 deliverable — see
   "Dependencies and phasing" below — rather than a full rendering dry-run.
+- **Running sites concurrently, not sequentially, bounds total wall-clock to
+  the slowest single site rather than their sum.** `Crawl-delay` and
+  `min_delay`/`max_delay` are enforced per host, so migri.fi's and dvv.fi's
+  ~2.4–2.5h discovery floors, kela.fi's and vero.fi's near-instant discovery,
+  and tyomarkkinatori.fi's bounded deep-crawl discovery do not contend with
+  each other. Today's CLI (`tapio_crawler.cli`) only crawls one configured
+  site per invocation; running all five as independent concurrent jobs would
+  cut a full backfill from roughly 5–10 hours sequential to something closer
+  to the ~2.5–5 hours the single slowest site needs on its own. See "Operator
+  controls" below.
 
 ## Goals
 
@@ -696,6 +706,19 @@ only discovery path and is required from Phase 1, per Requirement 2.
 
 - Support explicit pause, cancellation, retry, and source-level backfill controls.
 - Surface Crawl4AI deep-crawl checkpoint state for long-running jobs.
+- Run multiple configured sites concurrently as independent jobs, each using
+  its own per-host politeness and concurrency settings (Design Principle 7).
+  Site-level concurrency needs no cross-site throttling, since `Crawl-delay`
+  and `min_delay`/`max_delay` are enforced per host — see "Scale and
+  timeline" above for the resulting wall-clock reduction.
+- Give each concurrent site job its own live CLI progress indicator (for
+  example, one progress bar per site showing discovery/rendering phase,
+  counts, and current delay), replacing today's single printed summary line
+  per invocation. Each concurrent site needs its own Crawl4AI browser
+  instance, which has a real memory/CPU cost that scales with the number of
+  sites run at once — this should be measured before defaulting to "all
+  sites concurrently" in constrained environments such as CI or a small
+  deployment host.
 
 ### Future considerations (P2)
 
