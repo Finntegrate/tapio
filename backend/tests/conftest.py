@@ -1,14 +1,10 @@
 """Shared fixtures for backend tests: RAG/agent unit tests and the FastAPI API tests."""
 
-import sys
 from collections.abc import Iterator
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from app.agents.router import AgentRouter
 from app.dependencies import get_agent_router, get_orchestrator

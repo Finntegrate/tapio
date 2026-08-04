@@ -10,6 +10,7 @@ class CrawlerRunner:
     """Run one configured Crawl4AI collection job."""
 
     def __init__(self) -> None:
+        """Initialize the runner with no prior run summary."""
         self.last_summary: CrawlSummary | None = None
 
     async def run_async(

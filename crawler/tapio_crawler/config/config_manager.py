@@ -12,6 +12,12 @@ import yaml
 from tapio_crawler.config.config_models import SiteConfig, SiteConfigRegistry
 
 
+def _raise_empty_config_error() -> None:
+    """Raise ValueError because the loaded configuration file is empty."""
+    msg = "Configuration file is empty"
+    raise ValueError(msg)
+
+
 class ConfigManager:
     """Manages configuration for the Tapio application.
 
@@ -56,8 +62,7 @@ class ConfigManager:
             with Path(config_path).open(encoding="utf-8") as file:
                 config_data = yaml.safe_load(file)
                 if config_data is None:
-                    msg = "Configuration file is empty"
-                    raise ValueError(msg)
+                    _raise_empty_config_error()
                 return SiteConfigRegistry(**config_data)
         except FileNotFoundError:
             self.logger.exception("Configuration file not found: %s", config_path)

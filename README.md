@@ -149,6 +149,10 @@ uv run tapio-crawler crawl migri --depth 0
 
 Then return to the repository root and run `mise run ingest -- --site migri`.
 
+`discover` builds a site's URL inventory (sitemap or bounded gap-crawl) into
+a separate manifest database; it doesn't write Markdown, so it isn't part of
+the ingest pipeline above. See [crawler/README.md](crawler/README.md#url-discovery-and-the-manifest).
+
 ### Troubleshooting
 
 - **“No relevant documents found”** — Run `mise run ingest` after a crawl and

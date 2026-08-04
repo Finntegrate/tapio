@@ -1,12 +1,14 @@
 """Tests for loading Crawl4AI site configuration."""
 
+from pathlib import Path
+
 import pytest
 from pydantic import ValidationError
 
 from tapio_crawler.config import ConfigManager
 
 
-def test_config_manager_loads_crawl4ai_config(tmp_path) -> None:
+def test_config_manager_loads_crawl4ai_config(tmp_path: Path) -> None:
     path = tmp_path / "sites.yaml"
     path.write_text(
         """sites:
@@ -29,7 +31,7 @@ def test_config_manager_loads_crawl4ai_config(tmp_path) -> None:
     assert manager.get_site_descriptions() == {"example": "Example site"}
 
 
-def test_config_manager_rejects_missing_base_url(tmp_path) -> None:
+def test_config_manager_rejects_missing_base_url(tmp_path: Path) -> None:
     path = tmp_path / "invalid.yaml"
     path.write_text("sites:\n  example: {}\n", encoding="utf-8")
 
@@ -37,7 +39,7 @@ def test_config_manager_rejects_missing_base_url(tmp_path) -> None:
         ConfigManager.from_file(str(path))
 
 
-def test_config_manager_rejects_empty_configuration(tmp_path) -> None:
+def test_config_manager_rejects_empty_configuration(tmp_path: Path) -> None:
     path = tmp_path / "empty.yaml"
     path.write_text("", encoding="utf-8")
 

@@ -1,12 +1,8 @@
 """Ingestion test fixtures."""
 
-import sys
-from pathlib import Path
 from unittest.mock import Mock
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture
@@ -14,9 +10,7 @@ def mock_embeddings():
     embeddings = Mock()
     vector = [0.1] * 384
     embeddings.embed_query.side_effect = lambda _: vector.copy()
-    embeddings.embed_documents.side_effect = lambda texts: [
-        vector.copy() for _ in texts
-    ]
+    embeddings.embed_documents.side_effect = lambda texts: [vector.copy() for _ in texts]
     return embeddings
 
 

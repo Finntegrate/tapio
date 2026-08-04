@@ -1,9 +1,13 @@
 """CLI for the content-collection service."""
 
+import asyncio
+
 import typer
 
 from tapio_crawler.config import ConfigManager
 from tapio_crawler.crawler import CrawlerRunner
+from tapio_crawler.discovery.runner import DiscoveryRunner, MisconfiguredDiscoveryError
+from tapio_crawler.manifest.store import ManifestStore
 
 app = typer.Typer(help="Collect and normalize source content for Tapio.")
 
@@ -39,19 +43,9 @@ def crawl(
             "Use --force to crawl it now.",
         )
         return
-    status_codes = (
-        ", ".join(
-            f"{status}={count}"
-            for status, count in summary.get("status_codes", {}).items()
-        )
-        or "none"
-    )
+    status_codes = ", ".join(f"{status}={count}" for status, count in summary.get("status_codes", {}).items()) or "none"
     cache_statuses = (
-        ", ".join(
-            f"{status}={count}"
-            for status, count in summary.get("cache_statuses", {}).items()
-        )
-        or "none"
+        ", ".join(f"{status}={count}" for status, count in summary.get("cache_statuses", {}).items()) or "none"
     )
     typer.echo(
         f"Wrote {len(results)} Markdown documents for {site}. "
@@ -59,6 +53,40 @@ def crawl(
         f"near-empty {summary.get('near_empty', 0)}; "
         f"fallback recoveries {summary.get('fallback_recoveries', 0)}; "
         f"HTTP statuses: {status_codes}; cache: {cache_statuses}.",
+    )
+
+
+@app.command()
+def discover(site: str) -> None:
+    """Discover a site's URL inventory and record it in the manifest.
+
+    Args:
+        site: Name of the configured source site to discover.
+
+    Raises:
+        typer.Exit: With code 1 if the site has no configured way to
+            discover URLs (see ``MisconfiguredDiscoveryError``).
+    """
+    config = ConfigManager()
+    site_config = config.get_site_config(site)
+    store = ManifestStore()
+    try:
+        runner = DiscoveryRunner(store)
+        try:
+            summary = asyncio.run(runner.run(site, site_config))
+        except MisconfiguredDiscoveryError as error:
+            typer.echo(str(error))
+            raise typer.Exit(code=1) from error
+    finally:
+        store.close()
+
+    excluded = ", ".join(f"{reason}={count}" for reason, count in summary.excluded_by_reason.items()) or "none"
+    status = "complete" if summary.complete else "incomplete"
+    typer.echo(
+        f"Discovery run {summary.run_id} for {site}: {status}. "
+        f"Discovered {summary.discovered}; eligible {summary.eligible}; "
+        f"excluded: {excluded}; "
+        f"child sitemaps fetched {summary.child_sitemaps_fetched}.",
     )
 
 

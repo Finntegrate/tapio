@@ -34,3 +34,25 @@ When a site is due, Crawl4AI stores its persistent cache in
 `Last-Modified`) before rendering a cached page again. Mount `content/` as a
 persistent volume in deployment, or set `CRAWL4_AI_BASE_DIRECTORY` to another
 persistent location.
+
+## URL discovery and the manifest
+
+`discover` builds a site's URL inventory - separately from crawling and
+rendering - and records it in a durable, SQLite-backed manifest:
+
+```bash
+uv run tapio-crawler discover migri
+```
+
+For a source with a sitemap (`discovery.source: sitemap` in
+`site_configs.yaml`), this fetches the sitemap(s) directly, following one
+level of sitemap-index nesting and preserving each URL's `lastmod`. For a
+source with no sitemap, set `discovery.source: none` and
+`gap_crawl.enabled: true` with `seed_urls`; discovery then runs a bounded BFS
+crawl instead. Every discovered URL is scored against the site's `scope`
+config (`allowed_domains`, `include_url_patterns`, `exclude_url_patterns`) and
+upserted into the manifest with its eligibility.
+
+The manifest lives at `{TAPIO_CONTENT_DIR}/manifest.db` by default; override
+its path with `TAPIO_MANIFEST_PATH`. A discovery run never renders pages or
+writes Markdown - that remains `crawl`'s job.
