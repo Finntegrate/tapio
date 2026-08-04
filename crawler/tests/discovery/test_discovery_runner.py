@@ -1,5 +1,7 @@
 """Tests for the discovery runner."""
 
+from collections.abc import Generator
+from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
 import pytest
@@ -26,7 +28,7 @@ def _site_config(**crawler_overrides: object) -> SiteConfig:
 
 
 @pytest.fixture
-def store(tmp_path) -> ManifestStore:
+def store(tmp_path: Path) -> Generator[ManifestStore]:
     manifest_store = ManifestStore(path=str(tmp_path / "manifest.db"))
     yield manifest_store
     manifest_store.close()

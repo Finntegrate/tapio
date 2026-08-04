@@ -54,7 +54,9 @@ def test_resolve_effective_delay_never_produces_negative_range() -> None:
 
 
 @pytest.mark.asyncio
-async def test_wait_for_turn_serializes_requests(monkeypatch) -> None:
+async def test_wait_for_turn_serializes_requests(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     limiter = HostRateLimiter(min_delay=0.01, max_delay=0.01)
     sleeps: list[float] = []
 

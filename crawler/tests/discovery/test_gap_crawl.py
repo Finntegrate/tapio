@@ -6,6 +6,7 @@ import pytest
 
 from tapio_crawler.config.config_models import GapCrawlConfig, ScopeConfig
 from tapio_crawler.discovery.gap_crawl import discover_via_gap_crawl
+from tapio_crawler.discovery.rate_limiter import HostRateLimiter
 
 
 class _FakeResult:
@@ -20,8 +21,7 @@ async def test_returns_incomplete_when_gap_crawl_disabled() -> None:
         GapCrawlConfig(enabled=False),
         ScopeConfig(),
         user_agent="TapioBot/1.0",
-        min_delay=1.0,
-        max_delay=2.0,
+        rate_limiter=HostRateLimiter(min_delay=1.0, max_delay=2.0),
         max_concurrent=2,
     )
 
@@ -35,8 +35,7 @@ async def test_returns_incomplete_when_no_seed_urls() -> None:
         GapCrawlConfig(enabled=True, seed_urls=[]),
         ScopeConfig(),
         user_agent="TapioBot/1.0",
-        min_delay=1.0,
-        max_delay=2.0,
+        rate_limiter=HostRateLimiter(min_delay=1.0, max_delay=2.0),
         max_concurrent=2,
     )
 
@@ -51,7 +50,7 @@ async def test_collects_successful_urls_from_crawl() -> None:
     ]
 
     mock_crawler = AsyncMock()
-    mock_crawler.arun = AsyncMock(return_value=fake_results)
+    mock_crawler.arun_many = AsyncMock(return_value=fake_results)
     mock_crawler.__aenter__.return_value = mock_crawler
     mock_crawler.__aexit__.return_value = False
 
@@ -60,22 +59,27 @@ async def test_collects_successful_urls_from_crawl() -> None:
         return_value=mock_crawler,
     ):
         result = await discover_via_gap_crawl(
-            GapCrawlConfig(enabled=True, seed_urls=["https://example.com"]),
+            GapCrawlConfig(
+                enabled=True,
+                seed_urls=["https://example.com", "https://example.com/other"],
+            ),
             ScopeConfig(allowed_domains=["example.com"]),
             user_agent="TapioBot/1.0",
-            min_delay=1.0,
-            max_delay=2.0,
+            rate_limiter=HostRateLimiter(min_delay=1.0, max_delay=2.0),
             max_concurrent=2,
         )
 
     assert result.complete is True
     assert result.urls == ["https://example.com/a"]
+    mock_crawler.arun_many.assert_awaited_once()
+    called_urls = mock_crawler.arun_many.call_args.args[0]
+    assert called_urls == ["https://example.com", "https://example.com/other"]
 
 
 @pytest.mark.asyncio
 async def test_marks_incomplete_on_crawl_exception() -> None:
     mock_crawler = AsyncMock()
-    mock_crawler.arun = AsyncMock(side_effect=RuntimeError("boom"))
+    mock_crawler.arun_many = AsyncMock(side_effect=RuntimeError("boom"))
     mock_crawler.__aenter__.return_value = mock_crawler
     mock_crawler.__aexit__.return_value = False
 
@@ -87,8 +91,7 @@ async def test_marks_incomplete_on_crawl_exception() -> None:
             GapCrawlConfig(enabled=True, seed_urls=["https://example.com"]),
             ScopeConfig(),
             user_agent="TapioBot/1.0",
-            min_delay=1.0,
-            max_delay=2.0,
+            rate_limiter=HostRateLimiter(min_delay=1.0, max_delay=2.0),
             max_concurrent=2,
         )
 

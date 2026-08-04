@@ -1,8 +1,7 @@
 # Default configuration for Crawl4AI source collection.
 #
 # See docs/specs/crawler-improvements.md for the discovery/scope/politeness
-# schema. `trust_lastmod` stays `false` for every source until Phase 0
-# confirms lastmod-to-content-change correlation per source.
+# schema.
 sites:
   migri:
     base_url: "https://migri.fi"
@@ -24,9 +23,6 @@ sites:
       discovery:
         source: sitemap
         sitemap_urls: []
-        cache_ttl_hours: 24
-        validate_sitemap_lastmod: true
-        trust_lastmod: false
       scope:
         allowed_domains: ["migri.fi", "www.migri.fi"]
         languages: ["en"]
@@ -92,9 +88,6 @@ sites:
       discovery:
         source: sitemap
         sitemap_urls: []
-        cache_ttl_hours: 24
-        validate_sitemap_lastmod: true
-        trust_lastmod: false
       scope:
         allowed_domains: ["kela.fi", "www.kela.fi"]
         languages: ["en"]
@@ -124,9 +117,6 @@ sites:
       discovery:
         source: sitemap
         sitemap_urls: []
-        cache_ttl_hours: 24
-        validate_sitemap_lastmod: true
-        trust_lastmod: false
       scope:
         allowed_domains: ["vero.fi", "www.vero.fi"]
         languages: ["en"]
@@ -157,9 +147,6 @@ sites:
       discovery:
         source: sitemap
         sitemap_urls: []
-        cache_ttl_hours: 24
-        validate_sitemap_lastmod: true
-        trust_lastmod: false
       scope:
         allowed_domains: ["dvv.fi", "www.dvv.fi"]
         languages: ["en"]

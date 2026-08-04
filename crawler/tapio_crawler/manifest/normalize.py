@@ -27,9 +27,9 @@ def canonicalize_url(url: str) -> str:
     scheme = parts.scheme.lower()
     hostname = (parts.hostname or "").lower()
     port = parts.port
-    netloc = hostname
+    netloc = f"[{hostname}]" if ":" in hostname else hostname
     if port is not None and port != _DEFAULT_PORTS.get(scheme):
-        netloc = f"{hostname}:{port}"
+        netloc = f"{netloc}:{port}"
 
     query_pairs = [
         (key, value)

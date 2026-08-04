@@ -11,13 +11,13 @@ from datetime import UTC, datetime
 
 import httpx
 
-from tapio_crawler.config.config_models import SiteConfig
+from tapio_crawler.config.config_models import CrawlerConfig, SiteConfig
 from tapio_crawler.discovery.gap_crawl import discover_via_gap_crawl
 from tapio_crawler.discovery.rate_limiter import (
     HostRateLimiter,
     resolve_effective_delay,
 )
-from tapio_crawler.discovery.robots import fetch_robots_rules
+from tapio_crawler.discovery.robots import RobotsRules, fetch_robots_rules
 from tapio_crawler.discovery.scope import evaluate_scope
 from tapio_crawler.discovery.sitemap import discover_sitemap_urls
 from tapio_crawler.manifest.models import DiscoverySource, ManifestRecord, ScopeStatus
@@ -61,16 +61,19 @@ class DiscoveryRunner:
         run_id = str(uuid.uuid4())
         summary = DiscoveryRunSummary(run_id=run_id, site_name=site_name)
         config = site_config.crawler_config
+        _require_discovery_source(site_name, config)
 
-        if config.discovery.source == "none" and not config.gap_crawl.enabled:
-            msg = (
-                f"{site_name}: discovery.source is 'none' but gap_crawl is not "
-                "enabled; the site has no way to discover URLs"
-            )
-            raise MisconfiguredDiscoveryError(msg)
-
+        # Shared across robots, sitemap, and gap-crawl requests to this host so a
+        # Crawl-delay floor or Retry-After suspension applies uniformly.
+        rate_limiter = HostRateLimiter(
+            min_delay=config.min_delay, max_delay=config.max_delay
+        )
         base_url = str(site_config.base_url).rstrip("/")
-        robots = await fetch_robots_rules(base_url, config.politeness.user_agent)
+        robots = await fetch_robots_rules(
+            base_url,
+            config.politeness.user_agent,
+            rate_limiter=rate_limiter,
+        )
         if not robots.reachable and config.robots_policy == "require":
             summary.complete = False
             logger.warning(
@@ -85,13 +88,33 @@ class DiscoveryRunner:
             if config.politeness.respect_crawl_delay
             else None,
         )
-        rate_limiter = HostRateLimiter(
-            min_delay=effective_delay.min_delay,
-            max_delay=effective_delay.max_delay,
-        )
+        rate_limiter.min_delay = effective_delay.min_delay
+        rate_limiter.max_delay = effective_delay.max_delay
 
-        discovered_urls: list[str] = []
-        source_tag: DiscoverySource
+        discovered_urls, lastmod_by_url, source_tag = await self._discover_urls(
+            config,
+            robots,
+            rate_limiter,
+            summary,
+        )
+        self._persist_discovered_urls(
+            site_name,
+            config,
+            discovered_urls,
+            lastmod_by_url,
+            source_tag,
+            summary,
+        )
+        return summary
+
+    async def _discover_urls(
+        self,
+        config: CrawlerConfig,
+        robots: RobotsRules,
+        rate_limiter: HostRateLimiter,
+        summary: DiscoveryRunSummary,
+    ) -> tuple[list[str], dict[str, datetime | None], DiscoverySource]:
+        """Dispatch to sitemap or gap-crawl discovery and update run counts."""
         if config.discovery.source == "sitemap":
             sitemap_urls = config.discovery.sitemap_urls or robots.sitemap_urls
             async with httpx.AsyncClient() as client:
@@ -100,26 +123,34 @@ class DiscoveryRunner:
                     client=client,
                     rate_limiter=rate_limiter,
                     user_agent=config.politeness.user_agent,
+                    allowed_hosts=config.scope.allowed_domains or None,
                 )
-            discovered_urls = [entry.url for entry in sitemap_result.urls]
             summary.child_sitemaps_fetched = sitemap_result.child_sitemaps_fetched
             summary.complete = sitemap_result.complete
+            discovered_urls = [entry.url for entry in sitemap_result.urls]
             lastmod_by_url = {entry.url: entry.lastmod for entry in sitemap_result.urls}
-            source_tag = "sitemap"
-        else:
-            gap_result = await discover_via_gap_crawl(
-                config.gap_crawl,
-                config.scope,
-                user_agent=config.politeness.user_agent,
-                min_delay=effective_delay.min_delay,
-                max_delay=effective_delay.max_delay,
-                max_concurrent=config.max_concurrent,
-            )
-            discovered_urls = gap_result.urls
-            summary.complete = gap_result.complete
-            lastmod_by_url = {}
-            source_tag = "deep_crawl"
+            return discovered_urls, lastmod_by_url, "sitemap"
 
+        gap_result = await discover_via_gap_crawl(
+            config.gap_crawl,
+            config.scope,
+            user_agent=config.politeness.user_agent,
+            rate_limiter=rate_limiter,
+            max_concurrent=config.max_concurrent,
+        )
+        summary.complete = gap_result.complete
+        return gap_result.urls, {}, "deep_crawl"
+
+    def _persist_discovered_urls(
+        self,
+        site_name: str,
+        config: CrawlerConfig,
+        discovered_urls: list[str],
+        lastmod_by_url: dict[str, datetime | None],
+        source_tag: DiscoverySource,
+        summary: DiscoveryRunSummary,
+    ) -> None:
+        """Score every discovered URL against scope and upsert it into the manifest."""
         summary.discovered = len(discovered_urls)
         now = datetime.now(UTC)
         for url in discovered_urls:
@@ -149,4 +180,12 @@ class DiscoveryRunner:
             )
             self._manifest_store.upsert(record)
 
-        return summary
+
+def _require_discovery_source(site_name: str, config: CrawlerConfig) -> None:
+    """Raise if a site has neither sitemap nor gap-crawl discovery configured."""
+    if config.discovery.source == "none" and not config.gap_crawl.enabled:
+        msg = (
+            f"{site_name}: discovery.source is 'none' but gap_crawl is not "
+            "enabled; the site has no way to discover URLs"
+        )
+        raise MisconfiguredDiscoveryError(msg)

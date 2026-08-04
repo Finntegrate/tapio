@@ -14,11 +14,15 @@ from urllib.robotparser import RobotFileParser
 
 import httpx
 
+from tapio_crawler.discovery.rate_limiter import HostRateLimiter
+
 logger = logging.getLogger(__name__)
 
 DEFAULT_TIMEOUT_SECONDS = 10.0
 NOT_FOUND_STATUS = 404
 CLIENT_ERROR_STATUS = 400
+TOO_MANY_REQUESTS_STATUS = 429
+SERVICE_UNAVAILABLE_STATUS = 503
 
 
 @dataclass
@@ -53,16 +57,20 @@ async def fetch_robots_rules(
     *,
     client: httpx.AsyncClient | None = None,
     timeout: float = DEFAULT_TIMEOUT_SECONDS,
+    rate_limiter: HostRateLimiter | None = None,
 ) -> RobotsRules:
     """Fetch and parse ``base_url``'s robots.txt.
 
     A 404 means no restrictions, per convention. Any other failure - a
     non-2xx/404 status, a timeout, or a connection error - is reported as
-    ``reachable=False``.
+    ``reachable=False``. When ``rate_limiter`` is given, this fetch shares
+    that host's politeness delay with every other discovery request.
     """
     robots_url = urljoin(base_url, "/robots.txt")
     owns_client = client is None
     http_client = client or httpx.AsyncClient(timeout=timeout)
+    if rate_limiter is not None:
+        await rate_limiter.wait_for_turn()
     try:
         response = await http_client.get(robots_url, headers={"User-Agent": user_agent})
     except httpx.HTTPError:
@@ -74,6 +82,12 @@ async def fetch_robots_rules(
 
     if response.status_code == NOT_FOUND_STATUS:
         return RobotsRules(reachable=True)
+    if rate_limiter is not None and response.status_code in (
+        TOO_MANY_REQUESTS_STATUS,
+        SERVICE_UNAVAILABLE_STATUS,
+    ):
+        rate_limiter.suspend_for_retry_after(response.headers.get("Retry-After"))
+        return RobotsRules(reachable=False)
     if response.status_code >= CLIENT_ERROR_STATUS:
         logger.warning(
             "robots.txt fetch for %s returned HTTP %s",

@@ -1,5 +1,7 @@
 """Tests for sitemap fetching and parsing."""
 
+import time
+
 import httpx
 import pytest
 
@@ -42,7 +44,7 @@ async def test_discovers_urls_and_lastmod_from_flat_urlset() -> None:
         )
 
     assert result.complete is True
-    assert result.child_sitemaps_fetched == 1
+    assert result.child_sitemaps_fetched == 0
     urls = {entry.url: entry.lastmod for entry in result.urls}
     assert urls["https://example.com/a"] is not None
     assert urls["https://example.com/b"] is None
@@ -64,8 +66,8 @@ async def test_follows_sitemap_index_and_counts_child_sitemaps_separately() -> N
             user_agent=USER_AGENT,
         )
 
-    # 1 index + 2 child sitemaps fetched; each child contributes 2 URLs.
-    assert result.child_sitemaps_fetched == 3
+    # The index itself is a top-level entry, not a child; only its 2 children count.
+    assert result.child_sitemaps_fetched == 2
     assert len(result.urls) == 4
     assert result.complete is True
 
@@ -134,3 +136,5 @@ async def test_429_suspends_host_and_marks_incomplete() -> None:
         )
 
     assert result.complete is False
+    assert limiter.last_suspension_capped is False
+    assert limiter._next_available_at > time.monotonic()

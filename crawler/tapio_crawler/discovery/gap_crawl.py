@@ -22,6 +22,7 @@ from crawl4ai.deep_crawling.filters import (
 from crawl4ai.models import CrawlResultContainer
 
 from tapio_crawler.config.config_models import GapCrawlConfig, ScopeConfig
+from tapio_crawler.discovery.rate_limiter import HostRateLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -39,11 +40,15 @@ async def discover_via_gap_crawl(
     scope: ScopeConfig,
     *,
     user_agent: str,
-    min_delay: float,
-    max_delay: float,
+    rate_limiter: HostRateLimiter,
     max_concurrent: int,
 ) -> GapCrawlResult:
-    """Run a bounded BFS crawl to discover URLs when no sitemap exists."""
+    """Run a bounded BFS crawl to discover URLs when no sitemap exists.
+
+    Reuses ``rate_limiter``'s current delay window - shared with any robots
+    or sitemap fetches already made for this host - rather than resetting
+    host spacing with its own values.
+    """
     if not gap_crawl.enabled or not gap_crawl.seed_urls:
         return GapCrawlResult(complete=False)
 
@@ -55,8 +60,8 @@ async def discover_via_gap_crawl(
             filter_chain=FilterChain(_build_filters(scope)),
         ),
         cache_mode=CacheMode.BYPASS,
-        mean_delay=min_delay,
-        max_range=max(0.0, max_delay - min_delay),
+        mean_delay=rate_limiter.min_delay,
+        max_range=max(0.0, rate_limiter.max_delay - rate_limiter.min_delay),
         semaphore_count=max_concurrent,
         verbose=False,
     )
@@ -73,12 +78,12 @@ async def discover_via_gap_crawl(
     try:
         async with AsyncWebCrawler(config=browser_config) as crawler:
             raw_results = cast(
-                "CrawlResultContainer",
-                await crawler.arun(gap_crawl.seed_urls[0], config=run_config),
+                "list[CrawlResultContainer]",
+                await crawler.arun_many(gap_crawl.seed_urls, config=run_config),
             )
             discovered = [result.url for result in raw_results if result.success]
     except Exception:
-        logger.exception("Gap-crawl discovery failed for %s", gap_crawl.seed_urls[0])
+        logger.exception("Gap-crawl discovery failed for %s", gap_crawl.seed_urls)
         complete = False
 
     return GapCrawlResult(urls=discovered, complete=complete)

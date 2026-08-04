@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
+from urllib.parse import urlsplit
 from xml.etree import ElementTree as ET
 
 import httpx
@@ -22,6 +23,7 @@ logger = logging.getLogger(__name__)
 TOO_MANY_REQUESTS_STATUS = 429
 SERVICE_UNAVAILABLE_STATUS = 503
 CLIENT_ERROR_STATUS = 400
+_ALLOWED_SCHEMES = frozenset({"http", "https"})
 
 
 @dataclass
@@ -47,6 +49,7 @@ async def discover_sitemap_urls(
     client: httpx.AsyncClient,
     rate_limiter: HostRateLimiter,
     user_agent: str,
+    allowed_hosts: list[str] | None = None,
     max_child_sitemaps: int = 10_000,
 ) -> SitemapDiscoveryResult:
     """Fetch every sitemap, following sitemap-index nesting.
@@ -54,23 +57,35 @@ async def discover_sitemap_urls(
     Marks the result ``complete=False`` if any sitemap fails to fetch or
     parse, or if the child-sitemap cap is reached, so a discovery run does
     not claim complete source coverage on a partial failure.
+    ``allowed_hosts``, if given, rejects any sitemap URL - including a
+    child <loc> found by parsing an index - outside the source's scope,
+    since a remote sitemap document is not a trusted URL source.
     """
     result = SitemapDiscoveryResult()
     if not sitemap_urls:
         result.complete = False
         return result
 
+    allowed = {host.lower() for host in allowed_hosts} if allowed_hosts else None
+    top_level = set(sitemap_urls)
     queue = list(sitemap_urls)
     seen: set[str] = set()
+    child_fetch_count = 0
 
     while queue:
-        if len(seen) >= max_child_sitemaps:
-            logger.warning("Reached child-sitemap fetch cap of %s", max_child_sitemaps)
-            result.complete = False
-            break
         sitemap_url = queue.pop(0)
         if sitemap_url in seen:
             continue
+        if allowed is not None and not _is_allowed(sitemap_url, allowed):
+            logger.warning("Skipping out-of-scope sitemap URL %s", sitemap_url)
+            result.complete = False
+            continue
+
+        is_child = sitemap_url not in top_level
+        if is_child and child_fetch_count >= max_child_sitemaps:
+            logger.warning("Reached child-sitemap fetch cap of %s", max_child_sitemaps)
+            result.complete = False
+            break
         seen.add(sitemap_url)
 
         content = await _fetch_sitemap(
@@ -82,7 +97,9 @@ async def discover_sitemap_urls(
         if content is None:
             result.complete = False
             continue
-        result.child_sitemaps_fetched += 1
+        if is_child:
+            child_fetch_count += 1
+            result.child_sitemaps_fetched += 1
 
         try:
             child_sitemaps, urls = _parse_sitemap(content)
@@ -95,6 +112,14 @@ async def discover_sitemap_urls(
         result.urls.extend(urls)
 
     return result
+
+
+def _is_allowed(url: str, allowed_hosts: set[str]) -> bool:
+    """Return whether ``url``'s scheme and host are within ``allowed_hosts``."""
+    parts = urlsplit(url)
+    return parts.scheme in _ALLOWED_SCHEMES and (parts.hostname or "").lower() in (
+        allowed_hosts
+    )
 
 
 async def _fetch_sitemap(

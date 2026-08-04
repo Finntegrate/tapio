@@ -53,7 +53,7 @@ def test_discover_reports_summary() -> None:
 
     with (
         patch("tapio_crawler.cli.ConfigManager") as config_manager_type,
-        patch("tapio_crawler.cli.ManifestStore"),
+        patch("tapio_crawler.cli.ManifestStore") as manifest_store_type,
         patch("tapio_crawler.cli.DiscoveryRunner", return_value=runner),
     ):
         config_manager_type.return_value.get_site_config.return_value = site_config
@@ -62,6 +62,7 @@ def test_discover_reports_summary() -> None:
     assert result.exit_code == 0
     assert "complete" in result.stdout
     assert "eligible 1" in result.stdout
+    manifest_store_type.return_value.close.assert_called_once()
 
 
 def test_discover_exits_with_error_on_misconfiguration() -> None:
@@ -73,7 +74,7 @@ def test_discover_exits_with_error_on_misconfiguration() -> None:
 
     with (
         patch("tapio_crawler.cli.ConfigManager") as config_manager_type,
-        patch("tapio_crawler.cli.ManifestStore"),
+        patch("tapio_crawler.cli.ManifestStore") as manifest_store_type,
         patch("tapio_crawler.cli.DiscoveryRunner", return_value=runner),
     ):
         config_manager_type.return_value.get_site_config.return_value = site_config
@@ -81,3 +82,4 @@ def test_discover_exits_with_error_on_misconfiguration() -> None:
 
     assert result.exit_code == 1
     assert "no way to discover" in result.stdout
+    manifest_store_type.return_value.close.assert_called_once()

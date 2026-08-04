@@ -98,6 +98,24 @@ async def test_falls_back_to_wildcard_crawl_delay() -> None:
 
 
 @pytest.mark.asyncio
+async def test_non_numeric_crawl_delay_is_ignored() -> None:
+    body = "User-agent: *\nCrawl-delay: soon\n"
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=body)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        rules = await fetch_robots_rules(
+            "https://example.com",
+            USER_AGENT,
+            client=client,
+        )
+
+    assert rules.crawl_delay is None
+
+
+@pytest.mark.asyncio
 async def test_disallowed_path_is_reported() -> None:
     body = "User-agent: TapioBot\nDisallow: /private/\n"
 

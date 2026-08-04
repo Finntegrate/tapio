@@ -29,7 +29,6 @@ def test_crawler_config_has_safe_defaults() -> None:
     assert "TapioBot" in config.politeness.user_agent
     assert isinstance(config.discovery, DiscoveryConfig)
     assert config.discovery.source == "none"
-    assert config.discovery.trust_lastmod is False
     assert isinstance(config.scope, ScopeConfig)
     assert config.scope.allowed_content_types == ["text/html"]
     assert isinstance(config.gap_crawl, GapCrawlConfig)

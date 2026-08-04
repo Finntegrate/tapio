@@ -40,3 +40,11 @@ def test_strips_known_tracking_parameter_names() -> None:
 
 def test_defaults_empty_path_to_root() -> None:
     assert canonicalize_url("https://example.com") == "https://example.com/"
+
+
+def test_preserves_ipv6_brackets_with_non_default_port() -> None:
+    assert canonicalize_url("https://[::1]:8443/path") == "https://[::1]:8443/path"
+
+
+def test_preserves_ipv6_brackets_with_default_port() -> None:
+    assert canonicalize_url("https://[::1]:443/path") == "https://[::1]/path"

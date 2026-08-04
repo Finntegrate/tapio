@@ -1,6 +1,8 @@
 """Tests for the SQLite-backed URL manifest store."""
 
+from collections.abc import Generator
 from datetime import UTC, datetime
+from pathlib import Path
 
 import pytest
 
@@ -24,8 +26,10 @@ def _record(**overrides: object) -> ManifestRecord:
 
 
 @pytest.fixture
-def store(tmp_path) -> ManifestStore:
-    return ManifestStore(tmp_path / "manifest.db")
+def store(tmp_path: Path) -> Generator[ManifestStore]:
+    manifest_store = ManifestStore(tmp_path / "manifest.db")
+    yield manifest_store
+    manifest_store.close()
 
 
 def test_upsert_persists_a_new_record(store: ManifestStore) -> None:
@@ -58,6 +62,20 @@ def test_upsert_advances_last_seen_at_without_duplicating_rows(
 
     assert len(records) == 1
     assert records[0].last_seen_at == later
+
+
+def test_upsert_keeps_later_last_seen_at_when_replayed_out_of_order(
+    store: ManifestStore,
+) -> None:
+    earlier = datetime(2026, 8, 3, tzinfo=UTC)
+    later = datetime(2026, 8, 5, tzinfo=UTC)
+    store.upsert(_record(last_seen_at=later))
+    store.upsert(_record(last_seen_at=earlier))
+
+    found = store.get("migri", "https://migri.fi/en/page")
+
+    assert found is not None
+    assert found.last_seen_at == later
 
 
 def test_upsert_keeps_earlier_sitemap_lastmod_when_not_resupplied(

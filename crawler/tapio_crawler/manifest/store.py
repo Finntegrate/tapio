@@ -75,7 +75,7 @@ class ManifestStore:
                     | record.discovery_source,
                     "sitemap_lastmod": record.sitemap_lastmod
                     or existing.sitemap_lastmod,
-                    "last_seen_at": record.last_seen_at,
+                    "last_seen_at": max(record.last_seen_at, existing.last_seen_at),
                     "scope_status": record.scope_status,
                     "scope_reason": record.scope_reason,
                 },

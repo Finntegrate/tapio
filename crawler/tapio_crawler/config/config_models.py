@@ -36,11 +36,6 @@ class DiscoveryConfig(BaseModel):
     source: Literal["sitemap", "none"] = "none"
     # Empty: read ``Sitemap:`` entries from the source's robots.txt instead.
     sitemap_urls: list[str] = Field(default_factory=list)
-    cache_ttl_hours: Annotated[int, Field(ge=1, le=8_760)] = 24
-    validate_sitemap_lastmod: bool = True
-    # Requires a recorded, per-source correlation measurement before flipping
-    # to True (see docs/specs/crawler-improvements.md Requirement 2).
-    trust_lastmod: bool = False
 
 
 class ScopeConfig(BaseModel):
