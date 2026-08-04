@@ -248,22 +248,22 @@ uv run --directory crawler mypy --config-file mypy.ini tapio_crawler
 uv run --directory crawler pyrefly check
 uv run --directory ingest mypy tapio_ingest
 uv run --directory ingest pyrefly check
-uv run --directory tapio mypy --config-file mypy.ini tapio
-uv run --directory tapio pyrefly check
+uv run --directory backend mypy --config-file mypy.ini app
+uv run --directory backend pyrefly check
 ```
 
 ### Pre-commit Hooks (prek)
 
-We use [prek](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, to run formatting and linting checks automatically before each commit. Install the git hook once after cloning:
+We use [prek](https://github.com/j178/prek), a drop-in replacement for `pre-commit`, to run formatting and linting checks automatically before each commit. `prek` itself is a `backend/` dev dependency; install the git hook once after cloning:
 
 ```bash
-uv run --directory tapio prek install
+uv run --directory backend prek install
 ```
 
 To run all hooks against the full codebase (useful before submitting a pull request, or if you haven't installed the git hook):
 
 ```bash
-uv run --directory tapio prek run --all-files
+uv run --directory backend prek run --all-files
 ```
 
 These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it.
@@ -272,21 +272,27 @@ These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markd
 
 ### Running Tests
 
-When adding features, always include appropriate tests. Run the entire test suite with:
+Each service (`crawler/`, `ingest/`, `backend/`) has its own test suite. When adding features, always include appropriate tests. Run a service's tests from its directory:
 
 ```bash
-uv run pytest
+uv run --directory crawler pytest
+uv run --directory ingest pytest
+uv run --directory backend pytest
 ```
+
+Or via `mise` from the repo root: `mise run test:crawl`, `mise run test:ingest`, `mise run test:backend`.
 
 ### Code Coverage
 
 We require at least 80% test coverage for new code. Check coverage with:
 
 ```bash
-uv run pytest --cov=tapio                          # terminal summary
-uv run pytest --cov=tapio --cov-report=html        # HTML report in htmlcov/index.html
-uv run pytest --cov=tapio.utils tests/utils/        # for a specific module
+uv run --directory backend pytest --cov=app                          # terminal summary
+uv run --directory backend pytest --cov=app --cov-report=html        # HTML report in backend/htmlcov/index.html
+uv run --directory backend pytest --cov=app.services tests/services/ # for a specific module
 ```
+
+Swap `--directory backend` / `--cov=app` for `--directory crawler` / `--cov=tapio_crawler` or `--directory ingest` / `--cov=tapio_ingest` to check the other services.
 
 ### Test Categories
 
@@ -295,30 +301,32 @@ We maintain different types of tests:
 **Unit Tests** - Fast, isolated tests with mocked dependencies:
 
 ```bash
-uv run pytest -m "not integration"
+uv run --directory backend pytest -m "not integration"
 ```
 
 **Integration Tests** - Tests using real components (marked with `@pytest.mark.integration`):
 
 ```bash
-uv run pytest -m integration
+uv run --directory backend pytest -m integration
 ```
 
 **All Tests**:
 
 ```bash
-uv run pytest
+uv run --directory backend pytest
 ```
 
 ### Test Fixtures
 
-`tests/conftest.py` provides these common mock fixtures:
+`backend/tests/conftest.py` provides these common fixtures:
 
 - `mock_embeddings` - Mocked HuggingFace embeddings
-- `mock_chroma_store` - Mocked ChromaDB vector store
+- `mock_chroma_store` - Mocked `ChromaRetriever`
 - `mock_llm_service` - Mocked LLM service
 - `mock_doc_retrieval_service` - Mocked document retrieval service
-- `mock_rag_orchestrator` - Mocked RAG orchestrator
+- `mock_rag_orchestrator` - Mocked RAG orchestrator, for route/API tests
+- `fake_agent_router` - Real `AgentRouter` (deterministic, safe to use unmocked)
+- `client` - FastAPI `TestClient` with the orchestrator/router dependencies overridden
 
 Use these fixtures in your tests for consistent mocking:
 
@@ -557,7 +565,7 @@ When you want to brainstorm a batch of issues before pushing them to GitHub, cre
 ## Pull Request Process
 
 1. Update the README.md with details of changes to the interface, if appropriate.
-2. Run each service's tests and the type-check commands above, plus `uv run --directory tapio prek run --all-files`, locally — these are all gated checks in CI, not just local conveniences.
+2. Run each service's tests and the type-check commands above, plus `uv run --directory backend prek run --all-files`, locally — these are all gated checks in CI, not just local conveniences.
 3. Check that code coverage meets our standards (minimum 80%).
 4. Submit your pull request with a clear description of the changes, related issue numbers, and any special considerations.
 5. The pull request will be merged once it receives approval from the maintainers and all CI checks pass.
