@@ -24,6 +24,12 @@ SITEMAP_INDEX = """<?xml version="1.0" encoding="UTF-8"?>
 </sitemapindex>
 """
 
+SITEMAP_INDEX_WITH_SSRF_CHILD = """<?xml version="1.0" encoding="UTF-8"?>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap><loc>http://127.0.0.1/internal-sitemap.xml</loc></sitemap>
+</sitemapindex>
+"""
+
 
 def _limiter() -> HostRateLimiter:
     """Return a rate limiter with no delay, for fast tests."""
@@ -127,6 +133,33 @@ async def test_no_sitemap_urls_is_incomplete() -> None:
             user_agent=USER_AGENT,
         )
 
+    assert result.complete is False
+
+
+@pytest.mark.asyncio
+async def test_child_sitemap_outside_source_host_is_never_fetched() -> None:
+    """A child <loc> pointing off the source host is rejected, even with no
+    ``allowed_hosts`` configured, and its host is never requested.
+    """
+    requested_hosts: list[str | None] = []
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        requested_hosts.append(request.url.host)
+        if request.url.host == "127.0.0.1":
+            return httpx.Response(200, text=FLAT_URLSET)
+        return httpx.Response(200, text=SITEMAP_INDEX_WITH_SSRF_CHILD)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        result = await discover_sitemap_urls(
+            ["https://example.com/sitemap.xml"],
+            client=client,
+            rate_limiter=_limiter(),
+            user_agent=USER_AGENT,
+        )
+
+    assert "127.0.0.1" not in requested_hosts
+    assert result.urls == []
     assert result.complete is False
 
 

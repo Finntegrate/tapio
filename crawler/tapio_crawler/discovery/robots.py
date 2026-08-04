@@ -7,6 +7,7 @@ apart from "rules could not be confirmed".
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from dataclasses import dataclass, field
 from urllib.parse import urljoin
@@ -56,7 +57,6 @@ async def fetch_robots_rules(
     user_agent: str,
     *,
     client: httpx.AsyncClient | None = None,
-    timeout: float = DEFAULT_TIMEOUT_SECONDS,
     rate_limiter: HostRateLimiter | None = None,
 ) -> RobotsRules:
     """Fetch and parse ``base_url``'s robots.txt.
@@ -68,12 +68,13 @@ async def fetch_robots_rules(
     """
     robots_url = urljoin(base_url, "/robots.txt")
     owns_client = client is None
-    http_client = client or httpx.AsyncClient(timeout=timeout)
+    http_client = client or httpx.AsyncClient()
     if rate_limiter is not None:
         await rate_limiter.wait_for_turn()
     try:
-        response = await http_client.get(robots_url, headers={"User-Agent": user_agent})
-    except httpx.HTTPError:
+        async with asyncio.timeout(DEFAULT_TIMEOUT_SECONDS):
+            response = await http_client.get(robots_url, headers={"User-Agent": user_agent})
+    except httpx.HTTPError, TimeoutError:
         logger.warning("Failed to fetch robots.txt from %s", robots_url)
         return RobotsRules(reachable=False)
     finally:

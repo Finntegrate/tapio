@@ -5,14 +5,14 @@ from pathlib import Path
 
 import pytest
 
+from tapio_crawler.config import ConfigManager
+
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 
 @pytest.fixture
-def test_config_manager(tmp_path):
+def test_config_manager(tmp_path: Path) -> ConfigManager:
     """A Crawl4AI site configuration isolated from repository output."""
-    from tapio_crawler.config import ConfigManager
-
     config_path = tmp_path / "sites.yaml"
     config_path.write_text(
         """sites:

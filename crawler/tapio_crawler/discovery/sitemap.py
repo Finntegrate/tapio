@@ -57,16 +57,23 @@ async def discover_sitemap_urls(
     Marks the result ``complete=False`` if any sitemap fails to fetch or
     parse, or if the child-sitemap cap is reached, so a discovery run does
     not claim complete source coverage on a partial failure.
-    ``allowed_hosts``, if given, rejects any sitemap URL - including a
-    child <loc> found by parsing an index - outside the source's scope,
-    since a remote sitemap document is not a trusted URL source.
+    Every sitemap URL - including a child <loc> found by parsing an index -
+    is rejected if it falls outside ``allowed_hosts``, or outside the
+    top-level ``sitemap_urls``' own hosts when ``allowed_hosts`` isn't
+    given, since a remote sitemap document is not a trusted URL source.
     """
     result = SitemapDiscoveryResult()
     if not sitemap_urls:
         result.complete = False
         return result
 
-    allowed = {host.lower() for host in allowed_hosts} if allowed_hosts else None
+    # Falling back to the configured source hosts (rather than no restriction at
+    # all) stops a malicious child <loc> from redirecting discovery off-scope.
+    allowed = (
+        {host.lower() for host in allowed_hosts}
+        if allowed_hosts
+        else {(urlsplit(url).hostname or "").lower() for url in sitemap_urls}
+    )
     top_level = set(sitemap_urls)
     queue = list(sitemap_urls)
     seen: set[str] = set()
@@ -76,7 +83,7 @@ async def discover_sitemap_urls(
         sitemap_url = queue.pop(0)
         if sitemap_url in seen:
             continue
-        if allowed is not None and not _is_allowed(sitemap_url, allowed):
+        if not _is_allowed(sitemap_url, allowed):
             logger.warning("Skipping out-of-scope sitemap URL %s", sitemap_url)
             result.complete = False
             continue
@@ -87,31 +94,49 @@ async def discover_sitemap_urls(
             result.complete = False
             break
         seen.add(sitemap_url)
+        if is_child:
+            child_fetch_count += 1
 
-        content = await _fetch_sitemap(
+        fetched = await _fetch_and_parse_sitemap(
             sitemap_url,
             client=client,
             rate_limiter=rate_limiter,
             user_agent=user_agent,
         )
-        if content is None:
+        if fetched is None:
             result.complete = False
             continue
         if is_child:
-            child_fetch_count += 1
             result.child_sitemaps_fetched += 1
 
-        try:
-            child_sitemaps, urls = _parse_sitemap(content)
-        except ET.ParseError:
-            logger.warning("Failed to parse sitemap %s", sitemap_url)
-            result.complete = False
-            continue
-
+        child_sitemaps, urls = fetched
         queue.extend(child_sitemaps)
         result.urls.extend(urls)
 
     return result
+
+
+async def _fetch_and_parse_sitemap(
+    sitemap_url: str,
+    *,
+    client: httpx.AsyncClient,
+    rate_limiter: HostRateLimiter,
+    user_agent: str,
+) -> tuple[list[str], list[SitemapUrlEntry]] | None:
+    """Fetch and parse one sitemap, or return ``None`` on fetch or parse failure."""
+    content = await _fetch_sitemap(
+        sitemap_url,
+        client=client,
+        rate_limiter=rate_limiter,
+        user_agent=user_agent,
+    )
+    if content is None:
+        return None
+    try:
+        return _parse_sitemap(content)
+    except ET.ParseError:
+        logger.warning("Failed to parse sitemap %s", sitemap_url)
+        return None
 
 
 def _is_allowed(url: str, allowed_hosts: set[str]) -> bool:
@@ -163,17 +188,18 @@ def _parse_sitemap(content: bytes) -> tuple[list[str], list[SitemapUrlEntry]]:
     if child_sitemaps:
         return child_sitemaps, []
 
-    urls = [
-        SitemapUrlEntry(
-            url=loc.text.strip(),
-            lastmod=_parse_lastmod(
-                lastmod_elem.text if (lastmod_elem := url_elem.find("lastmod")) is not None else None,
-            ),
-        )
-        for url_elem in root.findall(".//url")
-        if (loc := url_elem.find("loc")) is not None and loc.text
-    ]
-    return [], urls
+    urls = [_parse_url_entry(url_elem) for url_elem in root.findall(".//url")]
+    return [], [entry for entry in urls if entry is not None]
+
+
+def _parse_url_entry(url_elem: ET.Element) -> SitemapUrlEntry | None:
+    """Return one ``<url>`` element's entry, or ``None`` if it has no ``<loc>``."""
+    loc = url_elem.find("loc")
+    if loc is None or not loc.text:
+        return None
+    lastmod_elem = url_elem.find("lastmod")
+    lastmod_text = lastmod_elem.text if lastmod_elem is not None else None
+    return SitemapUrlEntry(url=loc.text.strip(), lastmod=_parse_lastmod(lastmod_text))
 
 
 def _strip_namespaces(root: ET.Element) -> None:

@@ -77,11 +77,13 @@ async def discover_via_gap_crawl(
     complete = True
     try:
         async with AsyncWebCrawler(config=browser_config) as crawler:
+            await rate_limiter.wait_for_turn()
             raw_results = cast(
                 "list[CrawlResultContainer]",
                 await crawler.arun_many(gap_crawl.seed_urls, config=run_config),
             )
             discovered = [result.url for result in raw_results if result.success]
+            complete = all(result.success for result in raw_results)
     except Exception:
         logger.exception("Gap-crawl discovery failed for %s", gap_crawl.seed_urls)
         complete = False

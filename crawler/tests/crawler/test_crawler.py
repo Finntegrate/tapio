@@ -15,7 +15,7 @@ from tapio_crawler.config.config_models import CrawlerConfig, SiteConfig
 from tapio_crawler.crawler.crawler import Crawl4AICrawler
 
 
-def site_config(**overrides) -> SiteConfig:
+def site_config(**overrides: object) -> SiteConfig:
     return SiteConfig(
         base_url=HttpUrl("https://example.com"),
         crawler_config=CrawlerConfig(max_depth=0, max_pages=1, **overrides),
@@ -47,8 +47,8 @@ class CachedMarkdown:
 
 
 def test_run_config_uses_content_filtering_and_bounded_bfs(
-    tmp_path,
-    monkeypatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler(
@@ -110,7 +110,7 @@ def test_markdown_uses_cached_raw_markdown_when_filtered_value_is_empty() -> Non
 
 
 @pytest.mark.asyncio
-async def test_crawl_writes_frontmatter_markdown(tmp_path, monkeypatch) -> None:
+async def test_crawl_writes_frontmatter_markdown(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
     browser = MagicMock()
@@ -137,7 +137,7 @@ async def test_crawl_writes_frontmatter_markdown(tmp_path, monkeypatch) -> None:
 
 
 @pytest.mark.asyncio
-async def test_crawl_skips_site_within_recrawl_interval(tmp_path, monkeypatch) -> None:
+async def test_crawl_skips_site_within_recrawl_interval(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config(recrawl_interval_hours=720))
     crawler.state_path.write_text(
@@ -157,7 +157,7 @@ async def test_crawl_skips_site_within_recrawl_interval(tmp_path, monkeypatch) -
 
 
 @pytest.mark.asyncio
-async def test_force_crawl_ignores_recrawl_interval(tmp_path, monkeypatch) -> None:
+async def test_force_crawl_ignores_recrawl_interval(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
     crawler.state_path.write_text(
@@ -178,8 +178,8 @@ async def test_force_crawl_ignores_recrawl_interval(tmp_path, monkeypatch) -> No
 
 @pytest.mark.asyncio
 async def test_crawl_rejects_failed_and_near_empty_results(
-    tmp_path,
-    monkeypatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
@@ -201,8 +201,8 @@ async def test_crawl_rejects_failed_and_near_empty_results(
 
 @pytest.mark.asyncio
 async def test_crawl_retries_cleanup_induced_near_empty_result(
-    tmp_path,
-    monkeypatch,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
@@ -228,7 +228,7 @@ async def test_crawl_retries_cleanup_induced_near_empty_result(
 
 
 @pytest.mark.asyncio
-async def test_crawl_handles_browser_launch_failure(tmp_path, monkeypatch) -> None:
+async def test_crawl_handles_browser_launch_failure(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path)
     crawler = Crawl4AICrawler("example", site_config())
     browser = MagicMock()

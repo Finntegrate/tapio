@@ -106,7 +106,6 @@ ignore = [
     "FBT003", # typer.Option(False, ...) is the standard boolean-flag idiom
 ]
 "tests/*" = [
-    "ANN",     # tests are excluded from mypy and don't need type annotations
     "ARG001",  # unused fixture/mock arguments are normal in tests
     "ARG002",  # unused mock-override arguments are normal in tests
     "D",       # docstrings aren't required on test functions

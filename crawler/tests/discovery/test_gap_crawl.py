@@ -49,10 +49,7 @@ async def test_returns_incomplete_when_no_seed_urls() -> None:
 @pytest.mark.asyncio
 async def test_collects_successful_urls_from_crawl() -> None:
     """Only URLs from successful crawl results are collected."""
-    fake_results = [
-        _FakeResult("https://example.com/a"),
-        _FakeResult("https://example.com/b", success=False),
-    ]
+    fake_results = [_FakeResult("https://example.com/a")]
 
     mock_crawler = AsyncMock()
     mock_crawler.arun_many = AsyncMock(return_value=fake_results)
@@ -79,6 +76,38 @@ async def test_collects_successful_urls_from_crawl() -> None:
     mock_crawler.arun_many.assert_awaited_once()
     called_urls = mock_crawler.arun_many.call_args.args[0]
     assert called_urls == ["https://example.com", "https://example.com/other"]
+
+
+@pytest.mark.asyncio
+async def test_mixed_results_omit_failed_urls_and_mark_incomplete() -> None:
+    """A mix of successful and failed results drops the failures but is incomplete."""
+    fake_results = [
+        _FakeResult("https://example.com/a"),
+        _FakeResult("https://example.com/b", success=False),
+    ]
+
+    mock_crawler = AsyncMock()
+    mock_crawler.arun_many = AsyncMock(return_value=fake_results)
+    mock_crawler.__aenter__.return_value = mock_crawler
+    mock_crawler.__aexit__.return_value = False
+
+    with patch(
+        "tapio_crawler.discovery.gap_crawl.AsyncWebCrawler",
+        return_value=mock_crawler,
+    ):
+        result = await discover_via_gap_crawl(
+            GapCrawlConfig(
+                enabled=True,
+                seed_urls=["https://example.com", "https://example.com/other"],
+            ),
+            ScopeConfig(allowed_domains=["example.com"]),
+            user_agent="TapioBot/1.0",
+            rate_limiter=HostRateLimiter(min_delay=1.0, max_delay=2.0),
+            max_concurrent=2,
+        )
+
+    assert result.complete is False
+    assert result.urls == ["https://example.com/a"]
 
 
 @pytest.mark.asyncio

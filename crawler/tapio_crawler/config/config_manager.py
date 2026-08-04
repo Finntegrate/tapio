@@ -13,6 +13,7 @@ from tapio_crawler.config.config_models import SiteConfig, SiteConfigRegistry
 
 
 def _raise_empty_config_error() -> None:
+    """Raise ValueError because the loaded configuration file is empty."""
     msg = "Configuration file is empty"
     raise ValueError(msg)
 
