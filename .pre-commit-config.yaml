@@ -95,3 +95,16 @@ repos:
         language: system
         types: [markdown]
         args: [--fix]
+      # Requires app/node_modules (`npm ci --prefix app`); node comes from mise.
+      - id: prettier-app
+        name: Check formatting of SvelteKit app (Prettier)
+        entry: bash -c 'cd app && npx --no-install prettier --check .'
+        language: system
+        files: ^app/
+        pass_filenames: false
+      - id: eslint-app
+        name: Lint SvelteKit app (ESLint)
+        entry: bash -c 'cd app && npx --no-install eslint .'
+        language: system
+        files: ^app/.*\.(js|cjs|mjs|ts|cts|mts|svelte)$
+        pass_filenames: false

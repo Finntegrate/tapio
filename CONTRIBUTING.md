@@ -18,6 +18,7 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Ruff](#ruff)
     - [Type Checking](#type-checking)
     - [Pre-commit Hooks (prek)](#pre-commit-hooks-prek)
+    - [Frontend (app/)](#frontend-app)
   - [Testing Guidelines](#testing-guidelines)
     - [Running Tests](#running-tests)
     - [Code Coverage](#code-coverage)
@@ -266,7 +267,15 @@ To run all hooks against the full codebase (useful before submitting a pull requ
 uv run --directory backend prek run --all-files
 ```
 
-These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it.
+These are the same checks enforced in CI. Two of the hooks (`actionlint`, `markdownlint-cli2`) run through `mise exec --` and require [`mise`](https://mise.jdx.dev/) to be installed and have run `mise install` once — see [Manual Setup](#manual-setup-alternative) if you're missing it. The `prettier-app`/`eslint-app` hooks require `app/node_modules` to exist (`npm ci --prefix app`).
+
+### Frontend (app/)
+
+The SvelteKit app in `app/` uses [ESLint](https://eslint.org/) and [Prettier](https://prettier.io/), both enforced in CI and via the `prettier-app`/`eslint-app` prek hooks above. Run them locally with:
+
+```bash
+npm run lint --prefix app
+```
 
 ## Testing Guidelines
 
