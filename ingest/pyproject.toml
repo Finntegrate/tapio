@@ -30,6 +30,7 @@ dev = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+pythonpath = ["."]
 markers = ["integration: test that exercises vector-store integration"]
 
 [tool.ruff]
