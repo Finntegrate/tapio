@@ -493,6 +493,15 @@ declares a floor.
   `min_delay`/`max_delay` rather than trusting operators to set delays that
   happen to already comply. Two of five current sources (migri.fi, dvv.fi)
   declare 5 seconds.
+- When the declared `Crawl-delay` also exceeds the source's configured
+  `max_delay`, raise the effective maximum to at least the effective minimum
+  before constructing Crawl4AI's `mean_delay`/`max_range` jitter window
+  (`max_range` is `max_delay - min_delay` and must never be negative), or
+  disable jitter for that host and use a fixed per-host delay equal to
+  `Crawl-delay`. This raised-effective-maximum behavior only applies to a
+  successfully parsed `Crawl-delay`; a malformed or unparseable value still
+  falls back to the source's configured `min_delay` unchanged, not this
+  adjustment.
 - Enforce that floor through one shared per-host rate limiter covering every
   request type against that host — robots.txt and sitemap fetches, gap-crawl
   discovery, page rendering, redirect follows, and retries — not a limiter
@@ -508,7 +517,14 @@ declares a floor.
   per-host limiter for every pending and future request to that host, not
   only the retry of the URL that received it, with exponential backoff
   between successive retries of the same URL and a per-URL retry cap after
-  which the URL is marked failed rather than retried indefinitely.
+  which the URL is marked failed rather than retried indefinitely. Parse
+  `Retry-After` as either delay-seconds or an HTTP-date per RFC 9110; a
+  missing or unparseable value falls back to exponential backoff from the
+  configured `max_delay` instead. Cap the resulting per-host suspension at a
+  configured maximum (default 1 hour), including a `Retry-After` far enough
+  in the future to exceed it; a run that hits the cap marks the affected
+  URLs `incomplete` for that run rather than suspending the host
+  indefinitely.
 - Send a descriptive, project-identifying `User-Agent` (see "Good-citizen
   crawling posture") instead of Crawl4AI's default browser-spoofing string, so
   a source operator can recognize and, if needed, specifically rate-limit or
@@ -538,10 +554,17 @@ domains and scope.
   the run is marked `incomplete`, not silently allowed.
 - [ ] Given any production request, when it reaches a source's server, then its
   `User-Agent` identifies the project rather than spoofing a generic browser.
-- [ ] Given a source returns `429` or `503` with a `Retry-After` header, when the
-  next request to that host is scheduled — whether a robots/sitemap fetch, a
-  render, or a retry — then it honors `Retry-After` as the per-host floor, not
-  just a per-URL retry delay.
+- [ ] Given a source returns `429` or `503` with a valid `Retry-After` header
+  within the configured cap, when the next request to that host is scheduled
+  — whether a robots/sitemap fetch, a render, or a retry — then it honors
+  `Retry-After` as the per-host floor, not just a per-URL retry delay.
+- [ ] Given a `Retry-After` header is missing or unparseable, when the next
+  request to that host is scheduled, then exponential backoff from the
+  configured `max_delay` is used instead, not a hang or an unbounded default.
+- [ ] Given a `Retry-After` value exceeds the configured per-host suspension
+  cap, when the cap is reached, then the affected URLs are marked
+  `incomplete` for that run rather than the host being suspended
+  indefinitely.
 
 #### 2. Sitemap-first discovery and manifest persistence
 
@@ -579,12 +602,20 @@ domains and scope.
   measurement, not a qualitative judgment: for a random sample of at least 50
   URLs (or the full eligible set if smaller), observed across a window
   spanning at least one `discovery.cache_ttl_hours` cycle plus one subsequent
-  scheduled audit, at least 90% of URLs whose `lastmod` changed between
-  observations must show a corresponding `content_hash` change. The sample
-  size, window, and pass/fail result must be recorded against that source's
-  entry in the source survey before its `trust_lastmod` config changes. A
-  source that does not meet both the sample-size and correlation-threshold
-  criteria stays at `trust_lastmod: false` and continues on
+  scheduled audit, at least 10 of the sampled URLs must show a `lastmod`
+  change during that window — a window with too few `lastmod` changes to
+  evaluate does not count as a pass, however high the resulting percentage
+  looks. Given that minimum is met, correlation must hold in both
+  directions: at least 90% of URLs whose `lastmod` changed must show a
+  corresponding `content_hash` change (catching a `lastmod` that fires
+  without a real content change), and at least 90% of URLs whose
+  `content_hash` changed must show a corresponding `lastmod` change (catching
+  a `lastmod` that misses a real content change, which would silently
+  suppress a needed re-render). The sample size, window, and both
+  directional pass/fail results must be recorded against that source's entry
+  in the source survey before its `trust_lastmod` config changes. A source
+  that does not meet the minimum-changed-sample count and both correlation
+  thresholds stays at `trust_lastmod: false` and continues on
   `unchanged_audit_days` and content hashing, regardless of how strongly its
   `lastmod` values appear to vary.
 - Upsert all discovered URLs into the manifest before any full-page rendering.
@@ -653,9 +684,22 @@ near the top of this document.
   hatches. A selector override must preserve the near-empty fallback behavior.
 - Store title, canonical source URL, collection timestamp, content hash, language,
   and extractor version in document metadata.
+- Key each document's persisted artifact off the manifest identity
+  `(site_name, canonical_url)` (see "URL manifest" above), not `source_url` —
+  today, `crawler.py`'s `_filename` derives a `source_url`-keyed SHA-256
+  digest, which produces a different file for two `source_url`s that resolve
+  to the same canonical page. When a redirect resolves or a canonical merge
+  changes a record's `canonical_url` after an artifact already exists under
+  the old key, atomically rename the artifact to the new key or remove the
+  obsolete alias, so each manifest record has exactly one current Markdown
+  file, never both the old and new artifact at once.
 
 ##### Content quality acceptance criteria
 
+- [ ] Given a manifest record's `canonical_url` changes after its artifact was
+  already written under a prior key, when the next successful render
+  completes, then exactly one current Markdown file exists for that record
+  and the prior key's file is gone or renamed, not left as an orphan.
 - [ ] Given a selector or cleanup rule produces near-empty Markdown, when the
   fallback render succeeds, then the fallback result is saved and the recovery is
   reported.
