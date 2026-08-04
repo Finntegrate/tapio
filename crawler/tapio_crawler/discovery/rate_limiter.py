@@ -61,6 +61,14 @@ class HostRateLimiter:
         max_delay: float,
         max_suspension_seconds: float = DEFAULT_MAX_SUSPENSION_SECONDS,
     ) -> None:
+        """Initialize the limiter with its politeness delay bounds.
+
+        Args:
+            min_delay: Minimum delay, in seconds, between requests to the host.
+            max_delay: Maximum delay, in seconds, between requests to the host.
+            max_suspension_seconds: Upper bound applied to any ``Retry-After``
+                suspension.
+        """
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.max_suspension_seconds = max_suspension_seconds

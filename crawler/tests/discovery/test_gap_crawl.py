@@ -10,13 +10,16 @@ from tapio_crawler.discovery.rate_limiter import HostRateLimiter
 
 
 class _FakeResult:
-    def __init__(self, url: str, success: bool = True) -> None:
+    """Stand-in for a crawl4ai crawl result exposing ``url`` and ``success``."""
+
+    def __init__(self, url: str, *, success: bool = True) -> None:
         self.url = url
         self.success = success
 
 
 @pytest.mark.asyncio
 async def test_returns_incomplete_when_gap_crawl_disabled() -> None:
+    """A disabled gap-crawl config yields no URLs and an incomplete result."""
     result = await discover_via_gap_crawl(
         GapCrawlConfig(enabled=False),
         ScopeConfig(),
@@ -31,6 +34,7 @@ async def test_returns_incomplete_when_gap_crawl_disabled() -> None:
 
 @pytest.mark.asyncio
 async def test_returns_incomplete_when_no_seed_urls() -> None:
+    """Gap-crawl with no seed URLs configured yields an incomplete result."""
     result = await discover_via_gap_crawl(
         GapCrawlConfig(enabled=True, seed_urls=[]),
         ScopeConfig(),
@@ -44,6 +48,7 @@ async def test_returns_incomplete_when_no_seed_urls() -> None:
 
 @pytest.mark.asyncio
 async def test_collects_successful_urls_from_crawl() -> None:
+    """Only URLs from successful crawl results are collected."""
     fake_results = [
         _FakeResult("https://example.com/a"),
         _FakeResult("https://example.com/b", success=False),
@@ -78,6 +83,7 @@ async def test_collects_successful_urls_from_crawl() -> None:
 
 @pytest.mark.asyncio
 async def test_marks_incomplete_on_crawl_exception() -> None:
+    """An exception raised by the crawler marks the result incomplete."""
     mock_crawler = AsyncMock()
     mock_crawler.arun_many = AsyncMock(side_effect=RuntimeError("boom"))
     mock_crawler.__aenter__.return_value = mock_crawler

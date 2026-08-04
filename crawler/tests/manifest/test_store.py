@@ -11,6 +11,14 @@ from tapio_crawler.manifest.store import ManifestStore
 
 
 def _record(**overrides: object) -> ManifestRecord:
+    """Build a minimal valid ``ManifestRecord``, overriding any given fields.
+
+    Args:
+        **overrides: Field values to override on top of the defaults.
+
+    Returns:
+        The constructed record.
+    """
     now = datetime(2026, 8, 4, tzinfo=UTC)
     defaults: dict[str, object] = {
         "site_name": "migri",
@@ -27,12 +35,14 @@ def _record(**overrides: object) -> ManifestRecord:
 
 @pytest.fixture
 def store(tmp_path: Path) -> Generator[ManifestStore]:
+    """Yield a ``ManifestStore`` backed by a temporary database file."""
     manifest_store = ManifestStore(tmp_path / "manifest.db")
     yield manifest_store
     manifest_store.close()
 
 
 def test_upsert_persists_a_new_record(store: ManifestStore) -> None:
+    """A first upsert for an identity persists it and it can be read back."""
     store.upsert(_record())
 
     found = store.get("migri", "https://migri.fi/en/page")
@@ -42,6 +52,9 @@ def test_upsert_persists_a_new_record(store: ManifestStore) -> None:
 
 
 def test_upsert_merges_discovery_source_provenance(store: ManifestStore) -> None:
+    """Upserting the same identity accumulates discovery sources rather than
+    replacing them.
+    """
     store.upsert(_record(discovery_source={"sitemap"}))
     store.upsert(_record(discovery_source={"deep_crawl"}))
 
@@ -54,6 +67,9 @@ def test_upsert_merges_discovery_source_provenance(store: ManifestStore) -> None
 def test_upsert_advances_last_seen_at_without_duplicating_rows(
     store: ManifestStore,
 ) -> None:
+    """Re-upserting the same identity updates ``last_seen_at`` in place
+    instead of creating a second row.
+    """
     later = datetime(2026, 8, 5, tzinfo=UTC)
     store.upsert(_record())
     store.upsert(_record(last_seen_at=later))
@@ -67,6 +83,9 @@ def test_upsert_advances_last_seen_at_without_duplicating_rows(
 def test_upsert_keeps_later_last_seen_at_when_replayed_out_of_order(
     store: ManifestStore,
 ) -> None:
+    """Upserting an older ``last_seen_at`` after a newer one does not
+    regress the stored value.
+    """
     earlier = datetime(2026, 8, 3, tzinfo=UTC)
     later = datetime(2026, 8, 5, tzinfo=UTC)
     store.upsert(_record(last_seen_at=later))
@@ -81,6 +100,9 @@ def test_upsert_keeps_later_last_seen_at_when_replayed_out_of_order(
 def test_upsert_keeps_earlier_sitemap_lastmod_when_not_resupplied(
     store: ManifestStore,
 ) -> None:
+    """An upsert without a ``sitemap_lastmod`` value does not clear a
+    previously recorded one.
+    """
     lastmod = datetime(2026, 1, 1, tzinfo=UTC)
     store.upsert(_record(sitemap_lastmod=lastmod))
     store.upsert(_record(sitemap_lastmod=None))
@@ -92,9 +114,8 @@ def test_upsert_keeps_earlier_sitemap_lastmod_when_not_resupplied(
 
 
 def test_list_by_site_filters_by_scope_status(store: ManifestStore) -> None:
-    store.upsert(
-        _record(canonical_url="https://migri.fi/en/a", scope_status="eligible")
-    )
+    """``list_by_site`` with ``scope_status`` returns only matching records."""
+    store.upsert(_record(canonical_url="https://migri.fi/en/a", scope_status="eligible"))
     store.upsert(
         _record(canonical_url="https://migri.fi/en/b", scope_status="blocked_robots"),
     )
@@ -105,6 +126,7 @@ def test_list_by_site_filters_by_scope_status(store: ManifestStore) -> None:
 
 
 def test_records_from_different_sites_are_independent(store: ManifestStore) -> None:
+    """Records for different sites do not collide even with the same URL."""
     store.upsert(_record(site_name="migri"))
     store.upsert(_record(site_name="kela"))
 

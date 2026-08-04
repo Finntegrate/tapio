@@ -47,7 +47,7 @@ def test_crawler_config_allows_sitemap_discovery_without_gap_crawl() -> None:
 
 
 @pytest.mark.parametrize(
-    "field,value",
+    ("field", "value"),
     [("max_depth", -1), ("max_pages", 0), ("max_concurrent", 0)],
 )
 def test_crawler_config_enforces_bounds(field: str, value: int) -> None:

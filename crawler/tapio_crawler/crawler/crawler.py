@@ -75,9 +75,7 @@ class Crawl4AICrawler:
         self.site_name = site_name
         self.site_config = site_config
         self.config = site_config.crawler_config
-        self.output_dir = (
-            Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["PARSED_DIR"]
-        )
+        self.output_dir = Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["PARSED_DIR"]
         self.output_dir.mkdir(parents=True, exist_ok=True)
         self.state_path = self.output_dir.parent / "crawl_state.json"
         self.summary: CrawlSummary = self._empty_summary()
@@ -108,9 +106,7 @@ class Crawl4AICrawler:
             target_elements=(
                 cast(
                     "list[str]",
-                    self.config.target_elements or None
-                    if apply_content_cleanup
-                    else None,
+                    self.config.target_elements or None if apply_content_cleanup else None,
                 )
             ),
             markdown_generator=markdown_generator,
@@ -123,12 +119,8 @@ class Crawl4AICrawler:
                 if deep_crawl
                 else None
             ),
-            remove_consent_popups=(
-                self.config.remove_consent_popups if apply_content_cleanup else False
-            ),
-            remove_overlay_elements=(
-                self.config.remove_overlay_elements if apply_content_cleanup else False
-            ),
+            remove_consent_popups=(self.config.remove_consent_popups if apply_content_cleanup else False),
+            remove_overlay_elements=(self.config.remove_overlay_elements if apply_content_cleanup else False),
             # BFSDeepCrawlStrategy uses these when it calls arun_many for each level.
             mean_delay=self.config.min_delay,
             max_range=self.config.max_delay - self.config.min_delay,
@@ -210,17 +202,17 @@ class Crawl4AICrawler:
                     "Retrying near-empty Crawl4AI result for %s without cleanup",
                     raw_result.url,
                 )
-                raw_result = await self._fallback_result(crawler, raw_result.url)
-                markdown = self._markdown(raw_result)
-                if not raw_result.success or (
-                    len(markdown.strip()) < self.config.minimum_content_length
-                ):
+                fallback_result = await self._fallback_result(crawler, raw_result.url)
+                markdown = self._markdown(fallback_result)
+                if not fallback_result.success or (len(markdown.strip()) < self.config.minimum_content_length):
                     logger.warning(
                         "Skipping unrecoverable near-empty result for %s",
                         raw_result.url,
                     )
                     continue
                 self.summary["fallback_recoveries"] += 1
+                saved_results.append(self._save_result(fallback_result, markdown))
+                continue
 
             saved_results.append(self._save_result(raw_result, markdown))
         return saved_results
@@ -248,14 +240,10 @@ class Crawl4AICrawler:
         status_code = getattr(raw_result, "status_code", None)
         if status_code is not None:
             status = str(status_code)
-            self.summary["status_codes"][status] = (
-                self.summary["status_codes"].get(status, 0) + 1
-            )
+            self.summary["status_codes"][status] = self.summary["status_codes"].get(status, 0) + 1
         cache_status = getattr(raw_result, "cache_status", None)
         if cache_status:
-            self.summary["cache_statuses"][cache_status] = (
-                self.summary["cache_statuses"].get(cache_status, 0) + 1
-            )
+            self.summary["cache_statuses"][cache_status] = self.summary["cache_statuses"].get(cache_status, 0) + 1
 
     def _is_due(self) -> bool:
         """Return whether this site has passed its successful-crawl interval."""

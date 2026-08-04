@@ -43,19 +43,9 @@ def crawl(
             "Use --force to crawl it now.",
         )
         return
-    status_codes = (
-        ", ".join(
-            f"{status}={count}"
-            for status, count in summary.get("status_codes", {}).items()
-        )
-        or "none"
-    )
+    status_codes = ", ".join(f"{status}={count}" for status, count in summary.get("status_codes", {}).items()) or "none"
     cache_statuses = (
-        ", ".join(
-            f"{status}={count}"
-            for status, count in summary.get("cache_statuses", {}).items()
-        )
-        or "none"
+        ", ".join(f"{status}={count}" for status, count in summary.get("cache_statuses", {}).items()) or "none"
     )
     typer.echo(
         f"Wrote {len(results)} Markdown documents for {site}. "
@@ -68,7 +58,15 @@ def crawl(
 
 @app.command()
 def discover(site: str) -> None:
-    """Discover a site's URL inventory and record it in the manifest."""
+    """Discover a site's URL inventory and record it in the manifest.
+
+    Args:
+        site: Name of the configured source site to discover.
+
+    Raises:
+        typer.Exit: With code 1 if the site has no configured way to
+            discover URLs (see ``MisconfiguredDiscoveryError``).
+    """
     config = ConfigManager()
     site_config = config.get_site_config(site)
     store = ManifestStore()
@@ -82,12 +80,7 @@ def discover(site: str) -> None:
     finally:
         store.close()
 
-    excluded = (
-        ", ".join(
-            f"{reason}={count}" for reason, count in summary.excluded_by_reason.items()
-        )
-        or "none"
-    )
+    excluded = ", ".join(f"{reason}={count}" for reason, count in summary.excluded_by_reason.items()) or "none"
     status = "complete" if summary.complete else "incomplete"
     typer.echo(
         f"Discovery run {summary.run_id} for {site}: {status}. "

@@ -14,6 +14,7 @@ from tapio_crawler.discovery.runner import (
 
 
 def test_list_sites_displays_configured_sources() -> None:
+    """The ``list-sites`` command prints every configured source site."""
     result = CliRunner().invoke(app, ["list-sites"])
 
     assert result.exit_code == 0
@@ -31,13 +32,14 @@ def test_crawl_raises_when_the_runner_does_not_provide_a_summary() -> None:
     with (
         patch("tapio_crawler.cli.ConfigManager") as config_manager_type,
         patch("tapio_crawler.cli.CrawlerRunner", return_value=runner),
-        pytest.raises(RuntimeError, match="^Crawler finished without a summary\\.$"),
     ):
         config_manager_type.return_value.get_site_config.return_value = site_config
-        crawl("example", depth=None, force=False)
+        with pytest.raises(RuntimeError, match=r"^Crawler finished without a summary\.$"):
+            crawl("example", depth=None, force=False)
 
 
 def test_discover_reports_summary() -> None:
+    """The ``discover`` command prints the run summary on success."""
     site_config = SiteConfig(base_url="https://example.com")
     summary = DiscoveryRunSummary(
         run_id="abc",
@@ -66,11 +68,12 @@ def test_discover_reports_summary() -> None:
 
 
 def test_discover_exits_with_error_on_misconfiguration() -> None:
+    """The ``discover`` command exits with code 1 and the error message when
+    the site has no way to discover URLs.
+    """
     site_config = SiteConfig(base_url="https://example.com")
     runner = Mock()
-    runner.run = AsyncMock(
-        side_effect=MisconfiguredDiscoveryError("no way to discover")
-    )
+    runner.run = AsyncMock(side_effect=MisconfiguredDiscoveryError("no way to discover"))
 
     with (
         patch("tapio_crawler.cli.ConfigManager") as config_manager_type,

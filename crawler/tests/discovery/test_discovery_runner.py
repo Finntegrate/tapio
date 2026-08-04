@@ -21,6 +21,14 @@ from tapio_crawler.manifest.store import ManifestStore
 
 
 def _site_config(**crawler_overrides: object) -> SiteConfig:
+    """Build a minimal ``SiteConfig``, overriding fields on its crawler config.
+
+    Args:
+        **crawler_overrides: Field values to override on the ``CrawlerConfig``.
+
+    Returns:
+        The constructed site configuration.
+    """
     return SiteConfig(
         base_url="https://example.com",
         crawler_config=CrawlerConfig(**crawler_overrides),
@@ -29,6 +37,7 @@ def _site_config(**crawler_overrides: object) -> SiteConfig:
 
 @pytest.fixture
 def store(tmp_path: Path) -> Generator[ManifestStore]:
+    """Yield a ``ManifestStore`` backed by a temporary database file."""
     manifest_store = ManifestStore(path=str(tmp_path / "manifest.db"))
     yield manifest_store
     manifest_store.close()
@@ -36,6 +45,7 @@ def store(tmp_path: Path) -> Generator[ManifestStore]:
 
 @pytest.mark.asyncio
 async def test_raises_when_no_sitemap_and_no_gap_crawl(store: ManifestStore) -> None:
+    """A site with no sitemap and no gap-crawl configured raises."""
     runner = DiscoveryRunner(store)
     site_config = _site_config(discovery=DiscoveryConfig(source="none"))
 
@@ -47,11 +57,10 @@ async def test_raises_when_no_sitemap_and_no_gap_crawl(store: ManifestStore) -> 
 async def test_marks_run_incomplete_when_robots_unreachable(
     store: ManifestStore,
 ) -> None:
+    """An unreachable robots.txt marks the run incomplete with no discoveries."""
     runner = DiscoveryRunner(store)
     site_config = _site_config(
-        discovery=DiscoveryConfig(
-            source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]
-        ),
+        discovery=DiscoveryConfig(source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]),
     )
 
     with patch(
@@ -68,14 +77,13 @@ async def test_marks_run_incomplete_when_robots_unreachable(
 async def test_sitemap_discovery_upserts_eligible_and_excluded_urls(
     store: ManifestStore,
 ) -> None:
+    """Sitemap discovery upserts both eligible and excluded URLs, tagged with
+    their scope status.
+    """
     runner = DiscoveryRunner(store)
     site_config = _site_config(
-        discovery=DiscoveryConfig(
-            source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]
-        ),
-        scope=ScopeConfig(
-            allowed_domains=["example.com"], exclude_url_patterns=["*/search*"]
-        ),
+        discovery=DiscoveryConfig(source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]),
+        scope=ScopeConfig(allowed_domains=["example.com"], exclude_url_patterns=["*/search*"]),
     )
 
     fake_sitemap_result = SitemapDiscoveryResult(
@@ -113,6 +121,7 @@ async def test_sitemap_discovery_upserts_eligible_and_excluded_urls(
 
 @pytest.mark.asyncio
 async def test_gap_crawl_discovery_used_when_no_sitemap(store: ManifestStore) -> None:
+    """Gap-crawl discovery is used when no sitemap source is configured."""
     runner = DiscoveryRunner(store)
     site_config = _site_config(
         discovery=DiscoveryConfig(source="none"),
@@ -128,9 +137,7 @@ async def test_gap_crawl_discovery_used_when_no_sitemap(store: ManifestStore) ->
         patch(
             "tapio_crawler.discovery.runner.discover_via_gap_crawl",
             AsyncMock(
-                return_value=GapCrawlResult(
-                    urls=["https://example.com/b"], complete=True
-                ),
+                return_value=GapCrawlResult(urls=["https://example.com/b"], complete=True),
             ),
         ),
     ):

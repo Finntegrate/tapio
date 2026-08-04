@@ -24,7 +24,36 @@ DiscoverySource = Literal["sitemap", "deep_crawl", "operator"]
 
 
 class ManifestRecord(BaseModel):
-    """One canonical source URL and its discovery/collection state."""
+    """One canonical source URL and its discovery/collection state.
+
+    Attributes:
+        site_name: Name of the configured source site.
+        source_url: The URL as originally discovered, before canonicalization.
+        canonical_url: Canonicalized form of ``source_url``; part of the
+            record's identity together with ``site_name``.
+        discovery_source: Every discovery mechanism that has found this URL;
+            accumulates over time and is never overwritten.
+        sitemap_lastmod: ``<lastmod>`` value from the sitemap, if supplied.
+        first_seen_at: Timestamp when this URL was first discovered.
+        last_seen_at: Timestamp of the most recent discovery run that saw
+            this URL.
+        scope_status: Whether the URL is eligible for collection, and if
+            not, the category of exclusion.
+        scope_reason: Machine-readable reason code backing ``scope_status``.
+        fetch_status: Outcome of the most recent fetch attempt, if any.
+        last_attempt_at: Timestamp of the most recent fetch attempt.
+        retry_after: Earliest time a failed fetch should be retried.
+        content_hash: Hash of the fetched content, used to detect changes.
+        content_length: Byte length of the fetched content.
+        title: Page title extracted from the fetched content.
+        language: Detected or configured language of the content.
+        last_rendered_at: Timestamp of the most recent rendering pass.
+        last_ingested_at: Timestamp of the most recent ingestion into the
+            vector store.
+        extractor_version: Version identifier of the content extractor used.
+        cache_status: Outcome of cache validation for the most recent fetch.
+        validation_status: Outcome of content validation checks.
+    """
 
     site_name: str
     source_url: str

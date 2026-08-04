@@ -26,11 +26,14 @@ SITEMAP_INDEX = """<?xml version="1.0" encoding="UTF-8"?>
 
 
 def _limiter() -> HostRateLimiter:
+    """Return a rate limiter with no delay, for fast tests."""
     return HostRateLimiter(min_delay=0.0, max_delay=0.0)
 
 
 @pytest.mark.asyncio
 async def test_discovers_urls_and_lastmod_from_flat_urlset() -> None:
+    """A flat urlset yields each URL with its ``lastmod``, or ``None`` if absent."""
+
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text=FLAT_URLSET)
 
@@ -52,6 +55,8 @@ async def test_discovers_urls_and_lastmod_from_flat_urlset() -> None:
 
 @pytest.mark.asyncio
 async def test_follows_sitemap_index_and_counts_child_sitemaps_separately() -> None:
+    """A sitemap index is followed and only its children count as fetched."""
+
     async def handler(request: httpx.Request) -> httpx.Response:
         if request.url.path == "/sitemap.xml":
             return httpx.Response(200, text=SITEMAP_INDEX)
@@ -74,6 +79,8 @@ async def test_follows_sitemap_index_and_counts_child_sitemaps_separately() -> N
 
 @pytest.mark.asyncio
 async def test_marks_incomplete_when_a_sitemap_fetch_fails() -> None:
+    """An HTTP error fetching the sitemap marks the result incomplete."""
+
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(500)
 
@@ -92,6 +99,8 @@ async def test_marks_incomplete_when_a_sitemap_fetch_fails() -> None:
 
 @pytest.mark.asyncio
 async def test_marks_incomplete_when_sitemap_is_unparseable() -> None:
+    """Non-XML sitemap content marks the result incomplete."""
+
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(200, text="not xml")
 
@@ -109,6 +118,7 @@ async def test_marks_incomplete_when_sitemap_is_unparseable() -> None:
 
 @pytest.mark.asyncio
 async def test_no_sitemap_urls_is_incomplete() -> None:
+    """An empty list of sitemap URLs yields an incomplete result."""
     async with httpx.AsyncClient() as client:
         result = await discover_sitemap_urls(
             [],
@@ -122,6 +132,10 @@ async def test_no_sitemap_urls_is_incomplete() -> None:
 
 @pytest.mark.asyncio
 async def test_429_suspends_host_and_marks_incomplete() -> None:
+    """A 429 response suspends the host's rate limiter and marks the result
+    incomplete.
+    """
+
     async def handler(request: httpx.Request) -> httpx.Response:
         return httpx.Response(429, headers={"Retry-After": "1"})
 

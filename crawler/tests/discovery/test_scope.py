@@ -5,6 +5,7 @@ from tapio_crawler.discovery.scope import evaluate_scope
 
 
 def test_rejects_url_outside_allowed_domains() -> None:
+    """A URL whose host is not in ``allowed_domains`` is rejected."""
     scope = ScopeConfig(allowed_domains=["migri.fi"])
 
     decision = evaluate_scope("https://evil.example/en/page", scope)
@@ -14,6 +15,7 @@ def test_rejects_url_outside_allowed_domains() -> None:
 
 
 def test_accepts_url_within_allowed_domains() -> None:
+    """A URL whose host is in ``allowed_domains`` is accepted."""
     scope = ScopeConfig(allowed_domains=["migri.fi"])
 
     decision = evaluate_scope("https://migri.fi/en/page", scope)
@@ -22,6 +24,7 @@ def test_accepts_url_within_allowed_domains() -> None:
 
 
 def test_rejects_url_matching_exclude_pattern() -> None:
+    """A URL matching an exclude pattern is rejected."""
     scope = ScopeConfig(exclude_url_patterns=["*/search*"])
 
     decision = evaluate_scope("https://migri.fi/en/search", scope)
@@ -31,6 +34,7 @@ def test_rejects_url_matching_exclude_pattern() -> None:
 
 
 def test_rejects_url_with_tracking_query_pattern() -> None:
+    """A URL matching an exclude pattern on its query string is rejected."""
     scope = ScopeConfig(exclude_url_patterns=["*?*utm_*"])
 
     decision = evaluate_scope("https://migri.fi/en/page?utm_source=x", scope)
@@ -39,6 +43,7 @@ def test_rejects_url_with_tracking_query_pattern() -> None:
 
 
 def test_rejects_url_outside_include_patterns() -> None:
+    """A URL not matching any include pattern is rejected."""
     scope = ScopeConfig(include_url_patterns=["/en/*"])
 
     decision = evaluate_scope("https://migri.fi/fi/sivu", scope)
@@ -48,6 +53,7 @@ def test_rejects_url_outside_include_patterns() -> None:
 
 
 def test_accepts_url_within_include_patterns() -> None:
+    """A URL matching an include pattern is accepted."""
     scope = ScopeConfig(include_url_patterns=["/en/*"])
 
     decision = evaluate_scope("https://migri.fi/en/page", scope)
@@ -56,6 +62,7 @@ def test_accepts_url_within_include_patterns() -> None:
 
 
 def test_no_configured_rules_accepts_everything() -> None:
+    """With no scope rules configured, every URL is accepted."""
     decision = evaluate_scope("https://anything.example/path", ScopeConfig())
 
     assert decision.eligible is True

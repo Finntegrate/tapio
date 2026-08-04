@@ -45,7 +45,8 @@ async def test_server_error_is_reported_unreachable() -> None:
 @pytest.mark.asyncio
 async def test_connection_error_is_reported_unreachable() -> None:
     async def handler(request: httpx.Request) -> httpx.Response:
-        raise httpx.ConnectError("boom", request=request)
+        msg = "boom"
+        raise httpx.ConnectError(msg, request=request)
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as client:

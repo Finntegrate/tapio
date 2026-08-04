@@ -22,6 +22,12 @@ def canonicalize_url(url: str) -> str:
 
     Lowercases scheme and host, strips a default port, drops the fragment,
     and removes known tracking query parameters.
+
+    Args:
+        url: The URL to canonicalize.
+
+    Returns:
+        The canonicalized URL.
     """
     parts = urlsplit(url)
     scheme = parts.scheme.lower()
@@ -32,9 +38,7 @@ def canonicalize_url(url: str) -> str:
         netloc = f"{netloc}:{port}"
 
     query_pairs = [
-        (key, value)
-        for key, value in parse_qsl(parts.query, keep_blank_values=True)
-        if not _is_tracking_param(key)
+        (key, value) for key, value in parse_qsl(parts.query, keep_blank_values=True) if not _is_tracking_param(key)
     ]
     query = urlencode(query_pairs)
     path = parts.path or "/"
@@ -42,6 +46,14 @@ def canonicalize_url(url: str) -> str:
 
 
 def _is_tracking_param(key: str) -> bool:
+    """Report whether ``key`` is a known tracking query parameter.
+
+    Args:
+        key: The query parameter name to check.
+
+    Returns:
+        ``True`` if ``key`` matches a known tracking parameter name or prefix.
+    """
     lowered = key.lower()
     return lowered in _TRACKING_PARAM_NAMES or lowered.startswith(
         _TRACKING_PARAM_PREFIXES,

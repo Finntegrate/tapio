@@ -1,6 +1,7 @@
 """Filesystem and network defaults owned by the crawler service."""
 
 import os
+from pathlib import Path
 
 # An external volume can supply this path; local development uses the
 # monorepo's adjacent ``content/`` directory by default.
@@ -13,7 +14,7 @@ DEFAULT_CRAWL4AI_BASE_DIRECTORY = DEFAULT_CONTENT_DIR
 # across sites, one row per (site_name, canonical_url).
 DEFAULT_MANIFEST_PATH = os.environ.get(
     "TAPIO_MANIFEST_PATH",
-    os.path.join(DEFAULT_CONTENT_DIR, "manifest.db"),
+    str(Path(DEFAULT_CONTENT_DIR) / "manifest.db"),
 )
 
 # Default directory paths. Crawl4AI writes directly to parsed Markdown.

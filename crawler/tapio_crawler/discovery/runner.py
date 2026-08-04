@@ -1,4 +1,6 @@
-"""Dispatches sitemap or gap-crawl discovery for one site and records the
+"""Discovery run orchestration.
+
+Dispatches sitemap or gap-crawl discovery for one site and records the
 resulting URL inventory in the manifest.
 """
 
@@ -35,7 +37,19 @@ _SCOPE_REASON_STATUS: dict[str, ScopeStatus] = {
 
 @dataclass
 class DiscoveryRunSummary:
-    """Counts describing one discovery run, for the run's report/log line."""
+    """Counts describing one discovery run, for the run's report/log line.
+
+    Attributes:
+        run_id: Unique identifier for this discovery run.
+        site_name: Name of the configured source site.
+        discovered: Total number of URLs discovered, before scope filtering.
+        eligible: Number of discovered URLs that are eligible for collection.
+        excluded_by_reason: Count of excluded URLs, keyed by exclusion reason.
+        child_sitemaps_fetched: Number of child sitemaps fetched when the
+            source was a sitemap index.
+        complete: Whether the run finished without a fatal interruption
+            (for example, an unreachable robots.txt or a failed fetch).
+    """
 
     run_id: str
     site_name: str
@@ -54,10 +68,24 @@ class DiscoveryRunner:
     """Runs one discovery pass for a site and upserts results into the manifest."""
 
     def __init__(self, manifest_store: ManifestStore) -> None:
+        """Initialize the runner with the manifest store it persists results to.
+
+        Args:
+            manifest_store: Store used to record discovered URLs.
+        """
         self._manifest_store = manifest_store
 
     async def run(self, site_name: str, site_config: SiteConfig) -> DiscoveryRunSummary:
-        """Discover URLs for ``site_name`` and record them in the manifest."""
+        """Discover URLs for ``site_name`` and record them in the manifest.
+
+        Args:
+            site_name: Name of the configured source site.
+            site_config: Configuration for the site, including its discovery,
+                scope, and politeness settings.
+
+        Returns:
+            A summary of counts and completeness for this run.
+        """
         run_id = str(uuid.uuid4())
         summary = DiscoveryRunSummary(run_id=run_id, site_name=site_name)
         config = site_config.crawler_config
@@ -65,9 +93,7 @@ class DiscoveryRunner:
 
         # Shared across robots, sitemap, and gap-crawl requests to this host so a
         # Crawl-delay floor or Retry-After suspension applies uniformly.
-        rate_limiter = HostRateLimiter(
-            min_delay=config.min_delay, max_delay=config.max_delay
-        )
+        rate_limiter = HostRateLimiter(min_delay=config.min_delay, max_delay=config.max_delay)
         base_url = str(site_config.base_url).rstrip("/")
         robots = await fetch_robots_rules(
             base_url,
@@ -76,17 +102,13 @@ class DiscoveryRunner:
         )
         if not robots.reachable and config.robots_policy == "require":
             summary.complete = False
-            logger.warning(
-                "robots.txt unreachable for %s; marking run incomplete", site_name
-            )
+            logger.warning("robots.txt unreachable for %s; marking run incomplete", site_name)
             return summary
 
         effective_delay = resolve_effective_delay(
             configured_min_delay=config.min_delay,
             configured_max_delay=config.max_delay,
-            crawl_delay=robots.crawl_delay
-            if config.politeness.respect_crawl_delay
-            else None,
+            crawl_delay=robots.crawl_delay if config.politeness.respect_crawl_delay else None,
         )
         rate_limiter.min_delay = effective_delay.min_delay
         rate_limiter.max_delay = effective_delay.max_delay
@@ -159,9 +181,7 @@ class DiscoveryRunner:
                 summary.eligible += 1
             else:
                 reason = decision.reason or "unknown"
-                summary.excluded_by_reason[reason] = (
-                    summary.excluded_by_reason.get(reason, 0) + 1
-                )
+                summary.excluded_by_reason[reason] = summary.excluded_by_reason.get(reason, 0) + 1
 
             record = ManifestRecord(
                 site_name=site_name,
@@ -172,9 +192,7 @@ class DiscoveryRunner:
                 first_seen_at=now,
                 last_seen_at=now,
                 scope_status=(
-                    "eligible"
-                    if decision.eligible
-                    else _SCOPE_REASON_STATUS.get(decision.reason or "", "excluded")
+                    "eligible" if decision.eligible else _SCOPE_REASON_STATUS.get(decision.reason or "", "excluded")
                 ),
                 scope_reason=decision.reason,
             )

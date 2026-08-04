@@ -106,9 +106,7 @@ def test_markdown_uses_cached_raw_markdown_when_filtered_value_is_empty() -> Non
         markdown=CachedMarkdown("Cached document content"),
     )
 
-    assert Crawl4AICrawler._markdown(raw_result_with_cached_markdown) == (
-        "Cached document content"
-    )
+    assert Crawl4AICrawler._markdown(raw_result_with_cached_markdown) == ("Cached document content")
 
 
 @pytest.mark.asyncio
@@ -145,9 +143,7 @@ async def test_crawl_skips_site_within_recrawl_interval(tmp_path, monkeypatch) -
     crawler.state_path.write_text(
         json.dumps(
             {
-                "last_successful_crawl_at": (
-                    datetime.now(UTC) - timedelta(hours=1)
-                ).isoformat(),
+                "last_successful_crawl_at": (datetime.now(UTC) - timedelta(hours=1)).isoformat(),
             },
         ),
         encoding="utf-8",

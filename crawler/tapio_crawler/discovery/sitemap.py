@@ -117,9 +117,7 @@ async def discover_sitemap_urls(
 def _is_allowed(url: str, allowed_hosts: set[str]) -> bool:
     """Return whether ``url``'s scheme and host are within ``allowed_hosts``."""
     parts = urlsplit(url)
-    return parts.scheme in _ALLOWED_SCHEMES and (parts.hostname or "").lower() in (
-        allowed_hosts
-    )
+    return parts.scheme in _ALLOWED_SCHEMES and (parts.hostname or "").lower() in (allowed_hosts)
 
 
 async def _fetch_sitemap(
@@ -152,7 +150,9 @@ async def _fetch_sitemap(
 
 def _parse_sitemap(content: bytes) -> tuple[list[str], list[SitemapUrlEntry]]:
     """Return child-sitemap locations and URL entries from one sitemap document."""
-    root = ET.fromstring(content)
+    # Sitemaps are fetched only from operator-configured source hosts, not
+    # arbitrary user input.
+    root = ET.fromstring(content)  # noqa: S314
     _strip_namespaces(root)
 
     child_sitemaps = [
@@ -167,9 +167,7 @@ def _parse_sitemap(content: bytes) -> tuple[list[str], list[SitemapUrlEntry]]:
         SitemapUrlEntry(
             url=loc.text.strip(),
             lastmod=_parse_lastmod(
-                lastmod_elem.text
-                if (lastmod_elem := url_elem.find("lastmod")) is not None
-                else None,
+                lastmod_elem.text if (lastmod_elem := url_elem.find("lastmod")) is not None else None,
             ),
         )
         for url_elem in root.findall(".//url")

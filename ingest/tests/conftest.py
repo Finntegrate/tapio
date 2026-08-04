@@ -14,9 +14,7 @@ def mock_embeddings():
     embeddings = Mock()
     vector = [0.1] * 384
     embeddings.embed_query.side_effect = lambda _: vector.copy()
-    embeddings.embed_documents.side_effect = lambda texts: [
-        vector.copy() for _ in texts
-    ]
+    embeddings.embed_documents.side_effect = lambda texts: [vector.copy() for _ in texts]
     return embeddings
 
 
