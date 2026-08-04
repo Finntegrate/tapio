@@ -302,6 +302,18 @@ by site, status, and next action.
 | `last_rendered_at`, `last_ingested_at`, `extractor_version` | Decide whether rendering or ingestion is required after a configuration change.                                   |
 | `cache_status`, `validation_status`                         | Distinguish a confirmed fresh cache hit from a fallback cache result.                                             |
 
+URL identity is `(site_name, canonical_url)`: `source_url` is normalized before
+comparison (lowercase scheme and host, strip default ports, drop fragments and
+tracking query parameters per the source's `exclude_url_patterns`) to derive
+`canonical_url`, and only `canonical_url` is unique per site — multiple
+`source_url` values may point at the same manifest record. A URL discovered
+before its canonical form is known (for example, before a redirect resolves)
+upserts against the best `canonical_url` available at that time and merges into
+the same record once resolution confirms a different canonical target, rather
+than creating a second record. `discovery_source` accumulates every mechanism
+that has found a URL — sitemap and deep-crawl provenance are not mutually
+exclusive — instead of being overwritten by whichever ran most recently.
+
 The manifest must retain pages absent from a later sitemap as `inactive_candidate`
 for at least two discovery cycles. It must not delete previously ingested content
 automatically in the first release.
@@ -347,6 +359,17 @@ and content-selection overrides) remain supported during migration. The new sche
 adds explicit discovery, scope, refresh, and politeness settings. Field names
 below are the target configuration contract; the implementation may stage them
 behind backwards compatible Pydantic aliases.
+
+Requirement 3's per-job cap and per-source batch limit, and Requirement 6's
+coverage target, are not all per-site YAML fields. The per-job URL cap
+(`--max-urls`, default 5,000) and per-source batch size (`--batch-size`,
+default 500) bound one CLI invocation rather than describe a source, so they
+are runtime flags with defaults, not config; an explicit flag overrides the
+default for that invocation only. The coverage target is per-site because an
+acceptable coverage ratio varies by source, so it is a config field —
+`refresh.coverage_target_percent` (default 95, matching the "Eligible-document
+coverage" success metric) — evaluated after a run completes, with no CLI
+override.
 
 `discovery.source` and `discovery.trust_lastmod` are per-site, not global — see
 the source survey above. `migri` illustrates a source with a usable-but-untrusted
@@ -470,6 +493,22 @@ declares a floor.
   `min_delay`/`max_delay` rather than trusting operators to set delays that
   happen to already comply. Two of five current sources (migri.fi, dvv.fi)
   declare 5 seconds.
+- Enforce that floor through one shared per-host rate limiter covering every
+  request type against that host — robots.txt and sitemap fetches, gap-crawl
+  discovery, page rendering, redirect follows, and retries — not a limiter
+  scoped to rendering alone. Crawl4AI's `AsyncUrlSeeder` (sitemap discovery)
+  and `AsyncWebCrawler` (rendering) are separate mechanisms and must be wired
+  to share this state, which matters more once sites run concurrently (see
+  "Operator controls"). When a `robots.txt` declares more than one
+  `Crawl-delay` stanza, the directive for our own `User-Agent` takes
+  precedence over a wildcard (`*`) stanza; a malformed or unparseable
+  `Crawl-delay` value is ignored in favor of the source's configured
+  `min_delay`, not treated as a fetch failure.
+- Treat a `429` or `503` response's `Retry-After` header as extending the same
+  per-host limiter for every pending and future request to that host, not
+  only the retry of the URL that received it, with exponential backoff
+  between successive retries of the same URL and a per-URL retry cap after
+  which the URL is marked failed rather than retried indefinitely.
 - Send a descriptive, project-identifying `User-Agent` (see "Good-citizen
   crawling posture") instead of Crawl4AI's default browser-spoofing string, so
   a source operator can recognize and, if needed, specifically rate-limit or
@@ -499,6 +538,10 @@ domains and scope.
   the run is marked `incomplete`, not silently allowed.
 - [ ] Given any production request, when it reaches a source's server, then its
   `User-Agent` identifies the project rather than spoofing a generic browser.
+- [ ] Given a source returns `429` or `503` with a `Retry-After` header, when the
+  next request to that host is scheduled — whether a robots/sitemap fetch, a
+  render, or a retry — then it honors `Retry-After` as the per-host floor, not
+  just a per-URL retry delay.
 
 #### 2. Sitemap-first discovery and manifest persistence
 
@@ -532,7 +575,18 @@ domains and scope.
   a Phase 0 deliverable per source. Until a source passes both checks, record
   `lastmod` for observability only and set that source's `discovery.trust_lastmod`
   to `false`, falling back to content hashing and scheduled audits for
-  freshness.
+  freshness. Promotion to `trust_lastmod: true` requires a recorded
+  measurement, not a qualitative judgment: for a random sample of at least 50
+  URLs (or the full eligible set if smaller), observed across a window
+  spanning at least one `discovery.cache_ttl_hours` cycle plus one subsequent
+  scheduled audit, at least 90% of URLs whose `lastmod` changed between
+  observations must show a corresponding `content_hash` change. The sample
+  size, window, and pass/fail result must be recorded against that source's
+  entry in the source survey before its `trust_lastmod` config changes. A
+  source that does not meet both the sample-size and correlation-threshold
+  criteria stays at `trust_lastmod: false` and continues on
+  `unchanged_audit_days` and content hashing, regardless of how strongly its
+  `lastmod` values appear to vary.
 - Upsert all discovered URLs into the manifest before any full-page rendering.
 - Preserve discovery provenance and sitemap `lastmod` where supplied.
 
@@ -663,7 +717,19 @@ see "Related backlog" near the top of this document.
 
 #### 6. Coverage and quality observability
 
-- Produce a run summary per source and persist it with the manifest update.
+- Assign each crawl job a stable `run_id` at start, and record `site_name`,
+  `phase` (discovery or render), and completion state (`complete`,
+  `incomplete`, `failed`) against that `run_id`. Produce one run summary per
+  `(run_id, source)` pair and persist it alongside the manifest state as of
+  that run's completion — a specific manifest snapshot or version, not "the
+  manifest" as a shifting whole.
+- Compute every count below — discovered, eligible, excluded by reason,
+  queued, rendered, saved, low-quality, failed, retried, inactive-candidate,
+  ingested, and the coverage ratio — exclusively from the manifest snapshot
+  tied to that run's `run_id`, so a resumed run or a concurrent run against a
+  different site (see "Operator controls") cannot mix records between
+  summaries. A run whose discovery phase failed is recorded with completion
+  state `incomplete`, not counted toward coverage.
 - Report discovered, eligible, excluded by reason, queued, rendered, saved,
   low-quality, failed, retried, inactive-candidate, and ingested URL counts.
 - Report HTTP-status and cache-status distributions, including validated hits and
