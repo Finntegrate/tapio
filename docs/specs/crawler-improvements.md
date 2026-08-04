@@ -1,8 +1,18 @@
 # Crawler improvements — feature specification
 
 **Status:** Proposed
+
 **Owner:** Finntegrate
+
 **Related architecture:** [ADR 0003](../ADRs/0003-crawl4ai-crawler.md), [ADR 0004](../ADRs/0004-cocoindex-ingestion.md)
+
+**Related backlog:** [#72](https://github.com/Finntegrate/tapio/issues/72) is
+the canonical tracking issue for this spec's implementation. It supersedes
+[#63](https://github.com/Finntegrate/tapio/issues/63) (streaming/resumability,
+Requirement 3, closed) and [#64](https://github.com/Finntegrate/tapio/issues/64)
+(conditional-GET revalidation, Requirement 5, closed), and is related to
+[#43](https://github.com/Finntegrate/tapio/issues/43) (the broader
+freshness/re-indexing umbrella this spec's crawler-side scope narrows).
 
 ## Problem statement
 
@@ -23,18 +33,21 @@ guidance.
 ## Source survey (2026-08-04)
 
 Before committing to a sitemap-first design, we checked `robots.txt` and
-`sitemap.xml` live for all five currently configured sources. The results
-directly shape several requirements below: sitemap availability, shape, and
-`lastmod` trustworthiness are not uniform across sources, and two sources
-declare a `Crawl-delay` that our current configuration does not honor.
+`sitemap.xml` live for all five currently configured sources, using
+`curl`-verified exact counts and, for migri.fi and dvv.fi, multiple
+child-sitemap samples spread across each site's full index range. The
+results directly shape several requirements below: sitemap size, discovery
+cost, and `lastmod` trustworthiness are not uniform across sources, and two
+sources declare a `Crawl-delay` that our current configuration does not
+honor.
 
-| Source | Sitemap | Shape | `lastmod` | Declared `Crawl-delay` |
-| --- | --- | --- | --- | --- |
-| migri.fi | `sitemap.xml` (via robots.txt) | `sitemapindex` with ~800 child sitemaps, one per Liferay page layout (`?p_l_id=...&layoutUuid=...&groupId=...`), ~4 URLs each (one per language variant) | Present but static — sampled entries all read `2018-03-05T09:50:42+02:00`, indistinguishable from a template constant | 5s |
-| dvv.fi | `sitemap.xml` (via robots.txt) | Same Liferay `sitemapindex`-of-layouts pattern as migri, ~700 child sitemaps | Present but static — sampled entries all read `2020-10-08T17:39:34+03:00` | 5s |
-| kela.fi | `sitemap.xml` (via robots.txt) | Flat `urlset`, ~850 URLs, clean paths | Present, varies per URL | none declared |
-| vero.fi | `sitemap.xml` (via robots.txt) | Flat `urlset`, ~1,000+ URLs, clean paths | Present, varies per URL | none declared |
-| tyomarkkinatori.fi | **None** — no `Sitemap:` line in `robots.txt`, `/sitemap.xml` returns 404 | n/a | n/a | none declared |
+| Source             | Sitemap                                                                   | Shape                                                                                                                                                                       | `lastmod`                                                                                                                                                                                                                                                   | Declared `Crawl-delay` |
+| ------------------ | ------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------- |
+| migri.fi           | `sitemap.xml` (via robots.txt)                                            | `sitemapindex` with **1,755** child sitemaps (exact count), one per Liferay page layout (`?p_l_id=...&layoutUuid=...&groupId=...`), ~4 URLs each (one per language variant) | Present and **genuinely varies** — five samples spread across the index read `2018-03-05`, `2024-12-19`, `2025-04-22`, `2026-07-08`, `2026-07-29`. The first-index entry (`2018-03-05`, the homepage layout) is the oldest, not representative of the rest. | 5s                     |
+| dvv.fi             | `sitemap.xml` (via robots.txt)                                            | Same Liferay `sitemapindex`-of-layouts pattern as migri, **1,769** child sitemaps (exact count)                                                                             | Present and **genuinely varies** — three samples read `2020-10-08` (first entry, homepage layout), `2025-07-17`, and `2026-08-04` (today, at the last index entry)                                                                                          | 5s                     |
+| kela.fi            | `sitemap.xml` (via robots.txt)                                            | Flat `urlset`, **3,794** URLs (exact count), single ~731 KB response, clean paths                                                                                           | Present on 3,041 of 3,794 URLs (**753 URLs — 19.8% — have no `lastmod` at all**, not merely "varying")                                                                                                                                                      | none declared          |
+| vero.fi            | `sitemap.xml` (via robots.txt)                                            | Flat `urlset`, **11,185** URLs (exact count), single ~2.4 MB response, clean paths                                                                                          | Present on all 11,185 entries (0% missing), varies per URL                                                                                                                                                                                                  | none declared          |
+| tyomarkkinatori.fi | **None** — no `Sitemap:` line in `robots.txt`, `/sitemap.xml` returns 404 | n/a                                                                                                                                                                         | n/a                                                                                                                                                                                                                                                         | none declared          |
 
 Implications carried into the sections below:
 
@@ -42,17 +55,22 @@ Implications carried into the sections below:
   no sitemap at all, so bounded deep-crawl cannot be a secondary "gap detector"
   for it — it is the only discovery mechanism available. Discovery mode must be
   a per-site configuration choice, not a single global sequence.
-- **Sitemap `lastmod` is not always a live change signal.** migri.fi and
-  dvv.fi's `lastmod` values look like a fixed per-layout publish timestamp from
-  their shared Liferay CMS, not a per-page content-change signal. A
-  `lastmod`-driven refresh trigger cannot be trusted without first checking, per
-  source, whether the values actually vary in a way that correlates with real
-  content changes.
-- **Enumerating a sitemap index of ~800 child sitemaps is itself a
-  non-trivial crawl.** For migri.fi and dvv.fi, discovery means fetching
-  hundreds of small XML documents before a single content page is rendered,
-  and — per the next point — at a server-declared 5-second delay, that alone
-  is on the order of an hour per source.
+- **`lastmod` genuinely varies for migri.fi/dvv.fi, but its reliability as a
+  change signal is still unverified, not disproven.** Samples spread across
+  each site's full sitemap index show real variation, including a dvv.fi
+  entry dated the same day as this survey. That is necessary but not
+  sufficient evidence that `lastmod` tracks genuine content edits rather than
+  unrelated CMS republish/workflow events — Phase 0 must still confirm the
+  correlation empirically per source (for example, by comparing a `lastmod`
+  change against an actual content-hash change on a sample of pages) before
+  any source's `discovery.trust_lastmod` defaults to `true`. Until that
+  confirmation, `trust_lastmod: false` remains the correct conservative
+  default for migri.fi and dvv.fi.
+- **Sitemap size ranges widely across sources** — from single flat files
+  (kela.fi ~3,800 URLs, vero.fi ~11,000 URLs) to a sitemap index with
+  thousands of per-layout child sitemaps (migri.fi ~1,750, dvv.fi ~1,770) —
+  which shapes discovery cost and corpus scale materially; see "Scale and
+  timeline" below.
 - **Two of five sources declare a `Crawl-delay` our defaults don't honor.**
   Crawl4AI's built-in `check_robots_txt` option (`RobotsParser.can_fetch` in
   the installed `crawl4ai==0.9.2`) only evaluates `Allow`/`Disallow` rules — it
@@ -61,7 +79,71 @@ Implications carried into the sections below:
   `site_configs.yaml` and this document's own example config use
   `min_delay: 1.0`/`max_delay: 3.0` for migri, which is faster than the
   5-second delay migri.fi itself requests. See "Good-citizen crawling
-  posture" below.
+  posture" below. `crawl4ai==0.9.2` is what's currently installed
+  (`crawler/.venv/.../crawl4ai-0.9.2.dist-info`), not a hard pin —
+  `crawler/pyproject.toml` constrains it as `>=0.9.2,<0.10`, so a future
+  `uv sync` could resolve a different patch release; the behavior cited here
+  should be re-checked against whatever version is actually installed at
+  implementation time, not assumed to hold indefinitely.
+
+### Scale and timeline
+
+The counts above split into two genuinely different cost regimes rather than
+one uniform "large sitemap = slow" story:
+
+- **migri.fi and dvv.fi's cost is in enumerating the sitemap index itself**,
+  not in the URL count each child sitemap returns. Because their sitemap
+  index exposes ~4 URLs per HTTP request (one child sitemap per Liferay
+  layout) and both sites declare a 5-second `Crawl-delay` on the same host as
+  every one of those requests, enumerating the full index is a hard,
+  arithmetic floor, not an estimate: 1,755 requests × 5s ≈ **2.4 hours** for
+  migri.fi, 1,769 × 5s ≈ **2.5 hours** for dvv.fi — for discovery alone,
+  before a single content page is rendered. This is a floor because
+  `Crawl-delay` constrains successive requests to the same host regardless of
+  how many are technically in flight; politeness, not our own concurrency
+  setting, is what paces this. `discovery.cache_ttl_hours` (default 24h)
+  matters a great deal here — this cost should be paid roughly once a day at
+  most per source, not on every run.
+- **kela.fi and vero.fi's discovery cost is trivial by comparison**: each
+  site's full URL list is one flat `urlset` returned in a single HTTP
+  response (731 KB and 2.4 MB respectively, both well under the sitemap
+  protocol's 50 MB/50,000-URL ceiling). Discovery for these two sources is
+  effectively one request, independent of URL count.
+- **Content-rendering time, separately, is bounded below by
+  `(eligible URL count) × (effective per-host delay)`**, where "eligible"
+  means after this spec's language/path scope filters are applied — not the
+  raw sitemap size. For migri.fi and dvv.fi specifically, the sitemap
+  index's one-layout-per-~4-languages structure means the English-only
+  subset is close to the same order as the child-sitemap count itself (up to
+  ~1,755 and ~1,769 pages respectively, before excluding non-content paths),
+  so a full English-only backfill is plausibly another ~2.4–2.5 hours each at
+  their mandated 5s floor — on top of discovery, so **roughly half a business
+  day per source** as a conservative floor, absent any pipelining of
+  discovery and rendering. For kela.fi and vero.fi, the eligible-URL count
+  after scope filtering is genuinely unknown today — their raw counts
+  (3,794 and 11,185) span all language variants and non-content sections, and
+  we have not yet confirmed their URL path structure well enough to estimate
+  the English-only subset without guessing.
+- **Actual per-page fetch latency is not the bottleneck and does not need to
+  be re-measured.** ADR 0003 already measured real Crawl4AI fetch times
+  against all five sites (migri 0.8s, tyomarkkinatori 0.7s, kela 1.0s, vero
+  1.0s, dvv 0.7s) — an order of magnitude below any delay this spec would
+  configure (1.5s+ minimum, 5s mandated for two sources). Politeness delay,
+  not fetch latency, dominates wall-clock time, so that ADR 0003 measurement
+  is sufficient here; re-running a live timing crawl would not materially
+  change these estimates and would just add avoidable load to sites already
+  flagged as WAF-sensitive (see "Legal, compliance, and site-relationship
+  risk" below). A live full-content dry-run crawl is therefore not warranted
+  for timeline estimation purposes.
+- **What is worth doing cheaply, and isn't done yet, is a discovery-only dry
+  run per source**: parse each source's sitemap (or, for tyomarkkinatori.fi,
+  run a bounded deep-crawl discovery pass) and apply the configured
+  `languages`/`include_url_patterns`/`exclude_url_patterns` filters, with zero
+  page renders. This produces the real eligible-URL count each source's
+  render-phase timeline actually depends on, at the cost this section already
+  prices in for discovery (since it reuses the same sitemap fetches), not an
+  additional one. This is recommended as a concrete Phase 0 deliverable — see
+  "Dependencies and phasing" below — rather than a full rendering dry-run.
 
 ## Goals
 
@@ -98,12 +180,15 @@ Implications carried into the sections below:
 1. **Sitemap-first coverage, per source.** Where a site declares a usable sitemap,
    use it as the primary URL inventory: it is independent of navigation depth and
    can provide a `lastmod` signal. Crawl4AI's `AsyncUrlSeeder` supports sitemap
-   discovery and sitemap-cache validation in the pinned 0.9.2 release. This is a
-   per-source choice, not a global assumption — the source survey above found one
-   configured source (tyomarkkinatori.fi) with no sitemap at all, and two
-   (migri.fi, dvv.fi) whose sitemap `lastmod` values do not look trustworthy as a
-   change signal. Each source's discovery mode and its trust in `lastmod` must be
-   set explicitly from what Phase 0 finds, not inherited from a shared default.
+   discovery and sitemap-cache validation in the version currently installed
+   (0.9.2; `crawler/pyproject.toml` allows `>=0.9.2,<0.10`, so re-verify against
+   whatever resolves at implementation time). This is a per-source choice, not a
+   global assumption — the source survey above found one configured source
+   (tyomarkkinatori.fi) with no sitemap at all, and two (migri.fi, dvv.fi) whose
+   sitemap `lastmod` values vary but have not yet been confirmed to correlate
+   with real content changes. Each source's discovery mode
+   and its trust in `lastmod` must be set explicitly from what Phase 0 finds, not
+   inherited from a shared default.
 2. **Deep crawl as the discovery mechanism when no sitemap exists, otherwise a
    bounded gap detector.** For a source with a usable sitemap, use Crawl4AI BFS or
    Best-First crawling only from selected landing pages to discover legitimate
@@ -146,9 +231,12 @@ Implications carried into the sections below:
      five current sources (migri.fi, dvv.fi) declare 5 seconds; today's
      configuration runs faster than that for migri.
    - Default new sources to conservative concurrency and depth, and raise them
-     deliberately per source rather than starting from a shared "fast" default —
-     the corpus this project needs is a few thousand pages, not a commercial-scale
-     index, so there is no throughput pressure to trade against politeness.
+     deliberately per source rather than starting from a shared "fast" default.
+     Even at this corpus's scale — tens of thousands of URLs across
+     sources before scope filtering, per "Scale and timeline" — this remains a
+     handful of government sites re-crawled on a slow cadence, not a
+     commercial-scale index crawled continuously; there is no throughput
+     pressure that should be traded against politeness.
 
 ## User stories
 
@@ -193,34 +281,54 @@ The implementation must persist one record per canonical source URL. The storage
 technology is an engineering decision; it must support durable updates and queries
 by site, status, and next action.
 
-| Field | Purpose |
-| --- | --- |
-| `site_name`, `source_url`, `canonical_url` | Identify the configured source and deduplicate redirects, fragments, and tracking variants. |
-| `discovery_source` | Record `sitemap`, `deep_crawl`, or an operator-provided seed. |
-| `sitemap_lastmod`, `first_seen_at`, `last_seen_at` | Support incremental discovery and removal handling. |
-| `scope_status`, `scope_reason` | Preserve whether a URL is eligible, blocked by robots, out of language scope, excluded by a rule, or unsupported. |
-| `fetch_status`, `last_attempt_at`, `retry_after` | Capture successful, failed, and rate-limited collection attempts. |
-| `content_hash`, `content_length`, `title`, `language` | Detect meaningful changes and support quality reporting. |
-| `last_rendered_at`, `last_ingested_at`, `extractor_version` | Decide whether rendering or ingestion is required after a configuration change. |
-| `cache_status`, `validation_status` | Distinguish a confirmed fresh cache hit from a fallback cache result. |
+| Field                                                       | Purpose                                                                                                           |
+| ----------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `site_name`, `source_url`, `canonical_url`                  | Identify the configured source and deduplicate redirects, fragments, and tracking variants.                       |
+| `discovery_source`                                          | Record `sitemap`, `deep_crawl`, or an operator-provided seed.                                                     |
+| `sitemap_lastmod`, `first_seen_at`, `last_seen_at`          | Support incremental discovery and removal handling.                                                               |
+| `scope_status`, `scope_reason`                              | Preserve whether a URL is eligible, blocked by robots, out of language scope, excluded by a rule, or unsupported. |
+| `fetch_status`, `last_attempt_at`, `retry_after`            | Capture successful, failed, and rate-limited collection attempts.                                                 |
+| `content_hash`, `content_length`, `title`, `language`       | Detect meaningful changes and support quality reporting.                                                          |
+| `last_rendered_at`, `last_ingested_at`, `extractor_version` | Decide whether rendering or ingestion is required after a configuration change.                                   |
+| `cache_status`, `validation_status`                         | Distinguish a confirmed fresh cache hit from a fallback cache result.                                             |
 
 The manifest must retain pages absent from a later sitemap as `inactive_candidate`
 for at least two discovery cycles. It must not delete previously ingested content
 automatically in the first release.
 
-Postgres/pgvector — already adopted as the ingestion vector store in
-[ADR 0004](../ADRs/0004-cocoindex-ingestion.md) — is an increasingly strategic
-candidate for the manifest store too, rather than a separate database chosen
-independently. This would not merge with CocoIndex's own incremental-processing
-state, which ADR 0004's spike found lives in a local LMDB directory, not
-Postgres — but the manifest's per-URL scope/fetch/refresh state is a natural fit
-for the same relational store `ingest/` already writes vectors to, and
-`ingest/`'s own incremental logic would then read canonical URLs and content
-hashes from it directly instead of re-deriving them from Markdown frontmatter.
-If Phase 1 engineering settles on this, it should be recorded as a new,
-unifying ADR that reconciles the crawler manifest and ADR 0004's ingestion
-store under one storage decision, rather than as an implementation detail
-buried in this spec.
+Postgres/pgvector — **proposed** as the ingestion vector store in
+[ADR 0004](../ADRs/0004-cocoindex-ingestion.md), not yet accepted (that ADR's
+own status is `Proposed`) — is a strategic candidate for the manifest store too,
+and the scale described in "Scale and timeline" above makes this a stronger,
+not merely incidental, case rather than a nice-to-have consolidation:
+
+- **The manifest needs to support real query and concurrency
+  requirements, not a small lookup table.** Combining migri.fi's and dvv.fi's
+  sitemap indexes alone is 3,524 layout entries covering roughly 7,000+
+  language-variant URLs before scope filtering; kela.fi and vero.fi add
+  3,794 and 11,185 more. Requirement 3 (manifest-driven collection and
+  resumability) needs indexed queries by site, scope status, and
+  next-action across a corpus in the tens of thousands of rows, concurrent
+  batched jobs, and durable progress checkpoints — well past what a
+  single JSON state file (today's `crawl_state.json`) or an ad hoc
+  per-site flat file can support. This is a concrete reason a real
+  relational store is needed from Phase 1, not deferred to later
+  hardening.
+- **This would not merge with CocoIndex's own incremental-processing
+  state**, which ADR 0004's spike found lives in a local LMDB directory, not
+  Postgres — but the manifest's per-URL scope/fetch/refresh state is a
+  natural fit for the same relational store `ingest/` already proposes
+  writing vectors to, and `ingest/`'s own incremental logic could then read
+  canonical URLs and content hashes from it directly instead of re-deriving
+  them from Markdown frontmatter.
+
+If Phase 1 engineering settles on Postgres for the manifest, it should be
+recorded as a new, unifying ADR that reconciles the crawler manifest and ADR
+0004's ingestion store under one storage decision — and, since ADR 0004 itself
+is still `Proposed`, that unifying ADR is also an opportunity to move ADR 0004
+from Proposed to Accepted on the strength of a second, independent consumer
+(the crawler manifest) needing the same store, rather than deciding storage as
+an implementation detail buried in this spec.
 
 ## Configuration contract
 
@@ -253,10 +361,11 @@ sites:
         sitemap_urls: [] # Empty: read Sitemap entries from robots.txt
         cache_ttl_hours: 24
         validate_sitemap_lastmod: true
-        # migri.fi's sitemap is a sitemapindex of ~800 per-layout child
-        # sitemaps whose lastmod is static per the source survey. Discovery
-        # must record this and must not schedule re-renders from lastmod
-        # alone until a source explicitly earns that trust.
+        # migri.fi's sitemap is a sitemapindex of 1,755 per-layout child
+        # sitemaps whose lastmod varies, per the source survey, but is not
+        # yet confirmed to track real content edits. Discovery must not
+        # schedule re-renders from lastmod alone until Phase 0 confirms
+        # that correlation for this source.
         trust_lastmod: false
       scope:
         allowed_domains: ["migri.fi", "www.migri.fi"]
@@ -328,7 +437,7 @@ must state that policy and its duplication treatment in configuration.
 
 `min_delay`/`max_delay` above are illustrative starting points, not settled
 values — the actual safe rate per source is an open question below. What the
-migri example is meant to show is the *relationship*: its configured `min_delay`
+migri example is meant to show is the _relationship_: its configured `min_delay`
 must not be set below its declared `Crawl-delay` (5s), whatever the final chosen
 value is, whereas tyomarkkinatori (no declared `Crawl-delay`) keeps today's more
 conservative-by-convention default rather than being sped up just because nothing
@@ -392,20 +501,28 @@ domains and scope.
   discovery entirely.
 - For a source with `source: sitemap`, discover sitemap locations from
   `robots.txt`, including sitemap indexes and child sitemaps. Some sources
-  (migri.fi, dvv.fi) expose the sitemap index itself as several hundred child
-  sitemap URLs sharing one path with different query parameters — discovery
-  must handle that shape, and its run summary must report how many child
-  sitemaps were fetched, since that count is itself a meaningful cost.
+  (migri.fi: 1,755; dvv.fi: 1,769) expose the sitemap index itself as
+  thousands of child sitemap URLs sharing one path with different query
+  parameters — discovery must handle that shape, and its run summary must
+  report how many child sitemaps were fetched, since that count is itself a
+  meaningful cost (see "Scale and timeline"). Other sources (kela.fi, vero.fi)
+  expose their full URL list as a single flat `urlset` response — discovery
+  must not assume every sitemap is index-shaped, and must not conflate "many
+  URLs in a sitemap" with "many requests to discover them," since these are
+  two independent costs that happen to coincide only for migri.fi/dvv.fi.
 - Use Crawl4AI's sitemap seeding capability with source `sitemap`, not Common
   Crawl, and cache sitemap results for a configurable period with `lastmod`
   validation enabled.
 - Before trusting a source's `lastmod` values for refresh scheduling
-  (Requirement 5), check whether they vary meaningfully across that source's
-  discovered URLs. Where they are constant, or vary in a way inconsistent with
-  real content changes (as observed for migri.fi and dvv.fi, whose sampled
-  values are identical per page-layout and years old), record `lastmod` for
-  observability only and set that source's `discovery.trust_lastmod` to
-  `false`, falling back to content hashing and scheduled audits for freshness.
+  (Requirement 5), check both that they vary meaningfully across that source's
+  discovered URLs _and_ that the variation correlates with real content
+  changes, not just CMS republish/workflow noise. migri.fi and dvv.fi pass the
+  first check (their `lastmod` does vary, confirmed by broad sampling) but not
+  yet the second — that correlation is unverified, not disproven, and remains
+  a Phase 0 deliverable per source. Until a source passes both checks, record
+  `lastmod` for observability only and set that source's `discovery.trust_lastmod`
+  to `false`, falling back to content hashing and scheduled audits for
+  freshness.
 - Upsert all discovered URLs into the manifest before any full-page rendering.
 - Preserve discovery provenance and sitemap `lastmod` where supplied.
 
@@ -421,7 +538,7 @@ domains and scope.
 - [ ] Given a source configured with `discovery.source: none`, when discovery
   runs, then bounded deep crawl executes as the primary discovery path and the
   run summary does not report the source as sitemap-incomplete.
-- [ ] Given a source's sitemap resolves through a sitemap index with hundreds of
+- [ ] Given a source's sitemap resolves through a sitemap index with thousands of
   child sitemaps, when discovery completes, then the run summary reports the
   number of child sitemaps fetched, distinct from the number of content URLs
   discovered.
@@ -429,8 +546,20 @@ domains and scope.
   sample of its discovered URLs, when discovery completes, then that source is
   flagged as `trust_lastmod: false` and its freshness decisions do not rely on
   `lastmod` alone.
+- [ ] Given a source's `lastmod` values do vary across a sample of its
+  discovered URLs but their correlation with real content changes has not been
+  empirically confirmed (migri.fi and dvv.fi today), when discovery completes,
+  then that source is still flagged as `trust_lastmod: false` until Phase 0
+  confirms the correlation — variation alone does not earn trust.
 
 #### 3. Manifest-driven collection and resumability
+
+This requirement's streaming/resumability behavior supersedes the now-closed
+[#63](https://github.com/Finntegrate/tapio/issues/63) ("Stream Crawl4AI
+results so long crawls retain completed pages"), filed before this spec
+existed. Implementation is tracked under the canonical
+[#72](https://github.com/Finntegrate/tapio/issues/72); see "Related backlog"
+near the top of this document.
 
 - Render only manifest records whose scope is eligible and whose refresh policy says
   they need work.
@@ -474,6 +603,20 @@ domains and scope.
 
 #### 5. Per-document cache and refresh policy
 
+This requirement's freshness behavior supersedes the now-closed
+[#64](https://github.com/Finntegrate/tapio/issues/64) ("Revalidate due pages
+with conditional HTTP requests"), which proposed ETag/`If-None-Match`
+conditional GETs — a different mechanism from the `CacheMode`/
+`check_cache_freshness` approach specified below. If both are pursued, they
+compose (conditional GET as a cheaper pre-check before a full Crawl4AI
+cache-freshness validation), but that composition is not yet decided and
+should be resolved during Phase 2, not assumed. Implementation is tracked
+under the canonical [#72](https://github.com/Finntegrate/tapio/issues/72).
+[#43](https://github.com/Finntegrate/tapio/issues/43) ("Knowledge base
+freshness and scheduled re-indexing") remains the broader, still-open
+umbrella issue this entire requirement (and much of this spec) elaborates;
+see "Related backlog" near the top of this document.
+
 - For an initial backfill and a URL known to have changed, use
   `CacheMode.WRITE_ONLY` so the rendered result refreshes Crawl4AI's durable cache.
 - For an unchanged document's scheduled check, use `CacheMode.ENABLED` with
@@ -486,9 +629,10 @@ domains and scope.
   changes.
 - Only use sitemap `lastmod` to trigger a re-render for a source whose
   `discovery.trust_lastmod` is `true` (Requirement 2). For a source where it is
-  `false` (migri.fi and dvv.fi, per the source survey, unless later discovery
-  finds their `lastmod` does vary meaningfully), rely on `unchanged_audit_days`
-  and content hashing instead.
+  `false` (migri.fi and dvv.fi today — their `lastmod` does vary, per the
+  source survey, but has not yet been shown to correlate with real content
+  changes), rely on `unchanged_audit_days` and content hashing instead,
+  until Phase 0 confirms that correlation and flips `trust_lastmod` to `true`.
 
 ##### Refresh policy acceptance criteria
 
@@ -565,41 +709,79 @@ only discovery path and is required from Phase 1, per Requirement 2.
 - Support source-level archival and document removal after a reviewed retention and
   citation policy exists.
 
+## Legal, compliance, and site-relationship risk
+
+[ADR 0003](../ADRs/0003-crawl4ai-crawler.md) recorded migri.fi as WAF-blocked
+when crawled through Cloudflare's shared infrastructure (reachable only when
+crawled directly, with no guarantee that remains true as volume grows), and
+"Scale and timeline" above establishes that discovery and a full backfill
+together mean roughly an order of magnitude more requests than a single-page
+reachability check. A spec proposing that request volume against exactly the
+sites already flagged as block-sensitive needs more than one row in the Open
+Questions table.
+
+- **This spec does not, by itself, resolve whether increased crawl volume is
+  safe to run against migri.fi and dvv.fi in production.** ADR 0003's own
+  Risks section already named this ("direct-IP crawling may draw its own
+  blocks over time... today's success is not a durable guarantee"). Phase 0
+  must include a volume-aware check — not just "can we reach the site," which
+  ADR 0003 already confirmed, but "does sustained crawling at this spec's
+  scale (thousands of requests per source) draw a block that front-page
+  testing did not."
+- **`robots_policy: require` and the `Crawl-delay` floor (Design Principle 7,
+  Requirement 1) are this spec's primary technical mitigation**, but they are
+  a politeness commitment, not a legal or contractual one. What policy governs
+  crawling Finnish government sites beyond robots.txt compliance — Terms of
+  Service, any AI-specific content-use signals, or sector-specific public-data
+  reuse rules — is still the open, blocking question in the table below; this
+  section does not resolve it, it makes explicit that resolving it now carries
+  more weight given the volume this spec proposes.
+- **A block or rate-limit response at production scale must fail safe, not
+  fail silent.** Requirement 1's fail-closed handling for an unreachable
+  `robots.txt`, and Requirement 6's coverage observability, together mean a
+  sustained block should surface as an incomplete/flagged run an operator can
+  see — not as a partial, silently-accepted corpus that looks complete.
+- **Non-goals** already excludes unbounded crawling and authenticated/
+  transactional pages; this section does not expand scope, it makes the
+  existing politeness and legal open questions load-bearing for a
+  go/no-go decision before Phase 1 begins, rather than something to revisit
+  only if a block is observed in production.
+
 ## Success metrics
 
 No dependable baseline exists yet. Establish a baseline during the first two source
 backfills, then evaluate these targets per production source.
 
-| Metric | Initial target | Measurement |
-| --- | --- | --- |
-| Sitemap discovery completeness | 100% of parseable sitemap URLs are classified in the manifest | Discovery run summary |
-| Eligible-document coverage | >=95% of eligible manifest URLs have a successful current document | Manifest query after backfill |
-| Extraction quality | >=90% of successful renders meet the configured content threshold without fallback | Collection summary |
-| Freshness confidence | 100% of documents marked current are either newly rendered or explicitly freshness-validated | Manifest audit |
-| Refresh efficiency | >=80% of unchanged scheduled documents avoid a browser render through confirmed validation | Cache-status summary |
-| Retrieval coverage | Representative evaluation questions retrieve at least one relevant official source in the top results | Versioned evaluation suite |
-| Politeness | 0 sustained rate-limit incidents attributable to exceeding configured host rates, and 0 requests sent to a source faster than its declared `Crawl-delay` | HTTP status and retry logs |
+| Metric                         | Initial target                                                                                                                                           | Measurement                   |
+| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------- |
+| Sitemap discovery completeness | 100% of parseable sitemap URLs are classified in the manifest                                                                                            | Discovery run summary         |
+| Eligible-document coverage     | >=95% of eligible manifest URLs have a successful current document                                                                                       | Manifest query after backfill |
+| Extraction quality             | >=90% of successful renders meet the configured content threshold without fallback                                                                       | Collection summary            |
+| Freshness confidence           | 100% of documents marked current are either newly rendered or explicitly freshness-validated                                                             | Manifest audit                |
+| Refresh efficiency             | >=80% of unchanged scheduled documents avoid a browser render through confirmed validation                                                               | Cache-status summary          |
+| Retrieval coverage             | Representative evaluation questions retrieve at least one relevant official source in the top results                                                    | Versioned evaluation suite    |
+| Politeness                     | 0 sustained rate-limit incidents attributable to exceeding configured host rates, and 0 requests sent to a source faster than its declared `Crawl-delay` | HTTP status and retry logs    |
 
 ## Dependencies and phasing
 
-| Phase | Scope | Dependencies |
-| --- | --- | --- |
-| **0 — policy and spike** | Confirm language rules, URL patterns, safe per-source request rates, and sample extraction quality for all five sources, building on the 2026-08-04 source survey above (robots/sitemap/`Crawl-delay` already checked live for migri, kela, vero, dvv, tyomarkkinatori) | Product, legal/compliance, source review |
-| **1 — inventory foundation** | Manifest storage, sitemap-first discovery, source scope configuration, summary reporting | Crawler configuration and durable storage choice |
-| **2 — controlled backfill** | Manifest-driven streaming renderer, document hashing, cache/refresh policy, resumability | Phase 1 and ingest idempotency |
-| **3 — quality and gaps** | Bounded deep-crawl gap detection, retrieval evaluation, operator controls | Phase 2 metrics and review |
-| **4 — incremental operations** | Scheduled per-document refreshes, inactive-candidate review, production dashboards | Stable baseline from Phase 2 |
+| Phase                          | Scope                                                                                                                                                                                                                                                                   | Dependencies                                     |
+| ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
+| **0 — policy and spike**       | Confirm language rules, URL patterns, safe per-source request rates, and sample extraction quality for all five sources, building on the 2026-08-04 source survey above (robots/sitemap/`Crawl-delay` already checked live for migri, kela, vero, dvv, tyomarkkinatori) | Product, legal/compliance, source review         |
+| **1 — inventory foundation**   | Manifest storage, sitemap-first discovery, source scope configuration, summary reporting                                                                                                                                                                                | Crawler configuration and durable storage choice |
+| **2 — controlled backfill**    | Manifest-driven streaming renderer, document hashing, cache/refresh policy, resumability                                                                                                                                                                                | Phase 1 and ingest idempotency                   |
+| **3 — quality and gaps**       | Bounded deep-crawl gap detection, retrieval evaluation, operator controls                                                                                                                                                                                               | Phase 2 metrics and review                       |
+| **4 — incremental operations** | Scheduled per-document refreshes, inactive-candidate review, production dashboards                                                                                                                                                                                      | Stable baseline from Phase 2                     |
 
 ## Open questions
 
-| Question | Owner | Blocking? |
-| --- | --- | --- |
-| Which language variants belong in each source corpus, and how should near-identical translations be represented in retrieval? | Product and data | Yes, per production source |
-| What policy governs robots directives, AI-specific content signals, and any source terms that go beyond robots? | Legal/compliance and product | Yes, before production backfill |
-| Where should the manifest live, and what retention/backup policy applies to crawl metadata? Postgres/pgvector (already adopted for ingestion, [ADR 0004](../ADRs/0004-cocoindex-ingestion.md)) is looking like the leading candidate over a separate store — see "URL manifest" above. | Engineering and data | Yes, before Phase 1 |
-| What is the safe production request rate and concurrency for each source, above the `Crawl-delay` floor the source survey already found for migri.fi and dvv.fi (5s)? | Engineering, informed by Phase 0 | Yes, per production source |
-| Which URL query parameters are meaningful rather than tracking-only for each site? | Engineering and content operations | No — begin conservatively and add reviewed exceptions |
-| What threshold distinguishes an inactive page from a removed source that should no longer be cited? | Product, legal/compliance, and data | No — retain inactive candidates in v1 |
+| Question                                                                                                                                                                                                                                                                                                                                                                                                    | Owner                               | Blocking?                                             |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------- |
+| Which language variants belong in each source corpus, and how should near-identical translations be represented in retrieval?                                                                                                                                                                                                                                                                               | Product and data                    | Yes, per production source                            |
+| What policy governs robots directives, AI-specific content signals, and any source terms that go beyond robots?                                                                                                                                                                                                                                                                                             | Legal/compliance and product        | Yes, before production backfill                       |
+| Where should the manifest live, and what retention/backup policy applies to crawl metadata? Postgres (proposed for ingestion in [ADR 0004](../ADRs/0004-cocoindex-ingestion.md), not yet accepted) is looking like the leading candidate over a separate store, and the corpus scale (tens of thousands of URLs) makes this closer to a requirement than a preference — see "URL manifest" above. | Engineering and data                | Yes, before Phase 1                                   |
+| What is the safe production request rate and concurrency for each source, above the `Crawl-delay` floor the source survey already found for migri.fi and dvv.fi (5s)?                                                                                                                                                                                                                                       | Engineering, informed by Phase 0    | Yes, per production source                            |
+| Which URL query parameters are meaningful rather than tracking-only for each site?                                                                                                                                                                                                                                                                                                                          | Engineering and content operations  | No — begin conservatively and add reviewed exceptions |
+| What threshold distinguishes an inactive page from a removed source that should no longer be cited?                                                                                                                                                                                                                                                                                                         | Product, legal/compliance, and data | No — retain inactive candidates in v1                 |
 
 ## Technical references
 
@@ -607,10 +789,14 @@ backfills, then evaluate these targets per production source.
 - [Crawl4AI content selection](https://docs.crawl4ai.com/core/content-selection/)
 - [Crawl4AI cache modes](https://docs.crawl4ai.com/core/cache-modes/)
 - [Crawl4AI URL seeding](https://docs.crawl4ai.com/core/url-seeding/#1-sitemaps-fastest)
-- [Crawl4AI domain mapping](https://docs.crawl4ai.com/core/domain-mapping/)
 - Source survey (2026-08-04): live `robots.txt`/`sitemap.xml` checks against
-  migri.fi, kela.fi, vero.fi, dvv.fi, and tyomarkkinatori.fi, plus verification
-  of `AsyncUrlSeeder`/`SeedingConfig`, `CacheMode`, `RobotsParser.can_fetch`, and
+  migri.fi, kela.fi, vero.fi, dvv.fi, and tyomarkkinatori.fi, using exact
+  `curl`-based counts and per-index sampling for migri.fi/dvv.fi — see
+  "Source survey" and "Scale and timeline" above — plus verification of
+  `AsyncUrlSeeder`/`SeedingConfig`, `CacheMode`, `RobotsParser.can_fetch`, and
   `BrowserConfig.user_agent` behavior against the installed `crawl4ai==0.9.2`
-  package (`crawler/.venv/lib/python3.14/site-packages/crawl4ai/`) — see
-  "Source survey" and "Good-citizen crawling posture" above.
+  package (`crawler/.venv/lib/python3.14/site-packages/crawl4ai/`).
+- [ADR 0003](../ADRs/0003-crawl4ai-crawler.md)'s per-page Crawl4AI fetch-time
+  measurements (migri 0.8s, tyomarkkinatori 0.7s, kela 1.0s, vero 1.0s, dvv
+  0.7s), reused directly in "Scale and timeline" above rather than
+  re-measured, since they are well below any delay this spec would configure.
