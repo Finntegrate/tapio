@@ -11,7 +11,13 @@ name: Comment CI results on PR
 # is what makes this safe: nothing from the PR branch ever executes here.
 on:
   workflow_run:
-    workflows: ["CI"]
+    # Must exactly match ci.yaml's top-level `name:`, not its filename -- this list
+    # is matched by name, not path. A prior rename of that field (CI -> Service CI,
+    # in 5ccbbbd) silently broke this trigger for months: it kept "succeeding" on
+    # stale runs from before the rename while every post-rename CI run went
+    # unmatched, so no PR ever got a comment. If ci.yaml's name changes again,
+    # update this list in the same commit.
+    workflows: ["Service CI"]
     types: [completed]
 
 permissions:
