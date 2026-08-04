@@ -7,5 +7,6 @@
 	"chat_thinking": "Thinking…",
 	"chat_sources_heading": "Sources",
 	"chat_agents_error": "Could not load the guide list.",
-	"chat_send_error": "Something went wrong. Please try again."
+	"chat_send_error": "Something went wrong. Please try again.",
+	"chat_sidebar_tagline": "Finnish immigration guides"
 }

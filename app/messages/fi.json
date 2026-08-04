@@ -7,5 +7,6 @@
 	"chat_thinking": "Mietitään…",
 	"chat_sources_heading": "Lähteet",
 	"chat_agents_error": "Oppaiden listaa ei voitu ladata.",
-	"chat_send_error": "Jokin meni pieleen. Yritä uudelleen."
+	"chat_send_error": "Jokin meni pieleen. Yritä uudelleen.",
+	"chat_sidebar_tagline": "Suomeen muuttamisen oppaat"
 }

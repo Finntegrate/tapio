@@ -1,4 +1,6 @@
 <script lang="ts">
+	import { AGENT_DOT_CLASSES } from './agent-colors';
+
 	interface Props {
 		name: string;
 		title?: string;
@@ -6,20 +8,14 @@
 	}
 
 	let { name, title, color }: Props = $props();
-
-	const colorClasses: Record<string, string> = {
-		forest: 'bg-emerald-600',
-		amber: 'bg-amber-500',
-		nordic: 'bg-sky-600'
-	};
 </script>
 
 <span
-	class="inline-flex items-center gap-2 rounded-full bg-slate-100 px-3 py-1 text-sm font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-100"
+	class="inline-flex items-center gap-2 rounded-full bg-pine-800 px-3 py-1 text-sm font-medium text-pine-100"
 >
-	<span class="h-2 w-2 rounded-full {colorClasses[color ?? ''] ?? 'bg-slate-400'}"></span>
+	<span class="h-2 w-2 rounded-full {AGENT_DOT_CLASSES[color ?? ''] ?? 'bg-pine-400'}"></span>
 	<span>{name}</span>
 	{#if title}
-		<span class="text-slate-500 dark:text-slate-400">· {title}</span>
+		<span class="text-pine-400">· {title}</span>
 	{/if}
 </span>

@@ -15,19 +15,19 @@
 	{#if message.role === 'assistant' && message.routing}
 		<div class="flex flex-col gap-0.5">
 			<GuideBadge name={message.routing.name} title={message.routing.title} color={message.color} />
-			<span class="text-xs text-slate-500 dark:text-slate-400">{message.routing.reason}</span>
+			<span class="text-xs text-pine-400">{message.routing.reason}</span>
 		</div>
 	{/if}
 
 	<div
 		class="max-w-2xl rounded-2xl px-4 py-2 {message.role === 'user'
 			? 'bg-emerald-700 text-white'
-			: 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'}"
+			: 'bg-pine-800 text-pine-100'}"
 	>
 		{#if message.content}
 			<p class="whitespace-pre-wrap">{message.content}</p>
 		{:else if message.isStreaming}
-			<p class="text-slate-500 italic dark:text-slate-400">{m.chat_thinking()}</p>
+			<p class="text-pine-400 italic">{m.chat_thinking()}</p>
 		{/if}
 	</div>
 

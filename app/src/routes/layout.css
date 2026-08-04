@@ -2,3 +2,29 @@
 @plugin '@tailwindcss/forms';
 @plugin '@tailwindcss/typography';
 @source '../lib';
+
+/* Forest-inspired dark palette — deep spruce backgrounds, moss/lichen accents. */
+@theme {
+	--color-pine-950: #0b130e;
+	--color-pine-900: #101c15;
+	--color-pine-800: #182a1f;
+	--color-pine-700: #22392a;
+	--color-pine-600: #305038;
+	--color-pine-500: #47704e;
+	--color-pine-400: #6f9678;
+	--color-pine-300: #9bb8a0;
+	--color-pine-200: #c6d9c9;
+	--color-pine-100: #e8f0e9;
+	--color-lichen-500: #d9a441;
+	--color-lichen-400: #e6bc6b;
+}
+
+@layer base {
+	html {
+		color-scheme: dark;
+	}
+
+	body {
+		@apply bg-pine-950 text-pine-100;
+	}
+}

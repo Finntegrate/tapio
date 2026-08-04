@@ -24,7 +24,7 @@
 </script>
 
 <form
-	class="flex gap-2 border-t border-slate-200 p-4 dark:border-slate-800"
+	class="flex gap-2 border-t border-pine-700 p-4"
 	onsubmit={(event) => {
 		event.preventDefault();
 		submit();
@@ -36,12 +36,12 @@
 		onkeydown={handleKeydown}
 		rows="2"
 		placeholder={m.chat_placeholder()}
-		class="flex-1 resize-none rounded-lg border border-slate-300 px-3 py-2 focus:border-emerald-600 focus:outline-none disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
+		class="flex-1 resize-none rounded-lg border border-pine-700 bg-pine-900 px-3 py-2 text-pine-100 placeholder-pine-400 focus:border-lichen-500 focus:outline-none disabled:opacity-50"
 	></textarea>
 	<button
 		type="submit"
 		{disabled}
-		class="rounded-lg bg-emerald-700 px-4 py-2 font-medium text-white disabled:opacity-50"
+		class="rounded-lg bg-emerald-700 px-4 py-2 font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
 	>
 		{m.chat_send()}
 	</button>
