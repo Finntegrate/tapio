@@ -7,7 +7,11 @@ for source-site collection and Markdown output.
 from tapio_crawler.config.config_manager import ConfigManager
 from tapio_crawler.config.config_models import (
     CrawlerConfig,
+    DiscoveryConfig,
+    GapCrawlConfig,
     MarkdownConfig,
+    PolitenessConfig,
+    ScopeConfig,
     SiteConfig,
     SiteConfigRegistry,
 )
@@ -15,7 +19,11 @@ from tapio_crawler.config.config_models import (
 __all__ = [
     "ConfigManager",
     "CrawlerConfig",
+    "DiscoveryConfig",
+    "GapCrawlConfig",
     "MarkdownConfig",
+    "PolitenessConfig",
+    "ScopeConfig",
     "SiteConfig",
     "SiteConfigRegistry",
 ]

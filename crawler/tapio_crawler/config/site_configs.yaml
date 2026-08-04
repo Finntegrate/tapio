@@ -1,4 +1,8 @@
 # Default configuration for Crawl4AI source collection.
+#
+# See docs/specs/crawler-improvements.md for the discovery/scope/politeness
+# schema. `trust_lastmod` stays `false` for every source until Phase 0
+# confirms lastmod-to-content-change correlation per source.
 sites:
   migri:
     base_url: "https://migri.fi"
@@ -7,11 +11,32 @@ sites:
       max_depth: 1
       max_pages: 50
       recrawl_interval_hours: 720
-      min_delay: 1.0
-      max_delay: 3.0
-      max_concurrent: 3
+      # migri.fi's robots.txt declares a 5s Crawl-delay; this is the floor
+      # under which the shared rate limiter will never schedule a request.
+      min_delay: 5.0
+      max_delay: 8.0
+      max_concurrent: 2
       remove_consent_popups: true
       remove_overlay_elements: true
+      robots_policy: require
+      politeness:
+        respect_crawl_delay: true
+      discovery:
+        source: sitemap
+        sitemap_urls: []
+        cache_ttl_hours: 24
+        validate_sitemap_lastmod: true
+        trust_lastmod: false
+      scope:
+        allowed_domains: ["migri.fi", "www.migri.fi"]
+        languages: ["en"]
+        include_url_patterns: ["/en/*"]
+        exclude_url_patterns:
+          - "*/search*"
+          - "*/login*"
+          - "*/asiointi*"
+          - "*?*utm_*"
+        allowed_content_types: ["text/html"]
 
   # Example configuration for TE Services website
   tyomarkkinatori:
@@ -26,6 +51,28 @@ sites:
       max_concurrent: 3
       remove_consent_popups: true
       remove_overlay_elements: true
+      robots_policy: require
+      politeness:
+        respect_crawl_delay: true
+      discovery:
+        # No Sitemap: entry in robots.txt and /sitemap.xml returns 404.
+        # Bounded deep crawl is the only discovery path for this source.
+        source: none
+      scope:
+        allowed_domains: ["tyomarkkinatori.fi"]
+        languages: ["en"]
+        include_url_patterns: ["/en/*"]
+        exclude_url_patterns:
+          - "*/search*"
+          - "*/login*"
+          - "*?*utm_*"
+        allowed_content_types: ["text/html"]
+      gap_crawl:
+        enabled: true
+        seed_urls: ["https://tyomarkkinatori.fi/en"]
+        strategy: bfs
+        max_depth: 4
+        max_pages: 300
 
   # Example configuration for Kela website
   kela:
@@ -39,6 +86,24 @@ sites:
       max_delay: 3.0
       max_concurrent: 4
       css_selector: "#content-root"
+      robots_policy: require
+      politeness:
+        respect_crawl_delay: true
+      discovery:
+        source: sitemap
+        sitemap_urls: []
+        cache_ttl_hours: 24
+        validate_sitemap_lastmod: true
+        trust_lastmod: false
+      scope:
+        allowed_domains: ["kela.fi", "www.kela.fi"]
+        languages: ["en"]
+        include_url_patterns: ["/en/*"]
+        exclude_url_patterns:
+          - "*/search*"
+          - "*/login*"
+          - "*?*utm_*"
+        allowed_content_types: ["text/html"]
 
   # Example configuration for Vero website
   vero:
@@ -53,6 +118,24 @@ sites:
       max_concurrent: 4
       remove_consent_popups: true
       remove_overlay_elements: true
+      robots_policy: require
+      politeness:
+        respect_crawl_delay: true
+      discovery:
+        source: sitemap
+        sitemap_urls: []
+        cache_ttl_hours: 24
+        validate_sitemap_lastmod: true
+        trust_lastmod: false
+      scope:
+        allowed_domains: ["vero.fi", "www.vero.fi"]
+        languages: ["en"]
+        include_url_patterns: ["/en/*"]
+        exclude_url_patterns:
+          - "*/search*"
+          - "*/login*"
+          - "*?*utm_*"
+        allowed_content_types: ["text/html"]
 
   # Example configuration for DVV website
   dvv:
@@ -62,8 +145,27 @@ sites:
       max_depth: 1
       max_pages: 50
       recrawl_interval_hours: 720
-      min_delay: 1.0
-      max_delay: 3.0
-      max_concurrent: 4
+      # dvv.fi's robots.txt declares a 5s Crawl-delay; see migri above.
+      min_delay: 5.0
+      max_delay: 8.0
+      max_concurrent: 2
       remove_consent_popups: true
       remove_overlay_elements: true
+      robots_policy: require
+      politeness:
+        respect_crawl_delay: true
+      discovery:
+        source: sitemap
+        sitemap_urls: []
+        cache_ttl_hours: 24
+        validate_sitemap_lastmod: true
+        trust_lastmod: false
+      scope:
+        allowed_domains: ["dvv.fi", "www.dvv.fi"]
+        languages: ["en"]
+        include_url_patterns: ["/en/*"]
+        exclude_url_patterns:
+          - "*/search*"
+          - "*/login*"
+          - "*?*utm_*"
+        allowed_content_types: ["text/html"]

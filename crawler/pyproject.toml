@@ -9,6 +9,7 @@ description = "Tapio's independently deployable content-collection service"
 requires-python = ">=3.14"
 dependencies = [
     "crawl4ai>=0.9.2,<0.10",
+    "httpx>=0.28.1",
     "pydantic>=2.13.4",
     "pyyaml>=6.0.1",
     "python-frontmatter>=1.1.0",

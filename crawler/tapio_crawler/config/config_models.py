@@ -1,9 +1,15 @@
 """Configuration models for Crawl4AI collection jobs."""
 
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import urlparse
 
 from pydantic import BaseModel, Field, HttpUrl, model_validator
+
+# Identifies Tapio to source operators instead of a spoofed browser string.
+DEFAULT_USER_AGENT = (
+    "TapioBot/1.0 (+https://github.com/Finntegrate/tapio; "
+    "nonprofit immigration-guidance assistant; contact via repository)"
+)
 
 
 class MarkdownConfig(BaseModel):
@@ -15,6 +21,46 @@ class MarkdownConfig(BaseModel):
     unicode_snob: bool = True
     ignore_images: bool = False
     ignore_tables: bool = False
+
+
+class PolitenessConfig(BaseModel):
+    """Identification and rate-limiting posture for one source."""
+
+    respect_crawl_delay: bool = True
+    user_agent: str = DEFAULT_USER_AGENT
+
+
+class DiscoveryConfig(BaseModel):
+    """How a source's URL inventory is discovered."""
+
+    source: Literal["sitemap", "none"] = "none"
+    # Empty: read ``Sitemap:`` entries from the source's robots.txt instead.
+    sitemap_urls: list[str] = Field(default_factory=list)
+    cache_ttl_hours: Annotated[int, Field(ge=1, le=8_760)] = 24
+    validate_sitemap_lastmod: bool = True
+    # Requires a recorded, per-source correlation measurement before flipping
+    # to True (see docs/specs/crawler-improvements.md Requirement 2).
+    trust_lastmod: bool = False
+
+
+class ScopeConfig(BaseModel):
+    """Domain, language, and path rules bounding a source's eligible URLs."""
+
+    allowed_domains: list[str] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    include_url_patterns: list[str] = Field(default_factory=list)
+    exclude_url_patterns: list[str] = Field(default_factory=list)
+    allowed_content_types: list[str] = Field(default_factory=lambda: ["text/html"])
+
+
+class GapCrawlConfig(BaseModel):
+    """Bounded deep-crawl discovery settings for one source."""
+
+    enabled: bool = False
+    seed_urls: list[str] = Field(default_factory=list)
+    strategy: Literal["bfs"] = "bfs"
+    max_depth: Annotated[int, Field(ge=0, le=10)] = 2
+    max_pages: Annotated[int, Field(ge=1, le=1_000)] = 100
 
 
 class CrawlerConfig(BaseModel):
@@ -33,6 +79,11 @@ class CrawlerConfig(BaseModel):
     remove_consent_popups: bool = False
     remove_overlay_elements: bool = False
     markdown_config: MarkdownConfig = Field(default_factory=MarkdownConfig)
+    robots_policy: Literal["require"] = "require"
+    politeness: PolitenessConfig = Field(default_factory=PolitenessConfig)
+    discovery: DiscoveryConfig = Field(default_factory=DiscoveryConfig)
+    scope: ScopeConfig = Field(default_factory=ScopeConfig)
+    gap_crawl: GapCrawlConfig = Field(default_factory=GapCrawlConfig)
 
     @model_validator(mode="after")
     def validate_delay_range(self) -> CrawlerConfig:
