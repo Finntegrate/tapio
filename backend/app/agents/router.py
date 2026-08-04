@@ -4,7 +4,7 @@ import re
 from dataclasses import dataclass
 from typing import Final
 
-from tapio_backend.agents.definitions import AGENTS, AgentDefinition, get_agent
+from app.agents.definitions import AGENTS, AgentDefinition, get_agent
 
 AUTO_ROUTE: Final = "auto"
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from tapio_backend.agents import AGENTS, AUTO_ROUTE, AgentRouter, get_agent
+from app.agents import AGENTS, AUTO_ROUTE, AgentRouter, get_agent
 
 
 def test_initial_guide_roster_matches_the_public_product_definition() -> None:

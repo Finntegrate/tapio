@@ -7,7 +7,7 @@ from langchain_chroma import Chroma
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 
-from tapio_backend.config.settings import DEFAULT_VECTORSTORE_DIR
+from app.config.settings import DEFAULT_VECTORSTORE_DIR
 
 logger = logging.getLogger(__name__)
 

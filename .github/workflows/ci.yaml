@@ -23,8 +23,8 @@ jobs:
             package: tapio_ingest
             mypy_args: tapio_ingest
           - service: backend
-            package: tapio_backend
-            mypy_args: --config-file mypy.ini tapio_backend
+            package: app
+            mypy_args: --config-file mypy.ini app
     defaults:
       run:
         working-directory: ${{ matrix.service }}

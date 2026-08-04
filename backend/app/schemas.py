@@ -4,7 +4,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from tapio_backend.agents.router import AUTO_ROUTE
+from app.agents.router import AUTO_ROUTE
 
 
 class ChatMessage(BaseModel):

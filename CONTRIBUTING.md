@@ -69,7 +69,7 @@ graph TD
         K[parsers module] -.->|implements| B --> C
         L[vectorstore module] -.->|implements| C
         M[utils module] -.->|supports| J & K & L
-        N[backend/tapio_backend] -.->|implements| F & G & H & I
+        N[backend/app] -.->|implements| F & G & H & I
     end
 
     classDef neutral fill:#e0e0e0,stroke:#404040,stroke-width:1px,color:#232323
@@ -333,7 +333,7 @@ The repository is a monorepo of independently-managed projects (see [ADR 0002](d
 
 - `crawler/`: Crawls configured sites and writes Markdown with `source_url` frontmatter
 - `ingest/`: Chunks and embeds that Markdown into the shared `vectorstore/` collection
-- `backend/`: Owns the RAG/agent-routing orchestration and exposes it as a FastAPI HTTP/SSE API. Within `backend/tapio_backend/`:
+- `backend/`: Owns the RAG/agent-routing orchestration and exposes it as a FastAPI HTTP/SSE API. Within `backend/app/`:
   - `agents/`: Guide definitions and routing logic
   - `services/`: RAG orchestration and LLM services
   - `config/`: Configuration settings
@@ -350,7 +350,7 @@ For developers who want to use the RAG/agent orchestration as a library, indepen
 ### Using Factory Pattern (Recommended)
 
 ```python
-from tapio_backend import RAGConfig, RAGOrchestratorFactory
+from app import RAGConfig, RAGOrchestratorFactory
 
 # Create configuration
 config = RAGConfig(
@@ -372,10 +372,10 @@ For full control over component creation:
 
 ```python
 from langchain_huggingface import HuggingFaceEmbeddings
-from tapio_backend.retrieval import ChromaRetriever
-from tapio_backend.services.document_retrieval_service import DocumentRetrievalService
-from tapio_backend.services.llm_service import LLMService
-from tapio_backend.services.rag_orchestrator import RAGOrchestrator
+from app.retrieval import ChromaRetriever
+from app.services.document_retrieval_service import DocumentRetrievalService
+from app.services.llm_service import LLMService
+from app.services.rag_orchestrator import RAGOrchestrator
 
 # Create dependencies
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")

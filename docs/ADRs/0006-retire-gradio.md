@@ -18,11 +18,11 @@ A migration audit (grep across the whole repo, cross-checked against actual runt
 
 ## Decision
 
-We will delete the Gradio UI (`tapio/tapio/app.py`) and its launcher CLI (`tapio/tapio/cli.py`), move the RAG/agent-routing orchestration (`agents/`, `config/`, `prompts/`, `services/`, `retrieval.py`, `factories.py`) directly into `backend/tapio_backend/`, delete the dead `utils/`/`models/` code rather than migrating it, and delete the standalone `tapio/` project entirely. `backend/` becomes the single home for both the orchestration logic and the HTTP/SSE API that exposes it — matching what ADR 0002 already anticipated new front ends would build against.
+We will delete the Gradio UI (`tapio/tapio/app.py`) and its launcher CLI (`tapio/tapio/cli.py`), move the RAG/agent-routing orchestration (`agents/`, `config/`, `prompts/`, `services/`, `retrieval.py`, `factories.py`) directly into `backend/app/`, delete the dead `utils/`/`models/` code rather than migrating it, and delete the standalone `tapio/` project entirely. `backend/` becomes the single home for both the orchestration logic and the HTTP/SSE API that exposes it — matching what ADR 0002 already anticipated new front ends would build against.
 
 The SvelteKit `app/` becomes the real, user-facing client, replicating what the Gradio prototype did (a shared conversation, visible guide identity and routing reason per turn, streaming text, source citations) by calling `backend/`'s `GET /agents` and `POST /chat/stream` endpoints directly from the browser, using the CORS support already built into `backend/`'s settings.
 
-Every internal `from tapio.` import becomes `from tapio_backend.`; the `config` package absorbs the pre-existing `BackendSettings` module (renamed to `config/backend_settings.py`) to resolve the module/package name collision. `backend/pyproject.toml` drops `typer`, `gradio`, `langchain`, `langchain-community`, and `langchain-text-splitters` (only the deleted Gradio/CLI/dead-code paths used them) and gains `langchain-chroma`, `langchain-huggingface`, and `ollama` directly.
+Every internal `from tapio.` import becomes `from app.`; the `config` package absorbs the pre-existing `BackendSettings` module (renamed to `config/backend_settings.py`) to resolve the module/package name collision. `backend/pyproject.toml` drops `typer`, `gradio`, `langchain`, `langchain-community`, and `langchain-text-splitters` (only the deleted Gradio/CLI/dead-code paths used them) and gains `langchain-chroma`, `langchain-huggingface`, and `ollama` directly.
 
 ## Consequences
 
@@ -30,7 +30,7 @@ Every internal `from tapio.` import becomes `from tapio_backend.`; the `config` 
 
 - One project (`backend/`) instead of two, with one lockfile, no cross-project editable path dependency, and no `py.typed` bridging marker needed.
 - `backend/`'s dependency tree drops Gradio, its transitive Torch pull, and other UI-only packages — confirmed via `uv lock` (Gradio, `gradio-client`, `hf-gradio`, `langchain`, `langchain-community`, `langchain-text-splitters`, and the `langgraph*` family all dropped out).
-- Deleting confirmed-dead code (`utils/`, `models/document.py`) instead of migrating it keeps the merged package's surface area honest — everything in `backend/tapio_backend/` is now something the query path actually calls.
+- Deleting confirmed-dead code (`utils/`, `models/document.py`) instead of migrating it keeps the merged package's surface area honest — everything in `backend/app/` is now something the query path actually calls.
 - Resolves the accessibility/mobile-first gap ADR 0005 flagged as a negative consequence of the Gradio prototype.
 
 ### Negative

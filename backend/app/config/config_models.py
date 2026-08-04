@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass
 
-from tapio_backend.config.settings import (
+from app.config.settings import (
     DEFAULT_CHROMA_COLLECTION,
     DEFAULT_EMBEDDING_MODEL,
     DEFAULT_LLM_MODEL,

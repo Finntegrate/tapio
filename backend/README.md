@@ -4,7 +4,7 @@ FastAPI HTTP/SSE layer over Tapio's RAG and agent-routing orchestration, built f
 
 This project owns both the orchestration logic (`RAGOrchestrator`, `AgentRouter`, the guide definitions, prompt templates) and the API that exposes it — the standalone `tapio/` project and its Gradio UI have been retired.
 
-Run `uv sync`, then `uv run uvicorn tapio_backend.main:app --reload --port 8000`. It reads the shared `../vectorstore/` collection written by `ingest/`; requires a local Ollama instance with the configured model available.
+Run `uv sync`, then `uv run uvicorn app.main:app --reload --port 8000`. It reads the shared `../vectorstore/` collection written by `ingest/`; requires a local Ollama instance with the configured model available.
 
 ## Endpoints
 

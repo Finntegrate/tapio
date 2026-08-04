@@ -6,9 +6,9 @@ from unittest.mock import Mock
 import pytest
 from fastapi.testclient import TestClient
 
-from tapio_backend.agents.router import AgentRouter
-from tapio_backend.dependencies import get_agent_router, get_orchestrator
-from tapio_backend.main import app
+from app.agents.router import AgentRouter
+from app.dependencies import get_agent_router, get_orchestrator
+from app.main import app
 
 # ============================================================================
 # Mock fixtures for RAG/agent unit tests

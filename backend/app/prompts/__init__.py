@@ -1,5 +1,5 @@
 """Prompt management module for Tapio Assistant."""
 
-from tapio_backend.prompts.prompt_loader import get_prompt_path, load_prompt
+from app.prompts.prompt_loader import get_prompt_path, load_prompt
 
 __all__ = ["get_prompt_path", "load_prompt"]

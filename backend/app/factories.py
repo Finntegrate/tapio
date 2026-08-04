@@ -8,11 +8,11 @@ instances without tight coupling.
 from langchain_core.embeddings import Embeddings
 from langchain_huggingface import HuggingFaceEmbeddings
 
-from tapio_backend.config.config_models import RAGConfig
-from tapio_backend.retrieval import ChromaRetriever
-from tapio_backend.services.document_retrieval_service import DocumentRetrievalService
-from tapio_backend.services.llm_service import LLMService
-from tapio_backend.services.rag_orchestrator import RAGOrchestrator
+from app.config.config_models import RAGConfig
+from app.retrieval import ChromaRetriever
+from app.services.document_retrieval_service import DocumentRetrievalService
+from app.services.llm_service import LLMService
+from app.services.rag_orchestrator import RAGOrchestrator
 
 
 class RAGOrchestratorFactory:
@@ -27,7 +27,7 @@ class RAGOrchestratorFactory:
         config: Configuration object containing all RAG settings
 
     Example:
-        >>> from tapio_backend.config.config_models import RAGConfig
+        >>> from app.config.config_models import RAGConfig
         >>> config = RAGConfig(collection_name="my_docs")
         >>> factory = RAGOrchestratorFactory(config)
         >>> orchestrator = factory.create_orchestrator()

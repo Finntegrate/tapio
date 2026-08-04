@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from tapio_backend.services.document_retrieval_service import DocumentRetrievalService
+from app.services.document_retrieval_service import DocumentRetrievalService
 
 
 @pytest.fixture

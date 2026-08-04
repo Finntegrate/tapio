@@ -24,7 +24,10 @@ dependencies = [
 ]
 
 [project.scripts]
-tapio-backend = "tapio_backend.main:run"
+tapio-backend = "app.main:run"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
 [tool.pytest]
 testpaths = ["tests"]

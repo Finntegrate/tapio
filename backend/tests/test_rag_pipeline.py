@@ -10,12 +10,12 @@ from unittest.mock import Mock, patch
 import pytest
 from langchain_core.documents import Document  # type: ignore[import-not-found]
 
-from tapio_backend.config.config_models import RAGConfig
-from tapio_backend.factories import RAGOrchestratorFactory
-from tapio_backend.retrieval import ChromaRetriever
-from tapio_backend.services.document_retrieval_service import DocumentRetrievalService
-from tapio_backend.services.llm_service import LLMService
-from tapio_backend.services.rag_orchestrator import RAGOrchestrator
+from app.config.config_models import RAGConfig
+from app.factories import RAGOrchestratorFactory
+from app.retrieval import ChromaRetriever
+from app.services.document_retrieval_service import DocumentRetrievalService
+from app.services.llm_service import LLMService
+from app.services.rag_orchestrator import RAGOrchestrator
 
 
 @pytest.mark.integration
@@ -75,7 +75,7 @@ def test_rag_pipeline_end_to_end(tmp_chroma_db, mock_embeddings):
     )
 
     # Query the system
-    with patch("tapio_backend.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+    with patch("app.services.rag_orchestrator.load_prompt") as mock_load_prompt:
         mock_load_prompt.side_effect = ["You are a helpful assistant.", "Context: {context}\n\nQuestion: {question}"]
 
         response, retrieved_docs = orchestrator.query("How do I apply for a residence permit?")

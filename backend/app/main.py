@@ -8,11 +8,11 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from tapio_backend.agents.router import AgentRouter
-from tapio_backend.config import BackendSettings
-from tapio_backend.config.config_models import RAGConfig
-from tapio_backend.factories import RAGOrchestratorFactory
-from tapio_backend.routes import agents, chat, health
+from app.agents.router import AgentRouter
+from app.config import BackendSettings
+from app.config.config_models import RAGConfig
+from app.factories import RAGOrchestratorFactory
+from app.routes import agents, chat, health
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +59,7 @@ app = create_app()
 def run() -> None:
     """Run the backend with uvicorn, honoring ``BackendSettings`` host/port."""
     settings = BackendSettings()
-    uvicorn.run("tapio_backend.main:app", host=settings.host, port=settings.port, reload=False)
+    uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=False)
 
 
 if __name__ == "__main__":

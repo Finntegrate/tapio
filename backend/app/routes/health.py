@@ -3,8 +3,8 @@
 from fastapi import APIRouter
 from starlette.concurrency import run_in_threadpool
 
-from tapio_backend.dependencies import OrchestratorDep
-from tapio_backend.schemas import HealthResponse
+from app.dependencies import OrchestratorDep
+from app.schemas import HealthResponse
 
 router = APIRouter()
 

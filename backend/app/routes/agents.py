@@ -2,8 +2,8 @@
 
 from fastapi import APIRouter
 
-from tapio_backend.agents.definitions import AGENTS
-from tapio_backend.schemas import AgentSummary
+from app.agents.definitions import AGENTS
+from app.schemas import AgentSummary
 
 router = APIRouter()
 

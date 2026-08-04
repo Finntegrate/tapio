@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from tapio_backend.services.llm_service import LLMService, _build_messages
+from app.services.llm_service import LLMService, _build_messages
 
 
 class TestLLMService:
@@ -52,7 +52,7 @@ class TestLLMService:
         service = LLMService(model_name="test-model")
         assert service.get_model_name() == "test-model"
 
-    @patch("tapio_backend.services.llm_service.ollama.list")
+    @patch("app.services.llm_service.ollama.list")
     def test_check_model_availability_no_models(self, mock_list):
         """Test model availability check when no models are available."""
         # Mock empty response
@@ -66,7 +66,7 @@ class TestLLMService:
         assert result is False
         mock_list.assert_called_once()
 
-    @patch("tapio_backend.services.llm_service.ollama.list")
+    @patch("app.services.llm_service.ollama.list")
     def test_check_model_availability_ollama_not_running(self, mock_list):
         """Test model availability check when Ollama is not running."""
         # Mock connection error
@@ -109,7 +109,7 @@ class TestLLMService:
             ),
         ],
     )
-    @patch("tapio_backend.services.llm_service.ollama.list")
+    @patch("app.services.llm_service.ollama.list")
     def test_check_model_availability_parameterized(
         self,
         mock_list,
@@ -123,7 +123,7 @@ class TestLLMService:
         # Configure logging for the test
         import logging
 
-        caplog.set_level(logging.INFO, logger="tapio_backend.services.llm_service")
+        caplog.set_level(logging.INFO, logger="app.services.llm_service")
 
         # Create mock model objects
         mock_models = []
@@ -146,7 +146,7 @@ class TestLLMService:
         # Check that the expected log message appears
         assert expected_log_message in caplog.text
 
-    @patch("tapio_backend.services.llm_service.ollama.list")
+    @patch("app.services.llm_service.ollama.list")
     def test_check_model_availability_requires_exact_model_tag(self, mock_list) -> None:
         """Reject an installed variant when its tag differs from the requested model."""
         installed_model = MagicMock()
@@ -157,13 +157,13 @@ class TestLLMService:
 
         assert LLMService("gemma4:latest").check_model_availability() is False
 
-    @patch("tapio_backend.services.llm_service.ollama.list")
+    @patch("app.services.llm_service.ollama.list")
     def test_check_model_availability_logs_available_models(self, mock_list, caplog):
         """Test that available models are logged correctly."""
         # Configure logging for the test
         import logging
 
-        caplog.set_level(logging.INFO, logger="tapio_backend.services.llm_service")
+        caplog.set_level(logging.INFO, logger="app.services.llm_service")
 
         # Create mock model objects
         mock_models = []
@@ -185,7 +185,7 @@ class TestLLMService:
         expected_log = "Available Ollama models: llama3.2:latest, all-minilm:22m, codellama:7b"
         assert expected_log in caplog.text
 
-    @patch("tapio_backend.services.llm_service.ollama.list")
+    @patch("app.services.llm_service.ollama.list")
     def test_check_model_availability_handles_none_model_names(self, mock_list):
         """Test that the service handles model objects with None names gracefully."""
         # Create mock model objects with some None names
@@ -217,7 +217,7 @@ class TestLLMService:
         assert result is True
         mock_list.assert_called_once()
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_success(self, mock_chat):
         """Test successful response generation."""
         # Mock successful response
@@ -241,7 +241,7 @@ class TestLLMService:
             },
         )
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_with_system_prompt(self, mock_chat):
         """Test response generation with system prompt."""
         # Mock successful response
@@ -271,7 +271,7 @@ class TestLLMService:
             },
         )
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_with_history(self, mock_chat):
         """Test response generation includes prior conversation turns."""
         mock_chat.return_value = {"message": {"content": "Sure, following up."}}
@@ -302,7 +302,7 @@ class TestLLMService:
             },
         )
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_history_is_truncated(self, mock_chat):
         """Test that only the most recent MAX_HISTORY_MESSAGES turns are kept."""
         mock_chat.return_value = {"message": {"content": "ok"}}
@@ -316,7 +316,7 @@ class TestLLMService:
         assert sent_messages[:-1] == history[-10:]
         assert sent_messages[-1] == {"role": "user", "content": "latest question"}
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_error(self, mock_chat):
         """Test response generation when an error occurs."""
         # Mock error
@@ -329,7 +329,7 @@ class TestLLMService:
         assert "llama3.2:latest" in result
         mock_chat.assert_called_once()
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_stream_yields_content_without_a_context_cap(self, mock_chat):
         mock_chat.return_value = [
             {"message": {"content": "First "}},
@@ -342,7 +342,7 @@ class TestLLMService:
         options = mock_chat.call_args.kwargs["options"]
         assert "num_ctx" not in options
 
-    @patch("tapio_backend.services.llm_service.ollama.chat")
+    @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_stream_yields_a_safe_error_message(self, mock_chat):
         mock_chat.side_effect = Exception("Connection error")
 

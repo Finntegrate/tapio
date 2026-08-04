@@ -4,8 +4,8 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from tapio_backend.agents.router import AgentRouter
-from tapio_backend.services.rag_orchestrator import RAGOrchestrator
+from app.agents.router import AgentRouter
+from app.services.rag_orchestrator import RAGOrchestrator
 
 
 def get_orchestrator(request: Request) -> RAGOrchestrator:

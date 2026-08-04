@@ -4,10 +4,10 @@ import logging
 from collections.abc import Generator
 from typing import Any
 
-from tapio_backend.agents import get_agent
-from tapio_backend.prompts import load_prompt
-from tapio_backend.services.document_retrieval_service import DocumentRetrievalService
-from tapio_backend.services.llm_service import LLMService
+from app.agents import get_agent
+from app.prompts import load_prompt
+from app.services.document_retrieval_service import DocumentRetrievalService
+from app.services.llm_service import LLMService
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ class RAGOrchestrator:
             llm_service: Service for LLM generation
 
         Example:
-            >>> from tapio_backend.factories import RAGOrchestratorFactory
-            >>> from tapio_backend.config.config_models import RAGConfig
+            >>> from app.factories import RAGOrchestratorFactory
+            >>> from app.config.config_models import RAGConfig
             >>>
             >>> config = RAGConfig(collection_name="my_docs")
             >>> factory = RAGOrchestratorFactory(config)

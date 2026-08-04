@@ -6,7 +6,7 @@ from typing import Any
 
 import ollama
 
-from tapio_backend.config.settings import DEFAULT_LLM_MODEL
+from app.config.settings import DEFAULT_LLM_MODEL
 
 # Configure logging
 logger = logging.getLogger(__name__)

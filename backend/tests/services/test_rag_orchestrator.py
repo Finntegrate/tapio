@@ -4,7 +4,7 @@ from unittest import mock
 
 import pytest
 
-from tapio_backend.services.rag_orchestrator import RAGOrchestrator
+from app.services.rag_orchestrator import RAGOrchestrator
 
 
 @pytest.fixture
@@ -26,7 +26,7 @@ def rag_orchestrator(mock_doc_retrieval_service, mock_llm_service):
 def test_rag_orchestrator_query(rag_orchestrator):
     """Test that RAG orchestrator correctly coordinates document retrieval and LLM generation."""
     # Mock the prompt loading functions
-    with mock.patch("tapio_backend.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+    with mock.patch("app.services.rag_orchestrator.load_prompt") as mock_load_prompt:
         # Configure mock return values
         mock_load_prompt.side_effect = [
             "Mocked system prompt",  # For system_prompt
@@ -86,7 +86,7 @@ def test_rag_orchestrator_query(rag_orchestrator):
 def test_rag_orchestrator_query_stream(rag_orchestrator):
     """Test that RAG orchestrator correctly coordinates streaming response."""
     # Mock the prompt loading functions
-    with mock.patch("tapio_backend.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+    with mock.patch("app.services.rag_orchestrator.load_prompt") as mock_load_prompt:
         # Configure mock return values
         mock_load_prompt.side_effect = [
             "Mocked system prompt",  # For system_prompt
@@ -134,7 +134,7 @@ def test_rag_orchestrator_query_stream(rag_orchestrator):
 
 
 def test_rag_orchestrator_adds_specialist_prompt(rag_orchestrator):
-    with mock.patch("tapio_backend.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+    with mock.patch("app.services.rag_orchestrator.load_prompt") as mock_load_prompt:
         mock_load_prompt.side_effect = [
             "Tapio's shared system prompt",
             "Sampo's specialist prompt",
@@ -153,7 +153,7 @@ def test_rag_orchestrator_adds_specialist_prompt(rag_orchestrator):
 
 
 def test_rag_orchestrator_uses_only_the_shared_prompt_for_tapio(rag_orchestrator):
-    with mock.patch("tapio_backend.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+    with mock.patch("app.services.rag_orchestrator.load_prompt") as mock_load_prompt:
         mock_load_prompt.side_effect = ["Tapio's shared system prompt", "User prompt"]
 
         rag_orchestrator.query("Where should I start?")

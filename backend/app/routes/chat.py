@@ -3,9 +3,9 @@
 from fastapi import APIRouter
 from sse_starlette.sse import EventSourceResponse
 
-from tapio_backend.dependencies import AgentRouterDep, OrchestratorDep
-from tapio_backend.schemas import ChatRequest
-from tapio_backend.streaming import stream_chat_turn
+from app.dependencies import AgentRouterDep, OrchestratorDep
+from app.schemas import ChatRequest
+from app.streaming import stream_chat_turn
 
 router = APIRouter()
 
