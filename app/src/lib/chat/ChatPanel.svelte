@@ -21,7 +21,7 @@
 </script>
 
 <div
-	class="grid h-dvh grid-rows-[auto_1fr] bg-pine-950 text-pine-100 sm:grid-cols-[minmax(220px,20%)_1fr] sm:grid-rows-none"
+	class="grid h-dvh grid-rows-[auto_1fr] overflow-hidden bg-pine-950 text-pine-100 sm:grid-cols-[minmax(220px,20%)_1fr] sm:grid-rows-1"
 >
 	<AgentSidebar
 		agents={chat.agents}
@@ -29,15 +29,15 @@
 		onchange={(id) => (chat.selectedAgentId = id)}
 	/>
 
-	<div class="flex min-w-0 flex-col">
-		<header class="border-b border-pine-700 p-4">
+	<div class="flex min-h-0 min-w-0 flex-col">
+		<header class="shrink-0 border-b border-pine-700 p-4">
 			<h2 class="font-medium text-pine-100">{currentAgentName}</h2>
 		</header>
 
 		<MessageList messages={chat.messages} />
 
 		{#if chat.error}
-			<p class="px-4 pb-2 text-sm text-red-400">{chat.error}</p>
+			<p class="shrink-0 px-4 pb-2 text-sm text-red-400">{chat.error}</p>
 		{/if}
 
 		<ChatInput disabled={chat.isStreaming} onsend={(text) => chat.sendMessage(text)} />

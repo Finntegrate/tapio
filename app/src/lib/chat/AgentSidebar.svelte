@@ -14,14 +14,14 @@
 </script>
 
 <aside
-	class="flex max-h-48 flex-col overflow-y-auto border-b border-pine-700 bg-pine-900 sm:max-h-none sm:overflow-visible sm:border-r sm:border-b-0"
+	class="flex max-h-48 min-h-0 flex-col overflow-hidden border-b border-pine-700 bg-pine-900 sm:h-full sm:max-h-none sm:border-r sm:border-b-0"
 >
-	<div class="border-b border-pine-700 p-4">
+	<div class="shrink-0 border-b border-pine-700 p-4">
 		<h1 class="text-lg font-semibold text-pine-100">Tapio</h1>
 		<p class="text-xs text-pine-400">{m.chat_sidebar_tagline()}</p>
 	</div>
 
-	<nav class="flex-1 space-y-1 overflow-y-auto p-2">
+	<nav class="min-h-0 flex-1 space-y-1 overflow-y-auto p-2">
 		<button
 			type="button"
 			onclick={() => onchange(AUTO_ROUTE)}
