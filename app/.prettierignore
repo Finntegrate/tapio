@@ -7,3 +7,10 @@ bun.lockb
 
 # Miscellaneous
 /static/
+
+# Vendored agent-tooling skill/reference docs added by `sv create` scaffolding
+# (Claude, Gemini, GitHub Copilot). Copied verbatim from upstream -- not
+# authored here, so we don't reformat them.
+/.github/skills/
+/.github/agents/
+/.gemini/
