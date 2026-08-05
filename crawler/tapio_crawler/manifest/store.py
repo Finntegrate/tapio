@@ -28,6 +28,7 @@ _COLUMNS = (
     "fetch_status",
     "last_attempt_at",
     "retry_after",
+    "retry_count",
     "content_hash",
     "content_length",
     "title",
@@ -39,9 +40,11 @@ _COLUMNS = (
     "validation_status",
 )
 
+_INTEGER_COLUMNS = frozenset({"content_length", "retry_count"})
+
 _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS manifest (
-    {", ".join(f"{name} TEXT" if name != "content_length" else f"{name} INTEGER" for name in _COLUMNS)},
+    {", ".join(f"{name} INTEGER" if name in _INTEGER_COLUMNS else f"{name} TEXT" for name in _COLUMNS)},
     PRIMARY KEY (site_name, canonical_url)
 );
 """
@@ -66,7 +69,27 @@ class ManifestStore:
         self._connection = sqlite3.connect(self.path)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute(_SCHEMA)
+        self._add_missing_columns()
         self._connection.commit()
+
+    def _add_missing_columns(self) -> None:
+        """Add any missing column, so an older database file doesn't fail.
+
+        Compares ``_COLUMNS`` against the database's actual columns and adds
+        whatever is missing, so opening a file created by an older schema
+        version doesn't fail on the first read/write that touches a newer
+        column.
+        """
+        existing = {row["name"] for row in self._connection.execute("PRAGMA table_info(manifest)")}
+        for name in _COLUMNS:
+            if name in existing:
+                continue
+            # Column names are drawn from the fixed _COLUMNS tuple, never
+            # from user input, so this isn't a SQL-injection vector.
+            if name in _INTEGER_COLUMNS:
+                self._connection.execute(f"ALTER TABLE manifest ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
+            else:
+                self._connection.execute(f"ALTER TABLE manifest ADD COLUMN {name} TEXT")
 
     def close(self) -> None:
         """Release the underlying SQLite connection."""
@@ -141,6 +164,117 @@ class ManifestStore:
             params.append(scope_status)
         rows = self._connection.execute(query, params).fetchall()
         return [_row_to_record(row) for row in rows]
+
+    def count_by_site(
+        self,
+        site_name: str,
+        *,
+        scope_status: str | None = None,
+        fetch_status: str | None = None,
+    ) -> int:
+        """Return the number of manifest records for one site, optionally filtered.
+
+        Args:
+            site_name: Name of the configured source site.
+            scope_status: When given, only count records with this ``scope_status``.
+            fetch_status: When given, only count records with this ``fetch_status``.
+
+        Returns:
+            The matching row count.
+        """
+        query = "SELECT COUNT(*) FROM manifest WHERE site_name = ?"
+        params: list[object] = [site_name]
+        if scope_status is not None:
+            query += " AND scope_status = ?"
+            params.append(scope_status)
+        if fetch_status is not None:
+            query += " AND fetch_status = ?"
+            params.append(fetch_status)
+        row = self._connection.execute(query, params).fetchone()
+        return int(row[0])
+
+    def save(self, record: ManifestRecord) -> None:
+        """Persist ``record`` verbatim, without ``upsert()``'s discovery-merge policy.
+
+        Args:
+            record: The full record to write, already read and mutated by
+                the caller (for example, after a render attempt).
+        """
+        self._write(record)
+
+    def list_eligible_page(
+        self,
+        site_name: str,
+        *,
+        after_canonical_url: str = "",
+        limit: int = 500,
+    ) -> list[ManifestRecord]:
+        """Return one keyset-paginated page of a site's eligible records.
+
+        Args:
+            site_name: Name of the configured source site.
+            after_canonical_url: Return records whose ``canonical_url`` sorts
+                strictly after this value. Empty string starts from the
+                beginning.
+            limit: Maximum number of records to return.
+
+        Returns:
+            Up to ``limit`` eligible records, ordered by ``canonical_url``.
+        """
+        rows = self._connection.execute(
+            "SELECT * FROM manifest WHERE site_name = ? AND scope_status = 'eligible' "
+            "AND canonical_url > ? ORDER BY canonical_url LIMIT ?",
+            (site_name, after_canonical_url, limit),
+        ).fetchall()
+        return [_row_to_record(row) for row in rows]
+
+    def rekey(
+        self,
+        site_name: str,
+        old_canonical_url: str,
+        new_record: ManifestRecord,
+    ) -> None:
+        """Move a record from ``old_canonical_url`` to ``new_record.canonical_url``.
+
+        Used when rendering discovers that a URL's true canonical target
+        differs from the one it was discovered under (for example, a
+        redirect resolves to a different page). Deletes the old row and
+        writes ``new_record``, so exactly one manifest record and one
+        artifact ever exist for the resolved page. Callers should carry the
+        old row's ``first_seen_at``/``discovery_source`` into ``new_record``
+        before calling this.
+
+        If a record already exists under ``new_record.canonical_url`` (two
+        different discovered URLs redirecting to the same target, or the
+        target having its own discovery history), that existing record's
+        provenance is merged in rather than being silently overwritten:
+        ``discovery_source`` is unioned and ``first_seen_at``/``last_seen_at``
+        keep their earliest/latest values. ``new_record``'s own render-outcome
+        fields (``fetch_status``, ``content_hash``, ``last_rendered_at``,
+        etc.) always win, since it reflects the render that just happened.
+
+        Args:
+            site_name: Name of the configured source site.
+            old_canonical_url: The record's previous canonical identity.
+            new_record: The record to persist under its new canonical identity.
+        """
+        existing_target = self.get(site_name, new_record.canonical_url)
+        merged = (
+            new_record
+            if existing_target is None
+            else new_record.model_copy(
+                update={
+                    "discovery_source": existing_target.discovery_source | new_record.discovery_source,
+                    "first_seen_at": min(existing_target.first_seen_at, new_record.first_seen_at),
+                    "last_seen_at": max(existing_target.last_seen_at, new_record.last_seen_at),
+                },
+            )
+        )
+        self._connection.execute(
+            "DELETE FROM manifest WHERE site_name = ? AND canonical_url = ?",
+            (site_name, old_canonical_url),
+        )
+        self._write(merged)
 
     def _write(self, record: ManifestRecord) -> None:
         """Upsert ``record``'s row into the ``manifest`` table.

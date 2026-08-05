@@ -16,8 +16,6 @@ def test_config_manager(tmp_path: Path) -> ConfigManager:
   test_site:
     base_url: https://example.com
     crawler_config:
-      max_depth: 0
-      max_pages: 1
       min_delay: 0
       max_delay: 0
 """,

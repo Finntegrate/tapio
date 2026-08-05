@@ -22,38 +22,52 @@ def list_sites() -> None:
 @app.command()
 def crawl(
     site: str,
-    depth: int | None = typer.Option(None, "--depth", "-d"),
-    force: bool = typer.Option(False, "--force", help="Ignore the re-crawl interval."),
+    max_urls: int = typer.Option(
+        5_000,
+        "--max-urls",
+        help="Hard cap on manifest records rendered this run.",
+    ),
+    batch_size: int = typer.Option(
+        500,
+        "--batch-size",
+        help="Manifest page size used while selecting due records.",
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Ignore each record's refresh schedule and render every eligible record.",
+    ),
 ) -> None:
-    """Collect source pages into Markdown for one configured site."""
+    """Render due manifest records into Markdown for one configured site.
+
+    Run ``discover <site>`` first to populate the manifest this command reads
+    from.
+    """
     config = ConfigManager()
     site_config = config.get_site_config(site)
-    if depth is not None:
-        site_config.crawler_config.max_depth = depth
-    runner = CrawlerRunner()
-    results = runner.run(site, site_config, force=force)
-    summary = runner.last_summary
-    if summary is None:
-        msg = "Crawler finished without a summary."
-        raise RuntimeError(msg)
-    if summary.get("skipped"):
-        typer.echo(
-            f"Skipped {site}; it was crawled within its "
-            f"{site_config.crawler_config.recrawl_interval_hours}-hour interval. "
-            "Use --force to crawl it now.",
-        )
-        return
-    status_codes = ", ".join(f"{status}={count}" for status, count in summary.get("status_codes", {}).items()) or "none"
-    cache_statuses = (
-        ", ".join(f"{status}={count}" for status, count in summary.get("cache_statuses", {}).items()) or "none"
-    )
+    store = ManifestStore()
+    try:
+        runner = CrawlerRunner(store)
+        summary = runner.run(site, site_config, max_urls=max_urls, batch_size=batch_size, force=force)
+    finally:
+        store.close()
+
+    status = "complete" if summary.complete else "incomplete"
+    status_codes = ", ".join(f"{code}={count}" for code, count in summary.status_codes.items()) or "none"
+    cache_statuses = ", ".join(f"{status_}={count}" for status_, count in summary.cache_statuses.items()) or "none"
     typer.echo(
-        f"Wrote {len(results)} Markdown documents for {site}. "
-        f"Fetched {summary.get('fetched', 0)}; failed {summary.get('failed', 0)}; "
-        f"near-empty {summary.get('near_empty', 0)}; "
-        f"fallback recoveries {summary.get('fallback_recoveries', 0)}; "
+        f"Render run {summary.run_id} for {site}: {status}. "
+        f"Considered {summary.considered}; rendered {summary.rendered}; saved {summary.saved}; "
+        f"low-quality {summary.low_quality}; failed {summary.failed}; retried {summary.retried}; "
+        f"coverage {summary.coverage_percent:.1f}% ({summary.current_total}/{summary.eligible_total}). "
         f"HTTP statuses: {status_codes}; cache: {cache_statuses}.",
     )
+    coverage_target = site_config.crawler_config.refresh.coverage_target_percent
+    if summary.coverage_percent < coverage_target:
+        typer.echo(
+            f"WARNING: coverage {summary.coverage_percent:.1f}% is below the "
+            f"{coverage_target:.1f}% target configured for {site}.",
+        )
 
 
 @app.command()

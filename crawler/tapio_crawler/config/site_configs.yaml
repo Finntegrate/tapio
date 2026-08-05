@@ -7,9 +7,6 @@ sites:
     base_url: "https://migri.fi"
     description: "Finnish Immigration Service website"
     crawler_config:
-      max_depth: 1
-      max_pages: 50
-      recrawl_interval_hours: 720
       # migri.fi's robots.txt declares a 5s Crawl-delay; this is the floor
       # under which the shared rate limiter will never schedule a request.
       min_delay: 5.0
@@ -39,9 +36,6 @@ sites:
     base_url: "https://tyomarkkinatori.fi/"
     description: "Work assistance and employment services website"
     crawler_config:
-      max_depth: 1
-      max_pages: 50
-      recrawl_interval_hours: 720
       min_delay: 1.5
       max_delay: 3.0
       max_concurrent: 3
@@ -75,9 +69,6 @@ sites:
     base_url: "https://www.kela.fi"
     description: "Kela (Social Insurance Institution of Finland) website"
     crawler_config:
-      max_depth: 1
-      max_pages: 50
-      recrawl_interval_hours: 720
       min_delay: 1.2
       max_delay: 3.0
       max_concurrent: 4
@@ -103,9 +94,6 @@ sites:
     base_url: "https://www.vero.fi/en/"
     description: "Vero (Guidance about taxation in Finland) website"
     crawler_config:
-      max_depth: 1
-      max_pages: 50
-      recrawl_interval_hours: 720
       min_delay: 1.0
       max_delay: 3.0
       max_concurrent: 4
@@ -132,9 +120,6 @@ sites:
     base_url: "https://dvv.fi/"
     description: "DVV (Digital and population data services agency) website"
     crawler_config:
-      max_depth: 1
-      max_pages: 50
-      recrawl_interval_hours: 720
       # dvv.fi's robots.txt declares a 5s Crawl-delay; see migri above.
       min_delay: 5.0
       max_delay: 8.0

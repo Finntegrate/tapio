@@ -43,6 +43,8 @@ class ManifestRecord(BaseModel):
         fetch_status: Outcome of the most recent fetch attempt, if any.
         last_attempt_at: Timestamp of the most recent fetch attempt.
         retry_after: Earliest time a failed fetch should be retried.
+        retry_count: Consecutive failed/unconfirmed attempts since the last
+            success; resets to 0 on a successful render.
         content_hash: Hash of the fetched content, used to detect changes.
         content_length: Byte length of the fetched content.
         title: Page title extracted from the fetched content.
@@ -68,6 +70,7 @@ class ManifestRecord(BaseModel):
     fetch_status: str | None = None
     last_attempt_at: datetime | None = None
     retry_after: datetime | None = None
+    retry_count: int = 0
     content_hash: str | None = None
     content_length: int | None = None
     title: str | None = None
