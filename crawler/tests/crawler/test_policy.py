@@ -16,6 +16,14 @@ NOW = datetime(2026, 8, 5, tzinfo=UTC)
 
 
 def _record(**overrides: object) -> ManifestRecord:
+    """Build a minimal ``ManifestRecord`` for policy tests, overriding any given fields.
+
+    Args:
+        **overrides: Field values to override on top of the defaults.
+
+    Returns:
+        The constructed record.
+    """
     defaults: dict[str, object] = {
         "site_name": "example",
         "source_url": "https://example.com/a",

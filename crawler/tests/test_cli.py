@@ -47,7 +47,7 @@ def test_crawl_reports_render_summary() -> None:
         result = CliRunner().invoke(app, ["crawl", "example"])
 
     assert result.exit_code == 0
-    assert "complete" in result.stdout
+    assert "for example: complete." in result.stdout
     assert "saved 1" in result.stdout
     assert "WARNING" in result.stdout
     manifest_store_type.return_value.close.assert_called_once()

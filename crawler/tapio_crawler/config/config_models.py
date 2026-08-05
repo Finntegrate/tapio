@@ -63,7 +63,20 @@ class GapCrawlConfig(BaseModel):
 
 
 class RefreshConfig(BaseModel):
-    """Per-document refresh scheduling and coverage targets for one source."""
+    """Per-document refresh scheduling and coverage targets for one source.
+
+    Attributes:
+        unchanged_audit_days: How many days a rendered document may go
+            without a fresh check before it becomes due again for a
+            scheduled audit, even without a signal that it changed.
+        inactive_grace_cycles: How many consecutive discovery runs a
+            previously eligible URL may go missing before it is treated as
+            removed from the source, rather than a transient omission.
+        coverage_target_percent: The share of eligible URLs, 0-100, that
+            should have a successful current document before a render run
+            is considered to have met its coverage target; used only to
+            flag a shortfall in run output, not to gate anything.
+    """
 
     unchanged_audit_days: Annotated[int, Field(ge=1)] = 90
     inactive_grace_cycles: Annotated[int, Field(ge=1)] = 2

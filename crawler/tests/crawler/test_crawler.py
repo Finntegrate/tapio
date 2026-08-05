@@ -237,10 +237,21 @@ async def test_retry_cap_stops_scheduling_further_retries(tmp_path: Path) -> Non
     await _run(store, tmp_path, browser=browser, force=True)
 
     updated = store.get("example", "https://example.com/permit")
-    store.close()
     assert updated is not None
     assert updated.retry_count == MAX_RETRY_COUNT + 1
     assert updated.retry_after is None
+
+    # A record that exhausted its retry cap without ever rendering
+    # successfully must stay parked on a later, non-forced run rather than
+    # being immediately re-selected as an "initial backfill".
+    second_browser = mock_browser()
+    summary = await _run(store, tmp_path, browser=second_browser)
+    store.close()
+
+    second_browser.arun.assert_not_called()
+    assert summary.considered == 1
+    assert summary.skipped_not_due == 1
+    assert summary.saved == 0
 
 
 @pytest.mark.asyncio

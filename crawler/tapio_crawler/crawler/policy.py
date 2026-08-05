@@ -71,6 +71,13 @@ def decide_render(  # noqa: PLR0911
     if record.retry_after is not None and record.retry_after > now:
         return None
 
+    # A record that has exhausted its retry cap without ever rendering
+    # successfully has retry_after=None (backoff no longer applies), but
+    # must stay parked rather than falling into "initial_backfill" below
+    # and being retried indefinitely every run.
+    if record.retry_count > MAX_RETRY_COUNT and record.last_rendered_at is None:
+        return None
+
     if record.last_rendered_at is None:
         return RenderDecision(CacheMode.WRITE_ONLY, "initial_backfill")
 

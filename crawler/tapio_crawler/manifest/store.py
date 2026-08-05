@@ -69,7 +69,27 @@ class ManifestStore:
         self._connection = sqlite3.connect(self.path)
         self._connection.row_factory = sqlite3.Row
         self._connection.execute(_SCHEMA)
+        self._add_missing_columns()
         self._connection.commit()
+
+    def _add_missing_columns(self) -> None:
+        """Add any missing column, so an older database file doesn't fail.
+
+        Compares ``_COLUMNS`` against the database's actual columns and adds
+        whatever is missing, so opening a file created by an older schema
+        version doesn't fail on the first read/write that touches a newer
+        column.
+        """
+        existing = {row["name"] for row in self._connection.execute("PRAGMA table_info(manifest)")}
+        for name in _COLUMNS:
+            if name in existing:
+                continue
+            # Column names are drawn from the fixed _COLUMNS tuple, never
+            # from user input, so this isn't a SQL-injection vector.
+            if name in _INTEGER_COLUMNS:
+                self._connection.execute(f"ALTER TABLE manifest ADD COLUMN {name} INTEGER NOT NULL DEFAULT 0")
+            else:
+                self._connection.execute(f"ALTER TABLE manifest ADD COLUMN {name} TEXT")
 
     def close(self) -> None:
         """Release the underlying SQLite connection."""
@@ -224,16 +244,37 @@ class ManifestStore:
         old row's ``first_seen_at``/``discovery_source`` into ``new_record``
         before calling this.
 
+        If a record already exists under ``new_record.canonical_url`` (two
+        different discovered URLs redirecting to the same target, or the
+        target having its own discovery history), that existing record's
+        provenance is merged in rather than being silently overwritten:
+        ``discovery_source`` is unioned and ``first_seen_at``/``last_seen_at``
+        keep their earliest/latest values. ``new_record``'s own render-outcome
+        fields (``fetch_status``, ``content_hash``, ``last_rendered_at``,
+        etc.) always win, since it reflects the render that just happened.
+
         Args:
             site_name: Name of the configured source site.
             old_canonical_url: The record's previous canonical identity.
             new_record: The record to persist under its new canonical identity.
         """
+        existing_target = self.get(site_name, new_record.canonical_url)
+        merged = (
+            new_record
+            if existing_target is None
+            else new_record.model_copy(
+                update={
+                    "discovery_source": existing_target.discovery_source | new_record.discovery_source,
+                    "first_seen_at": min(existing_target.first_seen_at, new_record.first_seen_at),
+                    "last_seen_at": max(existing_target.last_seen_at, new_record.last_seen_at),
+                },
+            )
+        )
         self._connection.execute(
             "DELETE FROM manifest WHERE site_name = ? AND canonical_url = ?",
             (site_name, old_canonical_url),
         )
-        self._write(new_record)
+        self._write(merged)
 
     def _write(self, record: ManifestRecord) -> None:
         """Upsert ``record``'s row into the ``manifest`` table.

@@ -1,5 +1,6 @@
 """Tests for the SQLite-backed URL manifest store."""
 
+import sqlite3
 from collections.abc import Generator
 from datetime import UTC, datetime
 from pathlib import Path
@@ -7,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from tapio_crawler.manifest.models import ManifestRecord
-from tapio_crawler.manifest.store import ManifestStore
+from tapio_crawler.manifest.store import _COLUMNS, ManifestStore
 
 
 def _record(**overrides: object) -> ManifestRecord:
@@ -179,6 +180,67 @@ def test_rekey_moves_a_record_to_a_new_canonical_identity(store: ManifestStore) 
     moved = store.get("migri", "https://migri.fi/en/new")
     assert moved is not None
     assert moved.fetch_status == "success"
+
+
+def test_rekey_merges_provenance_with_an_existing_target_record(store: ManifestStore) -> None:
+    """``rekey`` merges discovery provenance instead of overwriting an
+    already-existing record at the new canonical identity.
+    """
+    earlier = datetime(2026, 1, 1, tzinfo=UTC)
+    store.upsert(
+        _record(
+            canonical_url="https://migri.fi/en/target",
+            discovery_source={"sitemap"},
+            first_seen_at=earlier,
+            last_seen_at=earlier,
+        ),
+    )
+    store.upsert(_record(canonical_url="https://migri.fi/en/old"))
+
+    store.rekey(
+        "migri",
+        "https://migri.fi/en/old",
+        _record(
+            canonical_url="https://migri.fi/en/target",
+            discovery_source={"deep_crawl"},
+            fetch_status="success",
+        ),
+    )
+
+    assert store.get("migri", "https://migri.fi/en/old") is None
+    merged = store.get("migri", "https://migri.fi/en/target")
+    assert merged is not None
+    assert merged.discovery_source == {"sitemap", "deep_crawl"}
+    assert merged.first_seen_at == earlier
+    assert merged.fetch_status == "success"
+
+
+def test_opening_a_pre_migration_database_adds_missing_columns(tmp_path: Path) -> None:
+    """A manifest.db written before ``retry_count`` existed gains the column
+    on open, rather than every subsequent write failing with a SQLite
+    "no such column" error.
+    """
+    db_path = tmp_path / "legacy.db"
+    legacy_columns = [name for name in _COLUMNS if name != "retry_count"]
+    connection = sqlite3.connect(db_path)
+    try:
+        connection.execute(
+            f"CREATE TABLE manifest ({', '.join(f'{name} TEXT' for name in legacy_columns)}, "
+            "PRIMARY KEY (site_name, canonical_url))",
+        )
+        connection.commit()
+    finally:
+        connection.close()
+
+    manifest_store = ManifestStore(db_path)
+    try:
+        manifest_store.save(_record(retry_count=3))
+        found = manifest_store.get("migri", "https://migri.fi/en/page")
+    finally:
+        manifest_store.close()
+
+    assert found is not None
+    assert found.retry_count == 3
 
 
 def test_count_by_site_filters_by_scope_and_fetch_status(store: ManifestStore) -> None:
