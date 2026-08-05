@@ -94,7 +94,7 @@ class HostRateLimiter:
         whether the requested suspension exceeded the cap and pending URLs
         for this host should be marked ``incomplete`` for this run.
         """
-        seconds = _parse_retry_after(retry_after_value)
+        seconds = parse_retry_after(retry_after_value)
         if seconds is None:
             seconds = self.max_delay
             self.last_suspension_capped = False
@@ -108,7 +108,7 @@ class HostRateLimiter:
         return seconds
 
 
-def _parse_retry_after(value: str | None) -> float | None:
+def parse_retry_after(value: str | None) -> float | None:
     """Parse Retry-After as delay-seconds or an HTTP-date, per RFC 9110."""
     if not value:
         return None

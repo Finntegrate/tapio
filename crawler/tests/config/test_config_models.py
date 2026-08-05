@@ -9,6 +9,7 @@ from tapio_crawler.config.config_models import (
     GapCrawlConfig,
     MarkdownConfig,
     PolitenessConfig,
+    RefreshConfig,
     ScopeConfig,
     SiteConfig,
     SiteConfigRegistry,
@@ -18,21 +19,24 @@ from tapio_crawler.config.config_models import (
 def test_crawler_config_has_safe_defaults() -> None:
     config = CrawlerConfig()
 
-    assert config.max_depth == 1
-    assert config.max_pages == 50
     assert config.page_timeout == 30
     assert (config.min_delay, config.max_delay) == (1.0, 3.0)
     assert config.max_concurrent == 3
+    assert config.word_count_threshold == 20
     assert config.robots_policy == "require"
     assert isinstance(config.politeness, PolitenessConfig)
     assert config.politeness.respect_crawl_delay is True
     assert "TapioBot" in config.politeness.user_agent
     assert isinstance(config.discovery, DiscoveryConfig)
     assert config.discovery.source == "none"
+    assert config.discovery.trust_lastmod is False
     assert isinstance(config.scope, ScopeConfig)
     assert config.scope.allowed_content_types == ["text/html"]
     assert isinstance(config.gap_crawl, GapCrawlConfig)
     assert config.gap_crawl.enabled is False
+    assert isinstance(config.refresh, RefreshConfig)
+    assert config.refresh.unchanged_audit_days == 90
+    assert config.refresh.coverage_target_percent == 95.0
 
 
 def test_crawler_config_rejects_invalid_delay_range() -> None:
@@ -48,7 +52,7 @@ def test_crawler_config_allows_sitemap_discovery_without_gap_crawl() -> None:
 
 @pytest.mark.parametrize(
     ("field", "value"),
-    [("max_depth", -1), ("max_pages", 0), ("max_concurrent", 0)],
+    [("max_concurrent", 0), ("word_count_threshold", -1)],
 )
 def test_crawler_config_enforces_bounds(field: str, value: int) -> None:
     with pytest.raises(ValidationError):

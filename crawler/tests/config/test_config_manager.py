@@ -16,8 +16,6 @@ def test_config_manager_loads_crawl4ai_config(tmp_path: Path) -> None:
     base_url: https://example.com
     description: Example site
     crawler_config:
-      max_depth: 0
-      max_pages: 1
       min_delay: 0
       max_delay: 0
 """,
@@ -27,7 +25,7 @@ def test_config_manager_loads_crawl4ai_config(tmp_path: Path) -> None:
     manager = ConfigManager.from_file(str(path))
 
     assert manager.list_available_sites() == ["example"]
-    assert manager.get_site_config("example").crawler_config.max_depth == 0
+    assert manager.get_site_config("example").crawler_config.min_delay == 0
     assert manager.get_site_descriptions() == {"example": "Example site"}
 
 

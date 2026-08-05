@@ -132,3 +132,60 @@ def test_records_from_different_sites_are_independent(store: ManifestStore) -> N
 
     assert len(store.list_by_site("migri")) == 1
     assert len(store.list_by_site("kela")) == 1
+
+
+def test_list_eligible_page_paginates_in_canonical_url_order(store: ManifestStore) -> None:
+    """Paging through eligible records with a small ``limit`` covers every
+    record exactly once, in ``canonical_url`` order.
+    """
+    for letter in "cab":
+        store.upsert(_record(canonical_url=f"https://migri.fi/en/{letter}"))
+    store.upsert(_record(canonical_url="https://migri.fi/en/d", scope_status="excluded"))
+
+    first_page = store.list_eligible_page("migri", limit=2)
+    second_page = store.list_eligible_page(
+        "migri",
+        after_canonical_url=first_page[-1].canonical_url,
+        limit=2,
+    )
+
+    assert [r.canonical_url for r in first_page] == ["https://migri.fi/en/a", "https://migri.fi/en/b"]
+    assert [r.canonical_url for r in second_page] == ["https://migri.fi/en/c"]
+
+
+def test_save_writes_a_record_verbatim_without_merge(store: ManifestStore) -> None:
+    """``save`` persists exactly the given record, unlike ``upsert``'s merge policy."""
+    store.upsert(_record(discovery_source={"sitemap"}, fetch_status=None))
+
+    store.save(_record(discovery_source=set(), fetch_status="success"))
+
+    found = store.get("migri", "https://migri.fi/en/page")
+    assert found is not None
+    assert found.discovery_source == set()
+    assert found.fetch_status == "success"
+
+
+def test_rekey_moves_a_record_to_a_new_canonical_identity(store: ManifestStore) -> None:
+    """``rekey`` deletes the old row and writes the record under its new identity."""
+    store.upsert(_record(canonical_url="https://migri.fi/en/old"))
+
+    store.rekey(
+        "migri",
+        "https://migri.fi/en/old",
+        _record(canonical_url="https://migri.fi/en/new", fetch_status="success"),
+    )
+
+    assert store.get("migri", "https://migri.fi/en/old") is None
+    moved = store.get("migri", "https://migri.fi/en/new")
+    assert moved is not None
+    assert moved.fetch_status == "success"
+
+
+def test_count_by_site_filters_by_scope_and_fetch_status(store: ManifestStore) -> None:
+    """``count_by_site`` counts only records matching the given filters."""
+    store.upsert(_record(canonical_url="https://migri.fi/en/a", fetch_status="success"))
+    store.upsert(_record(canonical_url="https://migri.fi/en/b", fetch_status="failed"))
+    store.upsert(_record(canonical_url="https://migri.fi/en/c", scope_status="excluded"))
+
+    assert store.count_by_site("migri", scope_status="eligible") == 2
+    assert store.count_by_site("migri", scope_status="eligible", fetch_status="success") == 1

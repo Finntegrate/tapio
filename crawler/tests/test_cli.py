@@ -2,11 +2,11 @@
 
 from unittest.mock import AsyncMock, Mock, patch
 
-import pytest
 from typer.testing import CliRunner
 
-from tapio_crawler.cli import app, crawl
+from tapio_crawler.cli import app
 from tapio_crawler.config.config_models import SiteConfig
+from tapio_crawler.crawler.crawler import RenderRunSummary
 from tapio_crawler.discovery.runner import (
     DiscoveryRunSummary,
     MisconfiguredDiscoveryError,
@@ -22,20 +22,35 @@ def test_list_sites_displays_configured_sources() -> None:
     assert "kela" in result.stdout
 
 
-def test_crawl_raises_when_the_runner_does_not_provide_a_summary() -> None:
-    """Fail clearly when a completed crawl has no execution summary."""
+def test_crawl_reports_render_summary() -> None:
+    """The ``crawl`` command prints the render summary on success."""
     site_config = SiteConfig(base_url="https://example.com")
+    summary = RenderRunSummary(
+        run_id="abc",
+        site_name="example",
+        considered=2,
+        rendered=1,
+        saved=1,
+        eligible_total=2,
+        current_total=1,
+        complete=True,
+    )
     runner = Mock()
-    runner.run.return_value = []
-    runner.last_summary = None
+    runner.run.return_value = summary
 
     with (
         patch("tapio_crawler.cli.ConfigManager") as config_manager_type,
+        patch("tapio_crawler.cli.ManifestStore") as manifest_store_type,
         patch("tapio_crawler.cli.CrawlerRunner", return_value=runner),
     ):
         config_manager_type.return_value.get_site_config.return_value = site_config
-        with pytest.raises(RuntimeError, match=r"^Crawler finished without a summary\.$"):
-            crawl("example", depth=None, force=False)
+        result = CliRunner().invoke(app, ["crawl", "example"])
+
+    assert result.exit_code == 0
+    assert "complete" in result.stdout
+    assert "saved 1" in result.stdout
+    assert "WARNING" in result.stdout
+    manifest_store_type.return_value.close.assert_called_once()
 
 
 def test_discover_reports_summary() -> None:

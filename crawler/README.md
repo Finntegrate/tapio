@@ -11,34 +11,11 @@ directory. Locally this defaults to the repository's `content/` directory; in
 deployment, mount the same directory into both services and set
 `TAPIO_CONTENT_DIR` to its mount path.
 
-Collect a configured site directly into `{TAPIO_CONTENT_DIR}/{site}/parsed/`
-Markdown:
-
-```bash
-uv run tapio-crawler crawl migri
-```
-
-Use `--depth 0` for a single-page smoke test. Each saved document includes
-`title`, `source_url`, and `crawl_timestamp` YAML frontmatter for ingestion.
-
-## Polite re-crawls
-
-Each site is crawled at most once every 30 days by default
-(`recrawl_interval_hours: 720`), with a per-site override in
-`tapio_crawler/config/site_configs.yaml`. A successful crawl records its time
-in `{TAPIO_CONTENT_DIR}/{site}/crawl_state.json`; use `--force` only when an immediate
-refresh is needed.
-
-When a site is due, Crawl4AI stores its persistent cache in
-`{TAPIO_CONTENT_DIR}/.crawl4ai/` and uses conditional freshness checks (`ETag`/
-`Last-Modified`) before rendering a cached page again. Mount `content/` as a
-persistent volume in deployment, or set `CRAWL4_AI_BASE_DIRECTORY` to another
-persistent location.
-
 ## URL discovery and the manifest
 
-`discover` builds a site's URL inventory - separately from crawling and
-rendering - and records it in a durable, SQLite-backed manifest:
+`discover` builds a site's URL inventory and records it in a durable,
+SQLite-backed manifest. Run this first for a site before `crawl` - rendering
+reads only from the manifest, it does not discover URLs on its own:
 
 ```bash
 uv run tapio-crawler discover migri
@@ -55,4 +32,36 @@ upserted into the manifest with its eligibility.
 
 The manifest lives at `{TAPIO_CONTENT_DIR}/manifest.db` by default; override
 its path with `TAPIO_MANIFEST_PATH`. A discovery run never renders pages or
-writes Markdown - that remains `crawl`'s job.
+writes Markdown - that's `crawl`'s job.
+
+## Rendering: manifest-driven, resumable collection
+
+`crawl` renders every manifest record that is due, into
+`{TAPIO_CONTENT_DIR}/{site}/parsed/` Markdown:
+
+```bash
+uv run tapio-crawler crawl migri
+```
+
+A record is due on its first render, when its source's `discovery.trust_lastmod`
+is `true` and the sitemap `lastmod` is newer than the last render, when it was
+last rendered under an older extractor version, or once
+`refresh.unchanged_audit_days` (default 90) has elapsed since its last check.
+`--force` ignores that schedule and re-renders every eligible record.
+`--max-urls` (default 5000) caps how many records one run processes;
+`--batch-size` (default 500) is the manifest page size used while selecting
+them. Progress is saved to the manifest after each record completes, so a
+stopped run resumes from where it left off on the next invocation rather than
+starting over.
+
+Each saved document includes `title`, `source_url`, `canonical_url`,
+`content_hash`, `language`, `extractor_version`, and `crawl_timestamp` YAML
+frontmatter. Artifacts are keyed by `canonical_url`, not the URL as
+discovered, so redirects and tracking-parameter variants of the same page
+share one file.
+
+Crawl4AI stores its persistent HTTP cache in `{TAPIO_CONTENT_DIR}/.crawl4ai/`
+and uses conditional freshness checks (`ETag`/`Last-Modified`) before
+re-rendering a page whose scheduled check finds it unchanged. Mount `content/`
+as a persistent volume in deployment, or set `CRAWL4_AI_BASE_DIRECTORY` to
+another persistent location.

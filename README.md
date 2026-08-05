@@ -85,7 +85,7 @@ ollama pull gemma4:latest
 Run these commands from the repository root, in this order:
 
 ```bash
-# 1. Crawl every configured site using its configured depth, limits, and schedule.
+# 1. Discover each site's URL inventory, then render what's due into content/.
 mise run crawl
 
 # 2. Chunk and embed the Markdown written to content/.
@@ -98,9 +98,10 @@ mise run backend
 mise run app
 ```
 
-The crawler respects each site's `recrawl_interval_hours`; a site that is not
-due is skipped. It attempts every configured site even if an earlier one fails,
-then returns a non-zero status if any site failed. When new pages are crawled,
+For each configured site, `mise run crawl` runs `discover` (populating its URL
+manifest) and then `crawl` (rendering only manifest records that are due - see
+`crawler/README.md`). It attempts every configured site even if an earlier one
+fails, then returns a non-zero status if any site failed. When new pages are crawled,
 rerun `mise run ingest`, then restart the backend (`backend/` is what reads
 `vectorstore/`; the SvelteKit `app/` only calls the backend's API) so it opens
 the refreshed vector collection.
@@ -121,7 +122,7 @@ files only; they do not import, invoke, or otherwise depend on one another.
 
 | Command | Purpose |
 | --- | --- |
-| `mise run crawl` | Crawl every configured site with its configured settings; attempt all sites before reporting failures. |
+| `mise run crawl` | Discover, then render, every configured site; attempt all sites before reporting failures. |
 | `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
 | `mise run backend` | Start the FastAPI backend, which reads `vectorstore/`. |
 | `mise run app` | Start the SvelteKit chat client's dev server. |
@@ -144,7 +145,8 @@ single-site crawl or a shallow smoke test, use the crawler CLI directly:
 ```bash
 cd crawler
 uv run tapio-crawler list-sites
-uv run tapio-crawler crawl migri --depth 0
+uv run tapio-crawler discover migri
+uv run tapio-crawler crawl migri --max-urls 5
 ```
 
 Then return to the repository root and run `mise run ingest -- --site migri`.
