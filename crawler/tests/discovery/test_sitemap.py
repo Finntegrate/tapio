@@ -104,6 +104,34 @@ async def test_marks_incomplete_when_a_sitemap_fetch_fails() -> None:
 
 
 @pytest.mark.asyncio
+async def test_logs_the_underlying_exception_on_a_connection_failure(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A transport-level failure (not an HTTP error response) is marked
+    incomplete and its exception type and message are logged, so an operator
+    can distinguish a timeout from a connection reset or TLS error.
+    """
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        msg = "Connection refused"
+        raise httpx.ConnectError(msg)
+
+    transport = httpx.MockTransport(handler)
+    with caplog.at_level("WARNING"):
+        async with httpx.AsyncClient(transport=transport) as client:
+            result = await discover_sitemap_urls(
+                ["https://example.com/sitemap.xml"],
+                client=client,
+                rate_limiter=_limiter(),
+                user_agent=USER_AGENT,
+            )
+
+    assert result.complete is False
+    assert "ConnectError" in caplog.text
+    assert "Connection refused" in caplog.text
+
+
+@pytest.mark.asyncio
 async def test_marks_incomplete_when_sitemap_is_unparseable() -> None:
     """Non-XML sitemap content marks the result incomplete."""
 
