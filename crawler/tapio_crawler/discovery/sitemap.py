@@ -156,8 +156,8 @@ async def _fetch_sitemap(
     await rate_limiter.wait_for_turn()
     try:
         response = await client.get(sitemap_url, headers={"User-Agent": user_agent})
-    except httpx.HTTPError:
-        logger.warning("Failed to fetch sitemap %s", sitemap_url)
+    except httpx.HTTPError as exc:
+        logger.warning("Failed to fetch sitemap %s: %s: %s", sitemap_url, type(exc).__name__, exc)
         return None
 
     if response.status_code in (TOO_MANY_REQUESTS_STATUS, SERVICE_UNAVAILABLE_STATUS):
