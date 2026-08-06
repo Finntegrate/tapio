@@ -1,6 +1,7 @@
 """Tests for the discovery runner."""
 
 from collections.abc import Generator
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -17,6 +18,7 @@ from tapio_crawler.discovery.gap_crawl import GapCrawlResult
 from tapio_crawler.discovery.robots import RobotsRules
 from tapio_crawler.discovery.runner import DiscoveryRunner, MisconfiguredDiscoveryError
 from tapio_crawler.discovery.sitemap import SitemapDiscoveryResult, SitemapUrlEntry
+from tapio_crawler.manifest.models import ManifestRecord
 from tapio_crawler.manifest.store import ManifestStore
 
 
@@ -145,3 +147,184 @@ async def test_gap_crawl_discovery_used_when_no_sitemap(store: ManifestStore) ->
 
     assert summary.discovered == 1
     assert summary.eligible == 1
+
+
+@pytest.mark.asyncio
+async def test_cache_hit_skips_http_requests_and_rebuilds_from_manifest(
+    store: ManifestStore,
+) -> None:
+    """Within ``cache_ttl_hours`` of a complete run, discover reuses the
+    manifest instead of re-fetching robots.txt or the sitemap (#76).
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(
+        discovery=DiscoveryConfig(
+            source="sitemap",
+            sitemap_urls=["https://example.com/sitemap.xml"],
+            cache_ttl_hours=24,
+        ),
+    )
+    now = datetime.now(UTC)
+    store.upsert(
+        ManifestRecord(
+            site_name="example",
+            source_url="https://example.com/a",
+            canonical_url="https://example.com/a",
+            discovery_source={"sitemap"},
+            first_seen_at=now,
+            last_seen_at=now,
+            scope_status="eligible",
+        ),
+    )
+    store.upsert(
+        ManifestRecord(
+            site_name="example",
+            source_url="https://example.com/search",
+            canonical_url="https://example.com/search",
+            discovery_source={"sitemap"},
+            first_seen_at=now,
+            last_seen_at=now,
+            scope_status="excluded",
+            scope_reason="excluded_by_pattern",
+        ),
+    )
+    store.record_discovery_run("example", now, complete=True)
+
+    def _fail(*_args: object, **_kwargs: object) -> None:
+        msg = "must not make HTTP requests on a cache hit"
+        raise AssertionError(msg)
+
+    with (
+        patch("tapio_crawler.discovery.runner.fetch_robots_rules", AsyncMock(side_effect=_fail)),
+        patch("tapio_crawler.discovery.runner.discover_sitemap_urls", AsyncMock(side_effect=_fail)),
+    ):
+        summary = await runner.run("example", site_config)
+
+    assert summary.cached is True
+    assert summary.complete is True
+    assert summary.discovered == 2
+    assert summary.eligible == 1
+    assert summary.excluded_by_reason == {"excluded_by_pattern": 1}
+
+
+@pytest.mark.asyncio
+async def test_cache_miss_after_ttl_elapsed_refetches(store: ManifestStore) -> None:
+    """Once ``cache_ttl_hours`` has elapsed since the last complete run,
+    discover re-fetches robots.txt and the sitemap as usual (#76).
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(
+        discovery=DiscoveryConfig(
+            source="sitemap",
+            sitemap_urls=["https://example.com/sitemap.xml"],
+            cache_ttl_hours=1,
+        ),
+    )
+    stale = datetime.now(UTC) - timedelta(hours=2)
+    store.record_discovery_run("example", stale, complete=True)
+
+    fake_sitemap_result = SitemapDiscoveryResult(
+        urls=[SitemapUrlEntry(url="https://example.com/a")],
+        child_sitemaps_fetched=0,
+        complete=True,
+    )
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True)),
+        ) as fetch_robots_mock,
+        patch(
+            "tapio_crawler.discovery.runner.discover_sitemap_urls",
+            AsyncMock(return_value=fake_sitemap_result),
+        ) as discover_sitemap_mock,
+    ):
+        summary = await runner.run("example", site_config)
+
+    assert summary.cached is False
+    fetch_robots_mock.assert_called_once()
+    discover_sitemap_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cache_ttl_hours_zero_disables_caching(store: ManifestStore) -> None:
+    """``cache_ttl_hours=0`` always re-fetches, even with a very recent
+    complete run recorded (#76).
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(
+        discovery=DiscoveryConfig(
+            source="sitemap",
+            sitemap_urls=["https://example.com/sitemap.xml"],
+            cache_ttl_hours=0,
+        ),
+    )
+    store.record_discovery_run("example", datetime.now(UTC), complete=True)
+
+    fake_sitemap_result = SitemapDiscoveryResult(urls=[], child_sitemaps_fetched=0, complete=True)
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True)),
+        ) as fetch_robots_mock,
+        patch(
+            "tapio_crawler.discovery.runner.discover_sitemap_urls",
+            AsyncMock(return_value=fake_sitemap_result),
+        ),
+    ):
+        summary = await runner.run("example", site_config)
+
+    assert summary.cached is False
+    fetch_robots_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_successful_sitemap_run_records_discovery_run(store: ManifestStore) -> None:
+    """A completed sitemap discovery run is recorded, so a later run within
+    ``cache_ttl_hours`` can be served from cache (#76).
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(
+        discovery=DiscoveryConfig(source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]),
+    )
+    fake_sitemap_result = SitemapDiscoveryResult(urls=[], child_sitemaps_fetched=0, complete=True)
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True)),
+        ),
+        patch(
+            "tapio_crawler.discovery.runner.discover_sitemap_urls",
+            AsyncMock(return_value=fake_sitemap_result),
+        ),
+    ):
+        await runner.run("example", site_config)
+
+    last_run = store.get_last_discovery_run("example")
+    assert last_run is not None
+    assert last_run.complete is True
+
+
+@pytest.mark.asyncio
+async def test_incomplete_run_is_recorded_as_incomplete_and_not_cached(
+    store: ManifestStore,
+) -> None:
+    """An unreachable-robots run is recorded incomplete, so a later run does
+    not serve a partial result from cache (#76).
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(
+        discovery=DiscoveryConfig(source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]),
+    )
+
+    with patch(
+        "tapio_crawler.discovery.runner.fetch_robots_rules",
+        AsyncMock(return_value=RobotsRules(reachable=False)),
+    ):
+        await runner.run("example", site_config)
+
+    last_run = store.get_last_discovery_run("example")
+    assert last_run is not None
+    assert last_run.complete is False

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import uuid
 from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import httpx
 
@@ -48,6 +48,9 @@ class DiscoveryRunSummary:
             source was a sitemap index.
         complete: Whether the run finished without a fatal interruption
             (for example, an unreachable robots.txt or a failed fetch).
+        cached: Whether this summary was rebuilt from a prior discovery
+            run's manifest state, per ``discovery.cache_ttl_hours``, instead
+            of re-fetching robots.txt and the sitemap.
     """
 
     run_id: str
@@ -57,6 +60,7 @@ class DiscoveryRunSummary:
     excluded_by_reason: dict[str, int] = field(default_factory=dict)
     child_sitemaps_fetched: int = 0
     complete: bool = True
+    cached: bool = False
 
 
 class MisconfiguredDiscoveryError(Exception):
@@ -89,6 +93,12 @@ class DiscoveryRunner:
         summary = DiscoveryRunSummary(run_id=run_id, site_name=site_name)
         config = site_config.crawler_config
         _require_discovery_source(site_name, config)
+        is_sitemap_source = config.discovery.source == "sitemap"
+
+        if is_sitemap_source and config.discovery.cache_ttl_hours > 0:
+            cached_summary = self._try_cached_summary(site_name, config, summary)
+            if cached_summary is not None:
+                return cached_summary
 
         # Shared across robots, sitemap, and gap-crawl requests to this host so a
         # Crawl-delay floor or Retry-After suspension applies uniformly.
@@ -102,6 +112,8 @@ class DiscoveryRunner:
         if not robots.reachable and config.robots_policy == "require":
             summary.complete = False
             logger.warning("robots.txt unreachable for %s; marking run incomplete", site_name)
+            if is_sitemap_source:
+                self._manifest_store.record_discovery_run(site_name, datetime.now(UTC), complete=False)
             return summary
 
         effective_delay = resolve_effective_delay(
@@ -126,6 +138,44 @@ class DiscoveryRunner:
             source_tag,
             summary,
         )
+        if is_sitemap_source:
+            self._manifest_store.record_discovery_run(site_name, datetime.now(UTC), complete=summary.complete)
+        return summary
+
+    def _try_cached_summary(
+        self,
+        site_name: str,
+        config: CrawlerConfig,
+        summary: DiscoveryRunSummary,
+    ) -> DiscoveryRunSummary | None:
+        """Rebuild a summary from the manifest if the last run is still fresh.
+
+        Args:
+            site_name: Name of the configured source site.
+            config: The site's crawler configuration.
+            summary: The run summary to fill in on a cache hit.
+
+        Returns:
+            The filled-in summary on a cache hit, or ``None`` if discovery
+            should re-fetch robots.txt and the sitemap as usual.
+        """
+        last_run = self._manifest_store.get_last_discovery_run(site_name)
+        if last_run is None or not last_run.complete:
+            return None
+        age = datetime.now(UTC) - last_run.completed_at
+        if age >= timedelta(hours=config.discovery.cache_ttl_hours):
+            return None
+
+        records = self._manifest_store.list_by_site(site_name)
+        summary.discovered = len(records)
+        for record in records:
+            if record.scope_status == "eligible":
+                summary.eligible += 1
+            else:
+                reason = record.scope_reason or "unknown"
+                summary.excluded_by_reason[reason] = summary.excluded_by_reason.get(reason, 0) + 1
+        summary.complete = True
+        summary.cached = True
         return summary
 
     async def _discover_urls(

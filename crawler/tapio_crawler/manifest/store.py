@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -49,6 +50,22 @@ CREATE TABLE IF NOT EXISTS manifest (
 );
 """
 
+_DISCOVERY_RUN_SCHEMA = """
+CREATE TABLE IF NOT EXISTS discovery_run (
+    site_name TEXT PRIMARY KEY,
+    completed_at TEXT NOT NULL,
+    complete INTEGER NOT NULL
+);
+"""
+
+
+@dataclass
+class LastDiscoveryRun:
+    """When a site's discovery last completed, for a ``cache_ttl_hours`` check."""
+
+    completed_at: datetime
+    complete: bool
+
 
 class ManifestStore:
     """Durable, queryable inventory of every discovered source URL.
@@ -76,6 +93,7 @@ class ManifestStore:
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA busy_timeout=30000")
         self._connection.execute(_SCHEMA)
+        self._connection.execute(_DISCOVERY_RUN_SCHEMA)
         self._add_missing_columns()
         self._connection.commit()
 
@@ -101,6 +119,47 @@ class ManifestStore:
     def close(self) -> None:
         """Release the underlying SQLite connection."""
         self._connection.close()
+
+    def record_discovery_run(self, site_name: str, completed_at: datetime, *, complete: bool) -> None:
+        """Record that a discovery run finished for ``site_name``.
+
+        Used by ``discovery.cache_ttl_hours`` to decide whether a later
+        ``discover`` run can reuse this run's manifest state instead of
+        re-fetching.
+
+        Args:
+            site_name: Name of the configured source site.
+            completed_at: When the run finished.
+            complete: Whether the run finished without a fatal interruption.
+        """
+        self._connection.execute(
+            "INSERT INTO discovery_run (site_name, completed_at, complete) VALUES (?, ?, ?) "
+            "ON CONFLICT (site_name) DO UPDATE SET completed_at = excluded.completed_at, "
+            "complete = excluded.complete",
+            (site_name, completed_at.isoformat(), int(complete)),
+        )
+        self._connection.commit()
+
+    def get_last_discovery_run(self, site_name: str) -> LastDiscoveryRun | None:
+        """Return when ``site_name``'s discovery last completed, if ever.
+
+        Args:
+            site_name: Name of the configured source site.
+
+        Returns:
+            The last recorded run, or ``None`` if discovery has never
+            completed for this site.
+        """
+        row = self._connection.execute(
+            "SELECT completed_at, complete FROM discovery_run WHERE site_name = ?",
+            (site_name,),
+        ).fetchone()
+        if row is None:
+            return None
+        return LastDiscoveryRun(
+            completed_at=datetime.fromisoformat(row["completed_at"]),
+            complete=bool(row["complete"]),
+        )
 
     def upsert(self, record: ManifestRecord) -> ManifestRecord:
         """Insert or merge ``record`` by its ``(site_name, canonical_url)`` identity.

@@ -82,6 +82,34 @@ def test_discover_reports_summary() -> None:
     manifest_store_type.return_value.close.assert_called_once()
 
 
+def test_discover_reports_a_cache_hit() -> None:
+    """The ``discover`` command notes when the summary was served from cache."""
+    site_config = SiteConfig(base_url="https://example.com")
+    summary = DiscoveryRunSummary(
+        run_id="abc",
+        site_name="example",
+        discovered=2,
+        eligible=1,
+        excluded_by_reason={"domain_not_allowed": 1},
+        child_sitemaps_fetched=0,
+        complete=True,
+        cached=True,
+    )
+    runner = Mock()
+    runner.run = AsyncMock(return_value=summary)
+
+    with (
+        patch("tapio_crawler.cli.ConfigManager") as config_manager_type,
+        patch("tapio_crawler.cli.ManifestStore"),
+        patch("tapio_crawler.cli.DiscoveryRunner", return_value=runner),
+    ):
+        config_manager_type.return_value.get_site_config.return_value = site_config
+        result = CliRunner().invoke(app, ["discover", "example"])
+
+    assert result.exit_code == 0
+    assert "cache hit" in result.stdout
+
+
 def test_discover_exits_with_error_on_misconfiguration() -> None:
     """The ``discover`` command exits with code 1 and the error message when
     the site has no way to discover URLs.
