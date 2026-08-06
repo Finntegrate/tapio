@@ -43,11 +43,9 @@ class DiscoveryConfig(BaseModel):
 
 
 class ScopeConfig(BaseModel):
-    """Domain, language, and path rules bounding a source's eligible URLs."""
+    """Domain and path rules bounding a source's eligible URLs."""
 
     allowed_domains: list[str] = Field(default_factory=list)
-    languages: list[str] = Field(default_factory=list)
-    include_url_patterns: list[str] = Field(default_factory=list)
     exclude_url_patterns: list[str] = Field(default_factory=list)
     allowed_content_types: list[str] = Field(default_factory=lambda: ["text/html"])
 

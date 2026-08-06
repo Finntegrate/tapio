@@ -1,8 +1,10 @@
 """Domain and path scope evaluation for a discovered URL.
 
-Content-type and language eligibility are evaluated at render time (not
-here): a URL's content type is only known after a fetch, and language
-scope is expressed as a path pattern (see ``ScopeConfig.include_url_patterns``).
+Content-type eligibility is evaluated at render time (not here): a URL's
+content type is only known after a fetch. Scope is otherwise functional
+only - allowed domains and explicit exclude patterns - per Design
+Principle in docs/specs/crawler-improvements.md; there is no language or
+other include-pattern filter.
 """
 
 from __future__ import annotations
@@ -47,8 +49,5 @@ def evaluate_scope(url: str, scope: ScopeConfig) -> ScopeDecision:
 
     if scope.exclude_url_patterns and any(fnmatch(target, pattern) for pattern in scope.exclude_url_patterns):
         return ScopeDecision(eligible=False, reason="excluded_by_pattern")
-
-    if scope.include_url_patterns and not any(fnmatch(target, pattern) for pattern in scope.include_url_patterns):
-        return ScopeDecision(eligible=False, reason="not_in_include_patterns")
 
     return ScopeDecision(eligible=True)

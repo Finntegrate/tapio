@@ -30,7 +30,6 @@ logger = logging.getLogger(__name__)
 
 _SCOPE_REASON_STATUS: dict[str, ScopeStatus] = {
     "domain_not_allowed": "out_of_scope",
-    "not_in_include_patterns": "out_of_scope",
     "excluded_by_pattern": "excluded",
 }
 

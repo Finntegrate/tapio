@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
-from typing import Any, cast
+from typing import cast
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
@@ -17,7 +17,6 @@ from crawl4ai.deep_crawling.filters import (
     DomainFilter,
     FilterChain,
     URLFilter,
-    URLPatternFilter,
 )
 from crawl4ai.models import CrawlResultContainer
 
@@ -95,10 +94,6 @@ def _build_filters(scope: ScopeConfig) -> list[URLFilter]:
     filters: list[URLFilter] = []
     if scope.allowed_domains:
         filters.append(DomainFilter(allowed_domains=scope.allowed_domains))
-    if scope.include_url_patterns:
-        filters.append(
-            URLPatternFilter(patterns=cast("Any", scope.include_url_patterns)),
-        )
     if scope.allowed_content_types:
         filters.append(ContentTypeFilter(allowed_types=scope.allowed_content_types))
     return filters

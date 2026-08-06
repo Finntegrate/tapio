@@ -324,7 +324,6 @@ class Crawl4AICrawler:
             "content_hash": content_hash,
             "content_length": len(markdown),
             "title": title,
-            "language": self._language(),
             "retry_count": 0,
             "retry_after": None,
         }
@@ -489,17 +488,6 @@ class Crawl4AICrawler:
             ),
         )
         return next(iter(fallback_results))
-
-    def _language(self) -> str | None:
-        """Return the site's single configured language, or ``None`` if ambiguous.
-
-        No real language detection exists in this codebase or in Crawl4AI's
-        metadata; using the configured scope is an honest simplification, not
-        a stub - real detection is out of scope (semantic classification is a
-        later, separately evaluated phase per the spec's non-goals).
-        """
-        languages = self.config.scope.languages
-        return languages[0] if len(languages) == 1 else None
 
     def _record_status(self, raw_result: Crawl4AIResult, summary: RenderRunSummary) -> None:
         """Record HTTP and cache statuses from one render."""
