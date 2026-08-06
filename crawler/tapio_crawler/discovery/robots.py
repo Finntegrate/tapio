@@ -38,6 +38,7 @@ class RobotsRules:
     reachable: bool
     crawl_delay: float | None = None
     sitemap_urls: list[str] = field(default_factory=list)
+    url: str = ""
     _parser: RobotFileParser | None = None
 
     def can_fetch(self, user_agent: str, url: str) -> bool:
@@ -76,26 +77,26 @@ async def fetch_robots_rules(
             response = await http_client.get(robots_url, headers={"User-Agent": user_agent})
     except httpx.HTTPError, TimeoutError:
         logger.warning("Failed to fetch robots.txt from %s", robots_url)
-        return RobotsRules(reachable=False)
+        return RobotsRules(reachable=False, url=robots_url)
     finally:
         if owns_client:
             await http_client.aclose()
 
     if response.status_code == NOT_FOUND_STATUS:
-        return RobotsRules(reachable=True)
+        return RobotsRules(reachable=True, url=robots_url)
     if rate_limiter is not None and response.status_code in (
         TOO_MANY_REQUESTS_STATUS,
         SERVICE_UNAVAILABLE_STATUS,
     ):
         rate_limiter.suspend_for_retry_after(response.headers.get("Retry-After"))
-        return RobotsRules(reachable=False)
+        return RobotsRules(reachable=False, url=robots_url)
     if response.status_code >= CLIENT_ERROR_STATUS:
         logger.warning(
             "robots.txt fetch for %s returned HTTP %s",
             robots_url,
             response.status_code,
         )
-        return RobotsRules(reachable=False)
+        return RobotsRules(reachable=False, url=robots_url)
 
     parser = RobotFileParser()
     parser.parse(response.text.splitlines())
@@ -103,6 +104,7 @@ async def fetch_robots_rules(
         reachable=True,
         crawl_delay=_own_or_wildcard_crawl_delay(parser, user_agent),
         sitemap_urls=list(parser.site_maps() or []),
+        url=robots_url,
         _parser=parser,
     )
 

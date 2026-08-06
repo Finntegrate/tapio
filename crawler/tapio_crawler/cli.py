@@ -96,11 +96,13 @@ def discover(site: str) -> None:
 
     excluded = ", ".join(f"{reason}={count}" for reason, count in summary.excluded_by_reason.items()) or "none"
     status = "complete" if summary.complete else "incomplete"
+    sitemap_urls = ", ".join(summary.sitemap_urls) or "none"
     typer.echo(
         f"Discovery run {summary.run_id} for {site}: {status}. "
         f"Discovered {summary.discovered}; eligible {summary.eligible}; "
         f"excluded: {excluded}; "
-        f"child sitemaps fetched {summary.child_sitemaps_fetched}.",
+        f"child sitemaps fetched {summary.child_sitemaps_fetched}. "
+        f"robots.txt: {summary.robots_txt_url or 'none'}; sitemaps: {sitemap_urls}.",
     )
 
 

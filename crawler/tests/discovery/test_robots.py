@@ -136,6 +136,45 @@ async def test_disallowed_path_is_reported() -> None:
 
 
 @pytest.mark.asyncio
+async def test_records_the_fetched_robots_txt_url() -> None:
+    """The resolved robots.txt URL is recorded, on both success and failure,
+    so a discovery run can report which URL it actually used.
+    """
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="")
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        rules = await fetch_robots_rules(
+            "https://example.com",
+            USER_AGENT,
+            client=client,
+        )
+
+    assert rules.url == "https://example.com/robots.txt"
+
+
+@pytest.mark.asyncio
+async def test_records_the_attempted_robots_txt_url_on_failure() -> None:
+    """An unreachable robots.txt still records the URL that was attempted."""
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(503)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as client:
+        rules = await fetch_robots_rules(
+            "https://example.com",
+            USER_AGENT,
+            client=client,
+        )
+
+    assert rules.reachable is False
+    assert rules.url == "https://example.com/robots.txt"
+
+
+@pytest.mark.asyncio
 async def test_extracts_sitemap_urls() -> None:
     body = "Sitemap: https://example.com/sitemap.xml\n"
 
