@@ -251,3 +251,23 @@ def test_count_by_site_filters_by_scope_and_fetch_status(store: ManifestStore) -
 
     assert store.count_by_site("migri", scope_status="eligible") == 2
     assert store.count_by_site("migri", scope_status="eligible", fetch_status="success") == 1
+
+
+def test_uses_wal_journal_mode(store: ManifestStore) -> None:
+    """The store opens with WAL journal mode, so concurrent per-site crawl
+    processes get one-writer/many-readers instead of blocking on the
+    default rollback journal (#79).
+    """
+    mode = store._connection.execute("PRAGMA journal_mode").fetchone()[0]
+
+    assert mode.lower() == "wal"
+
+
+def test_configures_a_busy_timeout(store: ManifestStore) -> None:
+    """The store raises SQLite's busy_timeout above its 5s default, so a
+    concurrent writer waits out a momentary lock instead of a per-site
+    crawl process immediately raising "database is locked" (#79).
+    """
+    timeout_ms = store._connection.execute("PRAGMA busy_timeout").fetchone()[0]
+
+    assert timeout_ms == 30000
