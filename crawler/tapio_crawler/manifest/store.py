@@ -66,8 +66,15 @@ class ManifestStore:
         """
         self.path = Path(path) if path is not None else Path(DEFAULT_MANIFEST_PATH)
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self._connection = sqlite3.connect(self.path)
+        # WAL lets one writer and multiple readers proceed concurrently
+        # instead of blocking on the default rollback journal; busy_timeout
+        # makes a writer wait out a momentary lock instead of raising
+        # "database is locked" immediately. Both matter once discovery/render
+        # runs for different sites open this same file concurrently (#79).
+        self._connection = sqlite3.connect(self.path, timeout=30.0)
         self._connection.row_factory = sqlite3.Row
+        self._connection.execute("PRAGMA journal_mode=WAL")
+        self._connection.execute("PRAGMA busy_timeout=30000")
         self._connection.execute(_SCHEMA)
         self._add_missing_columns()
         self._connection.commit()
