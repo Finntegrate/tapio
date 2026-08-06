@@ -124,9 +124,10 @@ one uniform "large sitemap = slow" story:
   child sitemaps failed to fetch), dvv.fi 6,460 of 6,464 (also incomplete).
   That is roughly **4–5x** the volume this section previously estimated from
   an English-only subset, and it moves the render-phase floor for migri.fi
-  and dvv.fi from ~2.4–2.5h each to a back-of-envelope **~10–12.5h each** at
-  their mandated 5s `Crawl-delay` floor — past "half a business day per
-  source" and into multi-day territory absent concurrency (see "Operator
+  and dvv.fi from ~2.4–2.5h each to a back-of-envelope **~9.0–9.7h each**
+  (6,952 and 6,460 eligible URLs respectively × their mandated 5s
+  `Crawl-delay` floor) — past "half a business day per source" absent
+  concurrency (see "Operator
   controls" below). vero.fi's much larger eligible count (11,180) at a lower
   1–3s delay floor puts its own render-phase floor in a similar multi-hour
   range, so migri.fi is no longer confidently the single slowest site once
@@ -339,39 +340,38 @@ The manifest must retain pages absent from a later sitemap as `inactive_candidat
 for at least two discovery cycles. It must not delete previously ingested content
 automatically in the first release.
 
-Postgres/pgvector — **proposed** as the ingestion vector store in
-[ADR 0004](../ADRs/0004-cocoindex-ingestion.md), not yet accepted (that ADR's
-own status is `Proposed`) — is a strategic candidate for the manifest store too,
-and the scale described in "Scale and timeline" above makes this a stronger,
-not merely incidental, case rather than a nice-to-have consolidation:
+SQLite is the manifest store for the near term — see "Open questions" below
+for the resolved decision and its rationale (no operating budget for a
+persistent Postgres service; SQLite's portability, via copying the file to a
+shared bucket, matches the pattern already planned for the RAG database if
+ChromaDB needs to move to a live demo environment). The scale described in
+"Scale and timeline" above is real, but SQLite must meet it directly, not by
+migrating to a relational service:
 
-- **The manifest needs to support real query and concurrency
-  requirements, not a small lookup table.** Combining migri.fi's and dvv.fi's
-  sitemap indexes alone is 3,524 layout entries covering roughly 7,000+
+- **The manifest needs indexed queries by site, scope status, and
+  next action, and durable per-URL progress checkpoints, across a corpus in
+  the tens of thousands of rows.** Combining migri.fi's and dvv.fi's sitemap
+  indexes alone is 3,524 layout entries covering roughly 7,000+
   language-variant URLs before scope filtering; kela.fi and vero.fi add
-  3,794 and 11,185 more. Requirement 3 (manifest-driven collection and
-  resumability) needs indexed queries by site, scope status, and
-  next-action across a corpus in the tens of thousands of rows, concurrent
-  batched jobs, and durable progress checkpoints — well past what a
-  single JSON state file (today's `crawl_state.json`) or an ad hoc
-  per-site flat file can support. This is a concrete reason a real
-  relational store is needed from Phase 1, not deferred to later
-  hardening.
-- **This would not merge with CocoIndex's own incremental-processing
-  state**, which ADR 0004's spike found lives in a local LMDB directory, not
-  Postgres — but the manifest's per-URL scope/fetch/refresh state is a
-  natural fit for the same relational store `ingest/` already proposes
-  writing vectors to, and `ingest/`'s own incremental logic could then read
-  canonical URLs and content hashes from it directly instead of re-deriving
-  them from Markdown frontmatter.
+  3,794 and 11,185 more. This is well past what a single JSON state file
+  (today's `crawl_state.json`) or an ad hoc per-site flat file can support,
+  but it is within what SQLite's own indexing handles without a separate
+  service.
+- **Concurrent batched jobs** (Requirement 3, multiple sites crawled at
+  once — see "Operator controls") need WAL journal mode and a raised
+  `busy_timeout` on the manifest connection, so one site's job doesn't hit
+  "database is locked" while another site's job holds the file open at the
+  same moment — not a different storage engine (tracked in
+  [#79](https://github.com/Finntegrate/tapio/issues/79), which covers this
+  alongside the rest of that issue's concurrent-job orchestration scope).
 
-If Phase 1 engineering settles on Postgres for the manifest, it should be
-recorded as a new, unifying ADR that reconciles the crawler manifest and ADR
-0004's ingestion store under one storage decision — and, since ADR 0004 itself
-is still `Proposed`, that unifying ADR is also an opportunity to move ADR 0004
-from Proposed to Accepted on the strength of a second, independent consumer
-(the crawler manifest) needing the same store, rather than deciding storage as
-an implementation detail buried in this spec.
+This does not merge with CocoIndex's own incremental-processing state, which
+[ADR 0004](../ADRs/0004-cocoindex-ingestion.md)'s spike found lives in a local
+LMDB directory, not Postgres — the crawler manifest and `ingest/`'s eventual
+vector store (ADR 0004 itself is still `Proposed`) remain separate storage
+decisions. If a live-demo scaling problem makes a managed database necessary
+for the manifest later, that should be evaluated on its own merits at that
+time, not folded into ADR 0004 as a unifying migration.
 
 ## Configuration contract
 
@@ -495,9 +495,24 @@ language-aware deduplication, ranking, and presentation are retrieval-layer
 concerns (see [#68](https://github.com/Finntegrate/tapio/issues/68)), not a
 crawl-time filter.
 
+"Comprehensive" means every source is crawled without a language filter, not
+that every source's discovery mechanism is guaranteed to reach full
+coverage in one pass. For a sitemap-backed source (migri.fi, kela.fi,
+vero.fi, dvv.fi) that mechanism has no size limit. tyomarkkinatori.fi is
+different: it has no sitemap, so its bounded BFS gap-crawl above
+(`max_pages: 300`) is its *sole* discovery path, not the P1 supplement it is
+for the other four sources (see "Bounded deep-crawl gap detection" below).
+A single capped pass can undercount a site whose real page count exceeds
+that bound, and today's config has no resumable multi-pass mechanism to
+recover URLs a capped run missed. Confirming whether 300 is enough once
+tyomarkkinatori.fi is seeded from its language-neutral root (above, not the
+English-only landing page the 2026-08-05 dry run used), and widening or
+making that discovery resumable if not, is tracked in
+[#88](https://github.com/Finntegrate/tapio/issues/88).
+
 `min_delay`/`max_delay` above are illustrative starting points, not settled
 values — the actual safe rate per source is an open question below. What the
-migri example is meant to show is the _relationship_: its configured `min_delay`
+migri example is meant to show is the *relationship*: its configured `min_delay`
 must not be set below its declared `Crawl-delay` (5s), whatever the final chosen
 value is, whereas tyomarkkinatori (no declared `Crawl-delay`) keeps today's more
 conservative-by-convention default rather than being sped up just because nothing
@@ -618,7 +633,7 @@ domains and scope.
   validation enabled.
 - Before trusting a source's `lastmod` values for refresh scheduling
   (Requirement 5), check both that they vary meaningfully across that source's
-  discovered URLs _and_ that the variation correlates with real content
+  discovered URLs *and* that the variation correlates with real content
   changes, not just CMS republish/workflow noise. migri.fi and dvv.fi pass the
   first check (their `lastmod` does vary, confirmed by broad sampling) but not
   yet the second — that correlation is unverified, not disproven, and remains
@@ -938,8 +953,8 @@ backfills, then evaluate these targets per production source.
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------- |
 | How should near-identical language variants of the same page be represented in retrieval — deduplicated, ranked, or surfaced separately? Crawl-time scope no longer filters by language (resolved 2026-08-06: every discovered language variant is crawled), so this is now purely a retrieval-layer question, tracked in [#68](https://github.com/Finntegrate/tapio/issues/68).                                                                                                                                                                                                                                                               | Product and data                    | No — crawl-time policy resolved; open at retrieval time |
 | What policy governs robots directives, AI-specific content signals, and any source terms that go beyond robots?                                                                                                                                                                                                                                                                                             | Legal/compliance and product        | Yes, before production backfill                       |
-| Where should the manifest live, and what retention/backup policy applies to crawl metadata? Resolved for the near term (2026-08-06): SQLite, not Postgres — there is no operating budget for a persistent Postgres service, and SQLite is portable (copy the file to a shared bucket), the same pattern likely to be used for the RAG database if it moves to a live demo environment. Concurrent multi-site writes (see "Operator controls" and #79) need WAL mode and a busy-timeout on the existing SQLite connection, not a database migration. Revisit only if a live-demo scaling problem — the same kind that would push ChromaDB toward a cloud vector store — makes it necessary. | Engineering and data                | No — resolved; revisit only if scale/budget changes   |
-| What is the safe production request rate and concurrency for each source, above the `Crawl-delay` floor the source survey already found for migri.fi and dvv.fi (5s)? Resolved (2026-08-06): today's conservative defaults stand, no faster rate or higher concurrency needed. This crawl is an out-of-band process run at most weekly, more likely monthly — not a live-traffic path — and it feeds a corpus meant to point users to official source pages, not to serve as an authoritative knowledgebase in its own right (see "Good-citizen crawling posture" above). There is no throughput requirement pushing against the existing politeness floor. | Engineering, informed by Phase 0    | No — resolved; revisit only if crawl cadence or product design changes |
+| Where should the manifest live, and what retention/backup policy applies to crawl metadata? Resolved for the near term (2026-08-06): SQLite, not Postgres — there is no operating budget for a persistent Postgres service, and SQLite is portable (copy the file to a shared bucket), the same pattern likely to be used for the RAG database if it moves to a live demo environment. Concurrent multi-site writes (see "Operator controls" and [#79](https://github.com/Finntegrate/tapio/issues/79)) need WAL mode and a busy-timeout on the existing SQLite connection, not a database migration — landed for the connection itself, but concurrent-job safety is a broader contract than just those two settings: each concurrent site job must open its own connection (one writer per process, never a connection shared across processes or threads), every multi-statement manifest write must be wrapped in one explicit transaction rather than committed row-by-row, and a caller must catch and retry a transient `sqlite3.OperationalError` ("database is locked") a bounded number of times instead of failing the whole run — required once concurrent crawl/discovery jobs exist, tracked as remaining scope on [#79](https://github.com/Finntegrate/tapio/issues/79). Revisit the storage engine itself only if a live-demo scaling problem — the same kind that would push ChromaDB toward a cloud vector store — makes it necessary. | Engineering and data                | No — storage engine resolved; concurrency contract above still needed before #79's concurrent jobs ship |
+| What is the safe production request rate and concurrency for each source, above the `Crawl-delay` floor the source survey already found for migri.fi and dvv.fi (5s)? The *policy* question is resolved (2026-08-06): today's conservative defaults stand, no faster rate or higher concurrency is being pursued. This crawl is an out-of-band process run at most weekly, more likely monthly — not a live-traffic path — and it feeds a corpus meant to point users to official source pages, not to serve as an authoritative knowledgebase in its own right (see "Good-citizen crawling posture" above); there is no throughput requirement pushing against the existing politeness floor. What remains open is empirical, not policy: Phase 0 (see "Dependencies and phasing" below) still needs to confirm that these specific conservative values are actually safe/polite in practice for each source, not merely conservative in principle — that confirmation is a pending Phase 0 deliverable, not a reason to consider raising the defaults. | Engineering, informed by Phase 0    | No — the "go faster?" policy question is resolved; Phase 0's empirical safety confirmation of current defaults is still pending |
 | Which URL query parameters are meaningful rather than tracking-only for each site?                                                                                                                                                                                                                                                                                                                          | Engineering and content operations  | No — begin conservatively and add reviewed exceptions |
 | What threshold distinguishes an inactive page from a removed source that should no longer be cited?                                                                                                                                                                                                                                                                                                         | Product, legal/compliance, and data | No — retain inactive candidates in v1                 |
 
