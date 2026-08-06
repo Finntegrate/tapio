@@ -54,17 +54,23 @@ _DISCOVERY_RUN_SCHEMA = """
 CREATE TABLE IF NOT EXISTS discovery_run (
     site_name TEXT PRIMARY KEY,
     completed_at TEXT NOT NULL,
-    complete INTEGER NOT NULL
+    complete INTEGER NOT NULL,
+    config_fingerprint TEXT NOT NULL DEFAULT ''
 );
 """
 
 
 @dataclass
 class LastDiscoveryRun:
-    """When a site's discovery last completed, for a ``cache_ttl_hours`` check."""
+    """When a site's discovery last completed, for a ``cache_ttl_hours`` check.
+
+    Recorded for every discovery attempt, including incomplete ones - see
+    ``get_last_discovery_run``.
+    """
 
     completed_at: datetime
     complete: bool
+    config_fingerprint: str = ""
 
 
 class ManifestStore:
@@ -95,6 +101,7 @@ class ManifestStore:
         self._connection.execute(_SCHEMA)
         self._connection.execute(_DISCOVERY_RUN_SCHEMA)
         self._add_missing_columns()
+        self._add_missing_discovery_run_columns()
         self._connection.commit()
 
     def _add_missing_columns(self) -> None:
@@ -116,11 +123,24 @@ class ManifestStore:
             else:
                 self._connection.execute(f"ALTER TABLE manifest ADD COLUMN {name} TEXT")
 
+    def _add_missing_discovery_run_columns(self) -> None:
+        """Add ``config_fingerprint`` to a ``discovery_run`` table that predates it."""
+        existing = {row["name"] for row in self._connection.execute("PRAGMA table_info(discovery_run)")}
+        if "config_fingerprint" not in existing:
+            self._connection.execute("ALTER TABLE discovery_run ADD COLUMN config_fingerprint TEXT NOT NULL DEFAULT ''")
+
     def close(self) -> None:
         """Release the underlying SQLite connection."""
         self._connection.close()
 
-    def record_discovery_run(self, site_name: str, completed_at: datetime, *, complete: bool) -> None:
+    def record_discovery_run(
+        self,
+        site_name: str,
+        completed_at: datetime,
+        *,
+        complete: bool,
+        config_fingerprint: str = "",
+    ) -> None:
         """Record that a discovery run finished for ``site_name``.
 
         Used by ``discovery.cache_ttl_hours`` to decide whether a later
@@ -131,12 +151,17 @@ class ManifestStore:
             site_name: Name of the configured source site.
             completed_at: When the run finished.
             complete: Whether the run finished without a fatal interruption.
+            config_fingerprint: Hash of the discovery/scope settings this run
+                used, so a later run can tell whether the site's
+                configuration has changed since and treat a cache hit as
+                stale even within ``cache_ttl_hours``.
         """
         self._connection.execute(
-            "INSERT INTO discovery_run (site_name, completed_at, complete) VALUES (?, ?, ?) "
+            "INSERT INTO discovery_run (site_name, completed_at, complete, config_fingerprint) "
+            "VALUES (?, ?, ?, ?) "
             "ON CONFLICT (site_name) DO UPDATE SET completed_at = excluded.completed_at, "
-            "complete = excluded.complete",
-            (site_name, completed_at.isoformat(), int(complete)),
+            "complete = excluded.complete, config_fingerprint = excluded.config_fingerprint",
+            (site_name, completed_at.isoformat(), int(complete), config_fingerprint),
         )
         self._connection.commit()
 
@@ -147,11 +172,11 @@ class ManifestStore:
             site_name: Name of the configured source site.
 
         Returns:
-            The last recorded run, or ``None`` if discovery has never
-            completed for this site.
+            The most recently recorded run, including an incomplete one, or
+            ``None`` if no run has ever been recorded for this site.
         """
         row = self._connection.execute(
-            "SELECT completed_at, complete FROM discovery_run WHERE site_name = ?",
+            "SELECT completed_at, complete, config_fingerprint FROM discovery_run WHERE site_name = ?",
             (site_name,),
         ).fetchone()
         if row is None:
@@ -159,6 +184,7 @@ class ManifestStore:
         return LastDiscoveryRun(
             completed_at=datetime.fromisoformat(row["completed_at"]),
             complete=bool(row["complete"]),
+            config_fingerprint=row["config_fingerprint"] or "",
         )
 
     def upsert(self, record: ManifestRecord) -> ManifestRecord:

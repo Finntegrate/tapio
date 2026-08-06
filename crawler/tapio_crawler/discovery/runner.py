@@ -6,6 +6,8 @@ resulting URL inventory in the manifest.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 import uuid
 from dataclasses import dataclass, field
@@ -32,6 +34,28 @@ _SCOPE_REASON_STATUS: dict[str, ScopeStatus] = {
     "domain_not_allowed": "out_of_scope",
     "excluded_by_pattern": "excluded",
 }
+
+# Bumped whenever the fields hashed below change, so a stored fingerprint
+# from an older version of this function never falsely matches.
+_CONFIG_FINGERPRINT_VERSION = "v1"
+
+
+def _config_fingerprint(config: CrawlerConfig) -> str:
+    """Hash the discovery/scope settings a cached run's counts depend on.
+
+    Used to invalidate a ``discovery.cache_ttl_hours`` cache hit when
+    ``sitemap_urls`` or the site's scope rules change, even within the TTL
+    window that would otherwise still consider the cache fresh.
+    """
+    payload = {
+        "discovery_source": config.discovery.source,
+        "sitemap_urls": config.discovery.sitemap_urls,
+        "allowed_domains": config.scope.allowed_domains,
+        "exclude_url_patterns": config.scope.exclude_url_patterns,
+        "allowed_content_types": config.scope.allowed_content_types,
+    }
+    digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    return f"{_CONFIG_FINGERPRINT_VERSION}:{digest}"
 
 
 @dataclass
@@ -105,6 +129,19 @@ class DiscoveryRunner:
             if cached_summary is not None:
                 return cached_summary
 
+        config_fingerprint = _config_fingerprint(config)
+        if is_sitemap_source:
+            # Recorded up front so an exception below (robots, sitemap fetch,
+            # or persistence) leaves the site's last recorded run marked
+            # incomplete, rather than leaving a stale prior "complete" run in
+            # place that a later call could still serve from cache.
+            self._manifest_store.record_discovery_run(
+                site_name,
+                datetime.now(UTC),
+                complete=False,
+                config_fingerprint=config_fingerprint,
+            )
+
         # Shared across robots, sitemap, and gap-crawl requests to this host so a
         # Crawl-delay floor or Retry-After suspension applies uniformly.
         rate_limiter = HostRateLimiter(min_delay=config.min_delay, max_delay=config.max_delay)
@@ -119,7 +156,12 @@ class DiscoveryRunner:
             summary.complete = False
             logger.warning("robots.txt unreachable for %s; marking run incomplete", site_name)
             if is_sitemap_source:
-                self._manifest_store.record_discovery_run(site_name, datetime.now(UTC), complete=False)
+                self._manifest_store.record_discovery_run(
+                    site_name,
+                    datetime.now(UTC),
+                    complete=False,
+                    config_fingerprint=config_fingerprint,
+                )
             return summary
 
         effective_delay = resolve_effective_delay(
@@ -145,7 +187,12 @@ class DiscoveryRunner:
             summary,
         )
         if is_sitemap_source:
-            self._manifest_store.record_discovery_run(site_name, datetime.now(UTC), complete=summary.complete)
+            self._manifest_store.record_discovery_run(
+                site_name,
+                datetime.now(UTC),
+                complete=summary.complete,
+                config_fingerprint=config_fingerprint,
+            )
         return summary
 
     def _try_cached_summary(
@@ -167,6 +214,8 @@ class DiscoveryRunner:
         """
         last_run = self._manifest_store.get_last_discovery_run(site_name)
         if last_run is None or not last_run.complete:
+            return None
+        if last_run.config_fingerprint != _config_fingerprint(config):
             return None
         age = datetime.now(UTC) - last_run.completed_at
         if age >= timedelta(hours=config.discovery.cache_ttl_hours):
