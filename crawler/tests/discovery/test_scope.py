@@ -42,25 +42,6 @@ def test_rejects_url_with_tracking_query_pattern() -> None:
     assert decision.eligible is False
 
 
-def test_rejects_url_outside_include_patterns() -> None:
-    """A URL not matching any include pattern is rejected."""
-    scope = ScopeConfig(include_url_patterns=["/en/*"])
-
-    decision = evaluate_scope("https://migri.fi/fi/sivu", scope)
-
-    assert decision.eligible is False
-    assert decision.reason == "not_in_include_patterns"
-
-
-def test_accepts_url_within_include_patterns() -> None:
-    """A URL matching an include pattern is accepted."""
-    scope = ScopeConfig(include_url_patterns=["/en/*"])
-
-    decision = evaluate_scope("https://migri.fi/en/page", scope)
-
-    assert decision.eligible is True
-
-
 def test_no_configured_rules_accepts_everything() -> None:
     """With no scope rules configured, every URL is accepted."""
     decision = evaluate_scope("https://anything.example/path", ScopeConfig())

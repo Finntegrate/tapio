@@ -22,8 +22,6 @@ sites:
         sitemap_urls: []
       scope:
         allowed_domains: ["migri.fi", "www.migri.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"
@@ -50,8 +48,6 @@ sites:
         source: none
       scope:
         allowed_domains: ["tyomarkkinatori.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"
@@ -59,7 +55,7 @@ sites:
         allowed_content_types: ["text/html"]
       gap_crawl:
         enabled: true
-        seed_urls: ["https://tyomarkkinatori.fi/en"]
+        seed_urls: ["https://tyomarkkinatori.fi"]
         strategy: bfs
         max_depth: 4
         max_pages: 300
@@ -81,8 +77,6 @@ sites:
         sitemap_urls: []
       scope:
         allowed_domains: ["kela.fi", "www.kela.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"
@@ -91,7 +85,7 @@ sites:
 
   # Example configuration for Vero website
   vero:
-    base_url: "https://www.vero.fi/en/"
+    base_url: "https://www.vero.fi/"
     description: "Vero (Guidance about taxation in Finland) website"
     crawler_config:
       min_delay: 1.0
@@ -107,8 +101,6 @@ sites:
         sitemap_urls: []
       scope:
         allowed_domains: ["vero.fi", "www.vero.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"
@@ -134,8 +126,6 @@ sites:
         sitemap_urls: []
       scope:
         allowed_domains: ["dvv.fi", "www.dvv.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"

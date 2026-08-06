@@ -20,7 +20,7 @@ from tapio_crawler.manifest.store import ManifestStore
 
 
 def site_config(**overrides: object) -> SiteConfig:
-    scope = overrides.pop("scope", ScopeConfig(allowed_domains=["example.com"], languages=["en"]))
+    scope = overrides.pop("scope", ScopeConfig(allowed_domains=["example.com"]))
     return SiteConfig(
         base_url=HttpUrl("https://example.com"),
         crawler_config=CrawlerConfig(min_delay=0, max_delay=0, scope=scope, **overrides),
@@ -116,7 +116,7 @@ async def test_initial_backfill_writes_frontmatter_keyed_by_canonical_url(
     document = frontmatter.load(output)
     assert document.metadata["canonical_url"] == "https://example.com/permit"
     assert document.metadata["extractor_version"] == EXTRACTOR_VERSION
-    assert document.metadata["language"] == "en"
+    assert document.metadata["language"] is None
     assert "content_hash" in document.metadata
 
 
