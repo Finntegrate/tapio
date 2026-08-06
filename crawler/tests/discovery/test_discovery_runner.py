@@ -122,6 +122,65 @@ async def test_sitemap_discovery_upserts_eligible_and_excluded_urls(
 
 
 @pytest.mark.asyncio
+async def test_summary_records_robots_and_sitemap_urls_used(
+    store: ManifestStore,
+) -> None:
+    """The run summary records the resolved robots.txt URL and the
+    top-level sitemap URLs used for discovery.
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(
+        discovery=DiscoveryConfig(source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]),
+    )
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True, url="https://example.com/robots.txt")),
+        ),
+        patch(
+            "tapio_crawler.discovery.runner.discover_sitemap_urls",
+            AsyncMock(return_value=SitemapDiscoveryResult()),
+        ),
+    ):
+        summary = await runner.run("example", site_config)
+
+    assert summary.robots_txt_url == "https://example.com/robots.txt"
+    assert summary.sitemap_urls == ["https://example.com/sitemap.xml"]
+
+
+@pytest.mark.asyncio
+async def test_summary_falls_back_to_robots_discovered_sitemap_urls(
+    store: ManifestStore,
+) -> None:
+    """When no sitemap URLs are configured, the summary records the ones
+    discovered from robots.txt instead.
+    """
+    runner = DiscoveryRunner(store)
+    site_config = _site_config(discovery=DiscoveryConfig(source="sitemap"))
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(
+                return_value=RobotsRules(
+                    reachable=True,
+                    url="https://example.com/robots.txt",
+                    sitemap_urls=["https://example.com/from-robots.xml"],
+                ),
+            ),
+        ),
+        patch(
+            "tapio_crawler.discovery.runner.discover_sitemap_urls",
+            AsyncMock(return_value=SitemapDiscoveryResult()),
+        ),
+    ):
+        summary = await runner.run("example", site_config)
+
+    assert summary.sitemap_urls == ["https://example.com/from-robots.xml"]
+
+
+@pytest.mark.asyncio
 async def test_gap_crawl_discovery_used_when_no_sitemap(store: ManifestStore) -> None:
     """Gap-crawl discovery is used when no sitemap source is configured."""
     runner = DiscoveryRunner(store)

@@ -48,6 +48,9 @@ class DiscoveryRunSummary:
             source was a sitemap index.
         complete: Whether the run finished without a fatal interruption
             (for example, an unreachable robots.txt or a failed fetch).
+        robots_txt_url: The robots.txt URL this run fetched.
+        sitemap_urls: The top-level sitemap URLs this run fetched from,
+            empty for a gap-crawl-only source.
         cached: Whether this summary was rebuilt from a prior discovery
             run's manifest state, per ``discovery.cache_ttl_hours``, instead
             of re-fetching robots.txt and the sitemap.
@@ -60,6 +63,8 @@ class DiscoveryRunSummary:
     excluded_by_reason: dict[str, int] = field(default_factory=dict)
     child_sitemaps_fetched: int = 0
     complete: bool = True
+    robots_txt_url: str = ""
+    sitemap_urls: list[str] = field(default_factory=list)
     cached: bool = False
 
 
@@ -109,6 +114,7 @@ class DiscoveryRunner:
             config.politeness.user_agent,
             rate_limiter=rate_limiter,
         )
+        summary.robots_txt_url = robots.url
         if not robots.reachable and config.robots_policy == "require":
             summary.complete = False
             logger.warning("robots.txt unreachable for %s; marking run incomplete", site_name)
@@ -188,6 +194,7 @@ class DiscoveryRunner:
         """Dispatch to sitemap or gap-crawl discovery and update run counts."""
         if config.discovery.source == "sitemap":
             sitemap_urls = config.discovery.sitemap_urls or robots.sitemap_urls
+            summary.sitemap_urls = sitemap_urls
             async with httpx.AsyncClient() as client:
                 sitemap_result = await discover_sitemap_urls(
                     sitemap_urls,

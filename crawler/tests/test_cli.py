@@ -64,6 +64,8 @@ def test_discover_reports_summary() -> None:
         excluded_by_reason={"domain_not_allowed": 1},
         child_sitemaps_fetched=1,
         complete=True,
+        robots_txt_url="https://example.com/robots.txt",
+        sitemap_urls=["https://example.com/sitemap.xml"],
     )
     runner = Mock()
     runner.run = AsyncMock(return_value=summary)
@@ -79,6 +81,8 @@ def test_discover_reports_summary() -> None:
     assert result.exit_code == 0
     assert "complete" in result.stdout
     assert "eligible 1" in result.stdout
+    assert "https://example.com/robots.txt" in result.stdout
+    assert "https://example.com/sitemap.xml" in result.stdout
     manifest_store_type.return_value.close.assert_called_once()
 
 
