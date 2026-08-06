@@ -111,19 +111,29 @@ one uniform "large sitemap = slow" story:
   effectively one request, independent of URL count.
 - **Content-rendering time, separately, is bounded below by
   `(eligible URL count) × (effective per-host delay)`**, where "eligible"
-  means after this spec's language/path scope filters are applied — not the
-  raw sitemap size. For migri.fi and dvv.fi specifically, the sitemap
-  index's one-layout-per-~4-languages structure means the English-only
-  subset is close to the same order as the child-sitemap count itself (up to
-  ~1,755 and ~1,769 pages respectively, before excluding non-content paths),
-  so a full English-only backfill is plausibly another ~2.4–2.5 hours each at
-  their mandated 5s floor — on top of discovery, so **roughly half a business
-  day per source** as a conservative floor, absent any pipelining of
-  discovery and rendering. For kela.fi and vero.fi, the eligible-URL count
-  after scope filtering is genuinely unknown today — their raw counts
-  (3,794 and 11,185) span all language variants and non-content sections, and
-  we have not yet confirmed their URL path structure well enough to estimate
-  the English-only subset without guessing.
+  means after functional scope filters — robots, allowed domains, content
+  type, and `exclude_url_patterns` for search/login/tracking paths — are
+  applied. Language is deliberately not a scope filter (see Requirement 1
+  below): sites organize language variants inconsistently (path prefix,
+  embedded slug, or no URL-level signal at all — see the 2026-08-05 review
+  cited below), near-identical language variants are an acceptable outcome
+  at crawl time, and representing them is a retrieval-layer concern, not a
+  crawl-scope one. A discovery-only dry run on 2026-08-05 measured real
+  eligible counts under this policy: kela.fi 3,793 of 3,794 discovered,
+  vero.fi 11,180 of 11,185, migri.fi 6,952 of 6,964 (run incomplete — some
+  child sitemaps failed to fetch), dvv.fi 6,460 of 6,464 (also incomplete).
+  That is roughly **4–5x** the volume this section previously estimated from
+  an English-only subset, and it moves the render-phase floor for migri.fi
+  and dvv.fi from ~2.4–2.5h each to a back-of-envelope **~10–12.5h each** at
+  their mandated 5s `Crawl-delay` floor — past "half a business day per
+  source" and into multi-day territory absent concurrency (see "Operator
+  controls" below). vero.fi's much larger eligible count (11,180) at a lower
+  1–3s delay floor puts its own render-phase floor in a similar multi-hour
+  range, so migri.fi is no longer confidently the single slowest site once
+  rendering, not just discovery, is counted — this needs a render-phase
+  measurement, not just the discovery-only figures above, before
+  Requirement 3's streaming renderer is tuned around a "slowest site"
+  assumption.
 - **Actual per-page fetch latency is not the bottleneck and does not need to
   be re-measured.** ADR 0003 already measured real Crawl4AI fetch times
   against all five sites (migri 0.8s, tyomarkkinatori 0.7s, kela 1.0s, vero
@@ -135,25 +145,28 @@ one uniform "large sitemap = slow" story:
   flagged as WAF-sensitive (see "Legal, compliance, and site-relationship
   risk" below). A live full-content dry-run crawl is therefore not warranted
   for timeline estimation purposes.
-- **What is worth doing cheaply, and isn't done yet, is a discovery-only dry
-  run per source**: parse each source's sitemap (or, for tyomarkkinatori.fi,
-  run a bounded deep-crawl discovery pass) and apply the configured
-  `languages`/`include_url_patterns`/`exclude_url_patterns` filters, with zero
-  page renders. This produces the real eligible-URL count each source's
-  render-phase timeline actually depends on, at the cost this section already
-  prices in for discovery (since it reuses the same sitemap fetches), not an
-  additional one. This is recommended as a concrete Phase 0 deliverable — see
-  "Dependencies and phasing" below — rather than a full rendering dry-run.
+- **The discovery-only dry run this section previously recommended as a
+  Phase 0 deliverable ran on 2026-08-05** (zero page renders; sitemap parse
+  only, or for tyomarkkinatori.fi a bounded deep-crawl discovery pass),
+  applying only functional `exclude_url_patterns` — no `languages` or
+  language-based `include_url_patterns`, which this spec no longer defines
+  (see above). Total wall time for all five sites, sequential, was ~5h03m,
+  matching this section's original ~5–10h sequential estimate for discovery
+  alone. tyomarkkinatori.fi's pass seeded only from an English landing page
+  (`https://tyomarkkinatori.fi/en`), so its 458-of-476 eligible figure
+  doesn't yet reflect Finnish/Swedish content; re-seeding from a
+  language-neutral landing page is open backlog work.
 - **Running sites concurrently, not sequentially, bounds total wall-clock to
   the slowest single site rather than their sum.** `Crawl-delay` and
   `min_delay`/`max_delay` are enforced per host, so migri.fi's and dvv.fi's
   ~2.4–2.5h discovery floors, kela.fi's and vero.fi's near-instant discovery,
   and tyomarkkinatori.fi's bounded deep-crawl discovery do not contend with
-  each other. Today's CLI (`tapio_crawler.cli`) only crawls one configured
-  site per invocation; running all five as independent concurrent jobs would
-  cut a full backfill from roughly 5–10 hours sequential to something closer
-  to the ~2.5–5 hours the single slowest site needs on its own. See "Operator
-  controls" below.
+  each other, and neither would their render-phase work. The revised, larger
+  eligible-URL counts above make this more valuable than this section
+  originally estimated, not less: today's CLI (`tapio_crawler.cli`) only
+  crawls one configured site per invocation, and a full sequential backfill
+  (discovery + render) at the volumes above is now plausibly a multi-day,
+  not multi-hour, operation without it. See "Operator controls" below.
 
 ## Goals
 
@@ -243,10 +256,17 @@ one uniform "large sitemap = slow" story:
    - Default new sources to conservative concurrency and depth, and raise them
      deliberately per source rather than starting from a shared "fast" default.
      Even at this corpus's scale — tens of thousands of URLs across
-     sources before scope filtering, per "Scale and timeline" — this remains a
-     handful of government sites re-crawled on a slow cadence, not a
-     commercial-scale index crawled continuously; there is no throughput
-     pressure that should be traded against politeness.
+     sources, per "Scale and timeline" — this remains a handful of government
+     sites re-crawled on a slow cadence, not a commercial-scale index crawled
+     continuously; there is no throughput pressure that should be traded
+     against politeness. Concretely: this crawl is an out-of-band process
+     expected to run at most weekly, more likely monthly, and it feeds a
+     corpus meant to point users to the actual official source page(s), not
+     to stand in as an authoritative knowledgebase in its own right (the chat
+     product surfaces retrieved pages as sources, not as replacements for
+     them). Neither a faster per-source rate nor higher concurrency than
+     today's conservative defaults is needed absent a concrete requirement
+     that doesn't currently exist.
 
 ## User stories
 
@@ -260,9 +280,10 @@ one uniform "large sitemap = slow" story:
 
 ### Content operator
 
-- As a content operator, I want to configure scope and language rules per source,
+- As a content operator, I want to configure functional scope rules per source,
   so that the corpus contains public guidance but not services, navigational noise,
-  or duplicate locale variants.
+  or non-content endpoints — without needing to model each source's language
+  structure to do it.
 - As a content operator, I want to see which discovered pages were collected,
   excluded, failed, or are stale, so that I can investigate gaps without rerunning
   an entire site blindly.
@@ -296,7 +317,7 @@ by site, status, and next action.
 | `site_name`, `source_url`, `canonical_url`                  | Identify the configured source and deduplicate redirects, fragments, and tracking variants.                       |
 | `discovery_source`                                          | Record `sitemap`, `deep_crawl`, or an operator-provided seed.                                                     |
 | `sitemap_lastmod`, `first_seen_at`, `last_seen_at`          | Support incremental discovery and removal handling.                                                               |
-| `scope_status`, `scope_reason`                              | Preserve whether a URL is eligible, blocked by robots, out of language scope, excluded by a rule, or unsupported. |
+| `scope_status`, `scope_reason`                              | Preserve whether a URL is eligible, blocked by robots, excluded by a rule, or unsupported. |
 | `fetch_status`, `last_attempt_at`, `retry_after`            | Capture successful, failed, and rate-limited collection attempts.                                                 |
 | `content_hash`, `content_length`, `title`, `language`       | Detect meaningful changes and support quality reporting.                                                          |
 | `last_rendered_at`, `last_ingested_at`, `extractor_version` | Decide whether rendering or ingestion is required after a configuration change.                                   |
@@ -402,8 +423,6 @@ sites:
         trust_lastmod: false
       scope:
         allowed_domains: ["migri.fi", "www.migri.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"
@@ -412,7 +431,7 @@ sites:
         allowed_content_types: ["text/html"]
       gap_crawl:
         enabled: true
-        seed_urls: ["https://migri.fi/en"]
+        seed_urls: ["https://migri.fi"]
         strategy: bfs
         max_depth: 3
         max_pages: 300
@@ -440,8 +459,6 @@ sites:
         source: none
       scope:
         allowed_domains: ["tyomarkkinatori.fi"]
-        languages: ["en"]
-        include_url_patterns: ["/en/*"]
         exclude_url_patterns:
           - "*/search*"
           - "*/login*"
@@ -449,7 +466,7 @@ sites:
         allowed_content_types: ["text/html"]
       gap_crawl:
         enabled: true
-        seed_urls: ["https://tyomarkkinatori.fi/en"]
+        seed_urls: ["https://tyomarkkinatori.fi"]
         strategy: bfs
         max_depth: 4
         max_pages: 300
@@ -463,10 +480,20 @@ sites:
       max_concurrent: 3
 ```
 
-`languages` and path rules are deliberately required choices for each production
-source. The example uses English only because it is an explicit example, not a
-global default. A source that needs Finnish, Swedish, or multiple language versions
-must state that policy and its duplication treatment in configuration.
+Scope configuration is intentionally functional only — allowed domains, content
+type, and `exclude_url_patterns` for search/login/tracking/transactional paths —
+with no `languages` or language-based `include_url_patterns` field. The
+2026-08-05 discovery review (see "Scale and timeline" above) found language
+organized inconsistently across sources — path prefix on vero.fi/migri.fi/dvv.fi
+(and not even a consistent prefix: dvv.fi uses `/se/` for Swedish, not `/sv/`),
+embedded directly in the URL slug with no path signal at all on kela.fi — so a
+per-source language allow-list would need per-source, frequently-wrong detection
+logic to enforce something the corpus doesn't need enforced: near-identical
+language variants of the same page are an acceptable, expected outcome of a
+comprehensive crawl. Every source is crawled comprehensively, and
+language-aware deduplication, ranking, and presentation are retrieval-layer
+concerns (see [#68](https://github.com/Finntegrate/tapio/issues/68)), not a
+crawl-time filter.
 
 `min_delay`/`max_delay` above are illustrative starting points, not settled
 values — the actual safe rate per source is an open question below. What the
@@ -531,8 +558,8 @@ declares a floor.
   contact the crawler.
 - Fetch and retain the discovered `robots.txt` and sitemap URLs as crawl-run
 metadata.
-- Reject URLs outside configured allowed domains, language/path rules, permitted
-content types, or explicit deny patterns before rendering.
+- Reject URLs outside configured allowed domains, permitted content types, or
+explicit deny patterns before rendering.
 - Exclude URL fragments and normalize tracking parameters before manifest lookup.
 - Use same-site redirects only when the redirect target remains within the allowed
 domains and scope.
@@ -899,7 +926,7 @@ backfills, then evaluate these targets per production source.
 
 | Phase                          | Scope                                                                                                                                                                                                                                                                   | Dependencies                                     |
 | ------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------ |
-| **0 — policy and spike**       | Confirm language rules, URL patterns, safe per-source request rates, and sample extraction quality for all five sources, building on the 2026-08-04 source survey above (robots/sitemap/`Crawl-delay` already checked live for migri, kela, vero, dvv, tyomarkkinatori) | Product, legal/compliance, source review         |
+| **0 — policy and spike**       | Confirm functional exclude-pattern rules, safe per-source request rates, and sample extraction quality for all five sources, building on the 2026-08-04 source survey and 2026-08-05 discovery review above (robots/sitemap/`Crawl-delay` already checked live for migri, kela, vero, dvv, tyomarkkinatori) | Product, legal/compliance, source review         |
 | **1 — inventory foundation**   | Manifest storage, sitemap-first discovery, source scope configuration, summary reporting                                                                                                                                                                                | Crawler configuration and durable storage choice |
 | **2 — controlled backfill**    | Manifest-driven streaming renderer, document hashing, cache/refresh policy, resumability                                                                                                                                                                                | Phase 1 and ingest idempotency                   |
 | **3 — quality and gaps**       | Bounded deep-crawl gap detection, retrieval evaluation, operator controls                                                                                                                                                                                               | Phase 2 metrics and review                       |
@@ -909,10 +936,10 @@ backfills, then evaluate these targets per production source.
 
 | Question                                                                                                                                                                                                                                                                                                                                                                                                    | Owner                               | Blocking?                                             |
 | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------------------------------- |
-| Which language variants belong in each source corpus, and how should near-identical translations be represented in retrieval?                                                                                                                                                                                                                                                                               | Product and data                    | Yes, per production source                            |
+| How should near-identical language variants of the same page be represented in retrieval — deduplicated, ranked, or surfaced separately? Crawl-time scope no longer filters by language (resolved 2026-08-06: every discovered language variant is crawled), so this is now purely a retrieval-layer question, tracked in [#68](https://github.com/Finntegrate/tapio/issues/68).                                                                                                                                                                                                                                                               | Product and data                    | No — crawl-time policy resolved; open at retrieval time |
 | What policy governs robots directives, AI-specific content signals, and any source terms that go beyond robots?                                                                                                                                                                                                                                                                                             | Legal/compliance and product        | Yes, before production backfill                       |
-| Where should the manifest live, and what retention/backup policy applies to crawl metadata? Postgres (proposed for ingestion in [ADR 0004](../ADRs/0004-cocoindex-ingestion.md), not yet accepted) is looking like the leading candidate over a separate store, and the corpus scale (tens of thousands of URLs) makes this closer to a requirement than a preference — see "URL manifest" above. | Engineering and data                | Yes, before Phase 1                                   |
-| What is the safe production request rate and concurrency for each source, above the `Crawl-delay` floor the source survey already found for migri.fi and dvv.fi (5s)?                                                                                                                                                                                                                                       | Engineering, informed by Phase 0    | Yes, per production source                            |
+| Where should the manifest live, and what retention/backup policy applies to crawl metadata? Resolved for the near term (2026-08-06): SQLite, not Postgres — there is no operating budget for a persistent Postgres service, and SQLite is portable (copy the file to a shared bucket), the same pattern likely to be used for the RAG database if it moves to a live demo environment. Concurrent multi-site writes (see "Operator controls" and #79) need WAL mode and a busy-timeout on the existing SQLite connection, not a database migration. Revisit only if a live-demo scaling problem — the same kind that would push ChromaDB toward a cloud vector store — makes it necessary. | Engineering and data                | No — resolved; revisit only if scale/budget changes   |
+| What is the safe production request rate and concurrency for each source, above the `Crawl-delay` floor the source survey already found for migri.fi and dvv.fi (5s)? Resolved (2026-08-06): today's conservative defaults stand, no faster rate or higher concurrency needed. This crawl is an out-of-band process run at most weekly, more likely monthly — not a live-traffic path — and it feeds a corpus meant to point users to official source pages, not to serve as an authoritative knowledgebase in its own right (see "Good-citizen crawling posture" above). There is no throughput requirement pushing against the existing politeness floor. | Engineering, informed by Phase 0    | No — resolved; revisit only if crawl cadence or product design changes |
 | Which URL query parameters are meaningful rather than tracking-only for each site?                                                                                                                                                                                                                                                                                                                          | Engineering and content operations  | No — begin conservatively and add reviewed exceptions |
 | What threshold distinguishes an inactive page from a removed source that should no longer be cited?                                                                                                                                                                                                                                                                                                         | Product, legal/compliance, and data | No — retain inactive candidates in v1                 |
 
@@ -929,6 +956,11 @@ backfills, then evaluate these targets per production source.
   `AsyncUrlSeeder`/`SeedingConfig`, `CacheMode`, `RobotsParser.can_fetch`, and
   `BrowserConfig.user_agent` behavior against the installed `crawl4ai==0.9.2`
   package (`crawler/.venv/lib/python3.14/site-packages/crawl4ai/`).
+- Discovery-only dry run (2026-08-05): `discover`-only (zero page renders) run
+  against all five configured sites, providing the real eligible-URL counts
+  and per-site language-path structure cited in "Scale and timeline" above —
+  the basis for dropping `languages`/language-based `include_url_patterns`
+  from scope configuration.
 - [ADR 0003](../ADRs/0003-crawl4ai-crawler.md)'s per-page Crawl4AI fetch-time
   measurements (migri 0.8s, tyomarkkinatori 0.7s, kela 1.0s, vero 1.0s, dvv
   0.7s), reused directly in "Scale and timeline" above rather than
