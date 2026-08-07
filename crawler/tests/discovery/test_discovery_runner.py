@@ -255,7 +255,7 @@ async def test_cache_hit_skips_http_requests_and_rebuilds_from_manifest(
         "example",
         now,
         complete=True,
-        config_fingerprint=_config_fingerprint(site_config.crawler_config),
+        config_fingerprint=_config_fingerprint(site_config.crawler_config, str(site_config.base_url)),
     )
 
     def _fail(*_args: object, **_kwargs: object) -> None:
@@ -319,6 +319,10 @@ async def test_cache_miss_when_sitemap_urls_change_within_ttl(store: ManifestSto
     """Changing ``sitemap_urls`` invalidates a cache hit even within
     ``cache_ttl_hours``, since the cached counts were computed against a
     different sitemap (#76 follow-up).
+
+    Args:
+        store: Temporary manifest store fixture, primed with a prior run
+            recorded under the old sitemap URL's fingerprint.
     """
     runner = DiscoveryRunner(store)
     old_config = CrawlerConfig(
@@ -339,7 +343,7 @@ async def test_cache_miss_when_sitemap_urls_change_within_ttl(store: ManifestSto
         "example",
         datetime.now(UTC),
         complete=True,
-        config_fingerprint=_config_fingerprint(old_config),
+        config_fingerprint=_config_fingerprint(old_config, "https://example.com"),
     )
     fake_sitemap_result = SitemapDiscoveryResult(urls=[], child_sitemaps_fetched=0, complete=True)
 
@@ -366,6 +370,10 @@ async def test_cache_miss_when_scope_config_changes_within_ttl(store: ManifestSt
     invalidates a cache hit even within ``cache_ttl_hours``, since the
     cached eligible/excluded counts were computed under the old rules (#76
     follow-up).
+
+    Args:
+        store: Temporary manifest store fixture, primed with a prior run
+            recorded under the old scope config's fingerprint.
     """
     runner = DiscoveryRunner(store)
     old_config = CrawlerConfig(
@@ -388,7 +396,51 @@ async def test_cache_miss_when_scope_config_changes_within_ttl(store: ManifestSt
         "example",
         datetime.now(UTC),
         complete=True,
-        config_fingerprint=_config_fingerprint(old_config),
+        config_fingerprint=_config_fingerprint(old_config, "https://example.com"),
+    )
+    fake_sitemap_result = SitemapDiscoveryResult(urls=[], child_sitemaps_fetched=0, complete=True)
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True)),
+        ) as fetch_robots_mock,
+        patch(
+            "tapio_crawler.discovery.runner.discover_sitemap_urls",
+            AsyncMock(return_value=fake_sitemap_result),
+        ) as discover_sitemap_mock,
+    ):
+        summary = await runner.run("example", new_site_config)
+
+    assert summary.cached is False
+    fetch_robots_mock.assert_called_once()
+    discover_sitemap_mock.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_cache_miss_when_base_url_changes_within_ttl(store: ManifestStore) -> None:
+    """Changing a site's ``base_url`` invalidates a cache hit even within
+    ``cache_ttl_hours``, since the cached manifest records were discovered
+    from a different site origin (#76 follow-up).
+
+    Args:
+        store: Temporary manifest store fixture, primed with a prior run
+            recorded under the old base URL's fingerprint.
+    """
+    runner = DiscoveryRunner(store)
+    crawler_config = CrawlerConfig(
+        discovery=DiscoveryConfig(
+            source="sitemap",
+            sitemap_urls=["https://example.com/sitemap.xml"],
+            cache_ttl_hours=24,
+        ),
+    )
+    new_site_config = SiteConfig(base_url="https://new.example.com", crawler_config=crawler_config)
+    store.record_discovery_run(
+        "example",
+        datetime.now(UTC),
+        complete=True,
+        config_fingerprint=_config_fingerprint(crawler_config, "https://example.com"),
     )
     fake_sitemap_result = SitemapDiscoveryResult(urls=[], child_sitemaps_fetched=0, complete=True)
 
@@ -500,6 +552,11 @@ async def test_exception_during_discovery_leaves_last_run_marked_incomplete(
     """A crash while fetching the sitemap still leaves the site's last
     recorded run marked incomplete, so a later call cannot serve a cache hit
     built from a stale prior "complete" run (#76 follow-up).
+
+    Args:
+        store: Temporary manifest store fixture, primed with a prior
+            complete run so the pre-fetch incomplete marker is the only
+            thing distinguishing "before" from "after" this run.
     """
     runner = DiscoveryRunner(store)
     site_config = _site_config(
@@ -515,7 +572,7 @@ async def test_exception_during_discovery_leaves_last_run_marked_incomplete(
         "example",
         datetime.now(UTC),
         complete=True,
-        config_fingerprint=_config_fingerprint(site_config.crawler_config),
+        config_fingerprint=_config_fingerprint(site_config.crawler_config, str(site_config.base_url)),
     )
 
     with (

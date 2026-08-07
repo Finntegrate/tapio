@@ -40,14 +40,25 @@ _SCOPE_REASON_STATUS: dict[str, ScopeStatus] = {
 _CONFIG_FINGERPRINT_VERSION = "v1"
 
 
-def _config_fingerprint(config: CrawlerConfig) -> str:
+def _config_fingerprint(config: CrawlerConfig, base_url: str) -> str:
     """Hash the discovery/scope settings a cached run's counts depend on.
 
     Used to invalidate a ``discovery.cache_ttl_hours`` cache hit when
-    ``sitemap_urls`` or the site's scope rules change, even within the TTL
-    window that would otherwise still consider the cache fresh.
+    ``sitemap_urls``, the site's scope rules, or its base URL change, even
+    within the TTL window that would otherwise still consider the cache
+    fresh.
+
+    Args:
+        config: The site's crawler configuration.
+        base_url: The site's configured base URL, normalized (trailing
+            slash stripped) before hashing so equivalent URLs fingerprint
+            the same way.
+
+    Returns:
+        A version-prefixed hex digest, for example ``"v1:<hex>"``.
     """
     payload = {
+        "base_url": base_url.rstrip("/"),
         "discovery_source": config.discovery.source,
         "sitemap_urls": config.discovery.sitemap_urls,
         "allowed_domains": config.scope.allowed_domains,
@@ -121,15 +132,16 @@ class DiscoveryRunner:
         run_id = str(uuid.uuid4())
         summary = DiscoveryRunSummary(run_id=run_id, site_name=site_name)
         config = site_config.crawler_config
+        base_url = str(site_config.base_url).rstrip("/")
         _require_discovery_source(site_name, config)
         is_sitemap_source = config.discovery.source == "sitemap"
 
         if is_sitemap_source and config.discovery.cache_ttl_hours > 0:
-            cached_summary = self._try_cached_summary(site_name, config, summary)
+            cached_summary = self._try_cached_summary(site_name, config, base_url, summary)
             if cached_summary is not None:
                 return cached_summary
 
-        config_fingerprint = _config_fingerprint(config)
+        config_fingerprint = _config_fingerprint(config, base_url)
         if is_sitemap_source:
             # Recorded up front so an exception below (robots, sitemap fetch,
             # or persistence) leaves the site's last recorded run marked
@@ -145,7 +157,6 @@ class DiscoveryRunner:
         # Shared across robots, sitemap, and gap-crawl requests to this host so a
         # Crawl-delay floor or Retry-After suspension applies uniformly.
         rate_limiter = HostRateLimiter(min_delay=config.min_delay, max_delay=config.max_delay)
-        base_url = str(site_config.base_url).rstrip("/")
         robots = await fetch_robots_rules(
             base_url,
             config.politeness.user_agent,
@@ -199,6 +210,7 @@ class DiscoveryRunner:
         self,
         site_name: str,
         config: CrawlerConfig,
+        base_url: str,
         summary: DiscoveryRunSummary,
     ) -> DiscoveryRunSummary | None:
         """Rebuild a summary from the manifest if the last run is still fresh.
@@ -206,6 +218,8 @@ class DiscoveryRunner:
         Args:
             site_name: Name of the configured source site.
             config: The site's crawler configuration.
+            base_url: The site's configured base URL, normalized as in
+                ``_config_fingerprint``.
             summary: The run summary to fill in on a cache hit.
 
         Returns:
@@ -215,7 +229,7 @@ class DiscoveryRunner:
         last_run = self._manifest_store.get_last_discovery_run(site_name)
         if last_run is None or not last_run.complete:
             return None
-        if last_run.config_fingerprint != _config_fingerprint(config):
+        if last_run.config_fingerprint != _config_fingerprint(config, base_url):
             return None
         age = datetime.now(UTC) - last_run.completed_at
         if age >= timedelta(hours=config.discovery.cache_ttl_hours):

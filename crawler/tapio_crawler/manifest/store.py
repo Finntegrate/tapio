@@ -66,6 +66,14 @@ class LastDiscoveryRun:
 
     Recorded for every discovery attempt, including incomplete ones - see
     ``get_last_discovery_run``.
+
+    Attributes:
+        completed_at: When this run finished (or was marked incomplete).
+        complete: Whether this run finished without a fatal interruption.
+        config_fingerprint: Hash of the discovery/scope config in effect for
+            this run, used to detect config changes that should invalidate
+            an otherwise-fresh cache hit. Empty for runs recorded before
+            this field was introduced.
     """
 
     completed_at: datetime
