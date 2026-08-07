@@ -271,3 +271,48 @@ def test_configures_a_busy_timeout(store: ManifestStore) -> None:
     timeout_ms = store._connection.execute("PRAGMA busy_timeout").fetchone()[0]
 
     assert timeout_ms == 30000
+
+
+def test_get_last_discovery_run_returns_none_when_never_recorded(
+    store: ManifestStore,
+) -> None:
+    """A site with no recorded discovery run has no cached run state (#76)."""
+    assert store.get_last_discovery_run("migri") is None
+
+
+def test_record_discovery_run_can_be_read_back(store: ManifestStore) -> None:
+    """A recorded discovery run's completion time and status round-trip (#76)."""
+    completed_at = datetime(2026, 8, 4, 12, 0, tzinfo=UTC)
+
+    store.record_discovery_run("migri", completed_at, complete=True)
+    last_run = store.get_last_discovery_run("migri")
+
+    assert last_run is not None
+    assert last_run.completed_at == completed_at
+    assert last_run.complete is True
+
+
+def test_record_discovery_run_overwrites_the_prior_run_for_a_site(
+    store: ManifestStore,
+) -> None:
+    """Recording a new discovery run replaces the site's previous run state,
+    rather than accumulating a history (#76).
+    """
+    earlier = datetime(2026, 8, 3, tzinfo=UTC)
+    later = datetime(2026, 8, 5, tzinfo=UTC)
+    store.record_discovery_run("migri", earlier, complete=False)
+
+    store.record_discovery_run("migri", later, complete=True)
+    last_run = store.get_last_discovery_run("migri")
+
+    assert last_run is not None
+    assert last_run.completed_at == later
+    assert last_run.complete is True
+
+
+def test_record_discovery_run_is_independent_per_site(store: ManifestStore) -> None:
+    """Recording a run for one site does not affect another site's state (#76)."""
+    completed_at = datetime(2026, 8, 4, tzinfo=UTC)
+    store.record_discovery_run("migri", completed_at, complete=True)
+
+    assert store.get_last_discovery_run("kela") is None

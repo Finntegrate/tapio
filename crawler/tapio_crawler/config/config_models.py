@@ -40,6 +40,10 @@ class DiscoveryConfig(BaseModel):
     # False until a source's lastmod is empirically shown to correlate with
     # real content changes, per docs/specs/crawler-improvements.md.
     trust_lastmod: bool = False
+    # How long a completed sitemap discovery run stays valid before a
+    # `discover` run re-fetches, instead of reusing the manifest's existing
+    # discovery state. 0 disables caching and always re-fetches.
+    cache_ttl_hours: Annotated[float, Field(ge=0)] = 24.0
 
 
 class ScopeConfig(BaseModel):
