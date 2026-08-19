@@ -9,8 +9,7 @@ import ollama
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Cap on prior turns included as context, to avoid overflowing the model's context window
-MAX_HISTORY_MESSAGES = 10
+
 
 
 def _build_messages(
@@ -34,7 +33,7 @@ def _build_messages(
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
-        messages.extend(history[-MAX_HISTORY_MESSAGES:])
+        messages.extend(history)
 
     messages.append({"role": "user", "content": prompt})
     return messages

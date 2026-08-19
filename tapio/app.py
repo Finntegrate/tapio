@@ -1,7 +1,9 @@
 """Gradio interface for the Tapio Assistant RAG chatbot."""
 
 import logging
+import uuid
 from collections.abc import Generator
+from tapio.graph import to_history
 from typing import Any
 
 import gradio as gr
@@ -23,6 +25,7 @@ class TapioAssistantApp:
     def __init__(
         self,
         rag_orchestrator: RAGOrchestrator,
+        graph,
     ) -> None:
         """Initialize the Tapio Assistant application.
 
@@ -39,6 +42,7 @@ class TapioAssistantApp:
             >>> app = TapioAssistantApp(rag_orchestrator=orchestrator)
         """
         self.rag_orchestrator = rag_orchestrator
+        self.graph = graph
         self.demo = self._build_interface()
 
     def check_model_availability(self) -> None:
@@ -196,6 +200,7 @@ class TapioAssistantApp:
         self,
         message: str,
         chat_history: list[dict[str, str]],
+        thread_id: str,
     ) -> tuple[str, list[dict[str, str]], str]:
         """Process user message and update the chat history.
 
