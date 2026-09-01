@@ -1,25 +1,21 @@
 """Request/response and SSE event payload models for the chat API."""
 
-from typing import Literal
-
 from pydantic import BaseModel, Field
 
 from app.agents.router import AUTO_ROUTE
 
 
-class ChatMessage(BaseModel):
-    """One turn of prior conversation history, OpenAI-style."""
-
-    role: Literal["user", "assistant"]
-    content: str
-
-
 class ChatRequest(BaseModel):
-    """Body of ``POST /chat/stream``."""
+    """Body of ``POST /chat/stream``.
+
+    ``thread_id`` scopes conversation memory: the same id across requests
+    lets the checkpointer recall prior turns, so history no longer needs to
+    travel over the wire.
+    """
 
     message: str = Field(min_length=1)
-    history: list[ChatMessage] = Field(default_factory=list)
     agent_id: str = AUTO_ROUTE
+    thread_id: str = Field(min_length=1)
 
 
 class AgentSummary(BaseModel):

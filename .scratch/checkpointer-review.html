@@ -1,0 +1,1473 @@
+<!doctype html>
+<title>Conversation Memory Patch</title>
+<style>
+  :root {
+    --bg: #f2f1ec;
+    --surface: #ffffff;
+    --surface-2: #f7f6f2;
+    --border: #ddd9cf;
+    --text: #201f1c;
+    --text-dim: #6b665c;
+    --accent: #2f6f68;
+    --accent-soft: #e2eeec;
+    --new-bg: #eaf2ec;
+    --new-border: #bfe0c9;
+    --new-text: #1f6b3a;
+    --mod-bg: #fbeede;
+    --mod-border: #f0cf9c;
+    --mod-text: #96591a;
+    --diff-add-bg: #e6f4ea;
+    --diff-add-text: #1a7f37;
+    --diff-del-bg: #fbe9e9;
+    --diff-del-text: #b3261e;
+    --diff-del-strike: #c0554d;
+    --code-bg: #fbfaf7;
+    --shadow: 0 1px 2px rgba(32, 31, 28, 0.06);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme='light']) {
+      --bg: #14181a;
+      --surface: #191f21;
+      --surface-2: #1c2224;
+      --border: #2b3335;
+      --text: #e8ece9;
+      --text-dim: #93a19c;
+      --accent: #5fb3a6;
+      --accent-soft: rgba(95, 179, 166, 0.12);
+      --new-bg: rgba(56, 161, 105, 0.14);
+      --new-border: rgba(56, 161, 105, 0.4);
+      --new-text: #6fd694;
+      --mod-bg: rgba(214, 158, 46, 0.14);
+      --mod-border: rgba(214, 158, 46, 0.4);
+      --mod-text: #e0b96a;
+      --diff-add-bg: rgba(46, 160, 67, 0.15);
+      --diff-add-text: #5fd97a;
+      --diff-del-bg: rgba(248, 81, 73, 0.13);
+      --diff-del-text: #ff8b85;
+      --diff-del-strike: #c96863;
+      --code-bg: #10a0a025;
+      --code-bg: #12191b;
+      --shadow: none;
+    }
+  }
+
+  :root[data-theme='dark'] {
+    --bg: #14181a;
+    --surface: #191f21;
+    --surface-2: #1c2224;
+    --border: #2b3335;
+    --text: #e8ece9;
+    --text-dim: #93a19c;
+    --accent: #5fb3a6;
+    --accent-soft: rgba(95, 179, 166, 0.12);
+    --new-bg: rgba(56, 161, 105, 0.14);
+    --new-border: rgba(56, 161, 105, 0.4);
+    --new-text: #6fd694;
+    --mod-bg: rgba(214, 158, 46, 0.14);
+    --mod-border: rgba(214, 158, 46, 0.4);
+    --mod-text: #e0b96a;
+    --diff-add-bg: rgba(46, 160, 67, 0.15);
+    --diff-add-text: #5fd97a;
+    --diff-del-bg: rgba(248, 81, 73, 0.13);
+    --diff-del-text: #ff8b85;
+    --diff-del-strike: #c96863;
+    --code-bg: #12191b;
+    --shadow: none;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, 'Segoe UI', system-ui, sans-serif;
+    line-height: 1.5;
+  }
+
+  .shell {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 40px 24px 96px;
+  }
+
+  header.page {
+    margin-bottom: 32px;
+  }
+
+  header.page h1 {
+    font-size: 1.75rem;
+    margin: 0 0 8px;
+    letter-spacing: -0.01em;
+    text-wrap: balance;
+  }
+
+  header.page p {
+    margin: 0;
+    color: var(--text-dim);
+    max-width: 65ch;
+  }
+
+  .caveat {
+    margin-top: 16px;
+    padding: 12px 16px;
+    background: var(--mod-bg);
+    border: 1px solid var(--mod-border);
+    border-radius: 8px;
+    color: var(--mod-text);
+    font-size: 0.9rem;
+    max-width: 70ch;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 220px 1fr;
+    gap: 32px;
+    align-items: start;
+  }
+
+  @media (max-width: 860px) {
+    .layout { grid-template-columns: 1fr; }
+    nav.toc { position: static; }
+  }
+
+  nav.toc {
+    position: sticky;
+    top: 24px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 10px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  nav.toc h2 {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--text-dim);
+    margin: 0 0 10px;
+  }
+
+  nav.toc .group {
+    margin-bottom: 14px;
+  }
+
+  nav.toc .group-label {
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin: 0 0 6px;
+  }
+
+  nav.toc ul {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  nav.toc a {
+    display: block;
+    padding: 5px 8px;
+    margin-bottom: 2px;
+    border-radius: 6px;
+    color: var(--text);
+    text-decoration: none;
+    font-size: 0.82rem;
+    font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  nav.toc a:hover {
+    background: var(--accent-soft);
+  }
+
+  section.group-heading {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    margin: 40px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  section.group-heading:first-child { margin-top: 0; }
+
+  .file-card {
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 10px;
+    margin-bottom: 20px;
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    scroll-margin-top: 20px;
+  }
+
+  .file-card .head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 14px;
+    background: var(--surface-2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .file-card .path {
+    font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    font-size: 0.88rem;
+    font-weight: 600;
+    flex: 1;
+    min-width: 0;
+    overflow-wrap: anywhere;
+  }
+
+  .badge {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 3px 8px;
+    border-radius: 999px;
+    border: 1px solid transparent;
+    flex-shrink: 0;
+  }
+
+  .badge.new {
+    background: var(--new-bg);
+    border-color: var(--new-border);
+    color: var(--new-text);
+  }
+
+  .badge.mod {
+    background: var(--mod-bg);
+    border-color: var(--mod-border);
+    color: var(--mod-text);
+  }
+
+  .note {
+    padding: 10px 14px;
+    font-size: 0.86rem;
+    color: var(--text-dim);
+    border-bottom: 1px solid var(--border);
+  }
+
+  button.copy {
+    flex-shrink: 0;
+    font-family: inherit;
+    font-size: 0.76rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border: 1px solid var(--new-border);
+    border-radius: 6px;
+    padding: 5px 10px;
+    cursor: pointer;
+  }
+
+  button.copy:hover { filter: brightness(1.05); }
+  button.copy:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  button.copy.copied { color: var(--new-text); }
+
+  pre.code-block {
+    margin: 0;
+    padding: 14px 0;
+    background: var(--code-bg);
+    overflow-x: auto;
+    font-family: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, monospace;
+    font-size: 0.82rem;
+    line-height: 1.6;
+    tab-size: 4;
+  }
+
+  pre.code-block .line {
+    padding: 0 16px;
+    white-space: pre;
+  }
+
+  pre.code-block .line.add {
+    background: var(--diff-add-bg);
+    color: var(--diff-add-text);
+  }
+
+  pre.code-block .line.del {
+    background: var(--diff-del-bg);
+    color: var(--diff-del-strike);
+    text-decoration: line-through;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--diff-del-text);
+  }
+
+  pre.code-block .marker {
+    display: inline-block;
+    width: 1.4em;
+    color: var(--text-dim);
+    user-select: none;
+  }
+
+  .line.add .marker { color: var(--diff-add-text); }
+  .line.del .marker { color: var(--diff-del-text); }
+
+  footer.summary {
+    margin-top: 48px;
+    padding: 20px;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    border-radius: 10px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+
+  footer.summary strong { color: var(--text); }
+</style>
+
+<div class="shell">
+  <header class="page">
+    <h1>Conversation memory: proposed patch</h1>
+    <p>
+      Everything below is a proposal for review only — nothing has been written to the
+      repository. Files marked <strong>NEW</strong> show the full proposed content.
+      Files marked <strong>MODIFIED</strong> show a line-by-line diff against what's
+      currently on <code>main</code>: green = added, red strikethrough = removed. Every
+      code block has its own copy button, which copies the clean final version of that
+      file (diff markers included for review, excluded from the copy).
+    </p>
+    <div class="caveat">
+      One honest flag: the new <code>GET /chat/&#123;thread_id&#125;</code> endpoint in
+      <code>routes/chat.py</code> calls <code>graph.aget_state(...)</code> to read back
+      stored history. That's LangGraph's documented API, but it's untested against this
+      exact setup — it should be verified with a real run before we trust it in production.
+    </div>
+  </header>
+
+  <div class="layout">
+    <nav class="toc">
+      <h2>Files</h2>
+      <div class="group">
+        <p class="group-label">Backend — new</p>
+        <ul>
+          <li><a href="#f-mem-init">memory/__init__.py</a></li>
+          <li><a href="#f-checkpointer">memory/checkpointer.py</a></li>
+          <li><a href="#f-graph">memory/graph.py</a></li>
+          <li><a href="#f-sse-events">sse_events.py</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="group-label">Backend — modified</p>
+        <ul>
+          <li><a href="#f-streaming">streaming.py</a></li>
+          <li><a href="#f-schemas">schemas.py</a></li>
+          <li><a href="#f-dependencies">dependencies.py</a></li>
+          <li><a href="#f-main">main.py</a></li>
+          <li><a href="#f-chat-route">routes/chat.py</a></li>
+          <li><a href="#f-pyproject">pyproject.toml</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="group-label">Frontend — new</p>
+        <ul>
+          <li><a href="#f-thread-id">chat/thread-id.ts</a></li>
+        </ul>
+      </div>
+      <div class="group">
+        <p class="group-label">Frontend — modified</p>
+        <ul>
+          <li><a href="#f-types">api/types.ts</a></li>
+          <li><a href="#f-client">api/client.ts</a></li>
+          <li><a href="#f-chat-state">chat/chat-state.svelte.ts</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <main>
+      <section class="group-heading">Backend — new files</section>
+
+      <article class="file-card" id="f-mem-init">
+        <div class="head">
+          <span class="path">backend/app/memory/__init__.py</span>
+          <span class="badge new">new</span>
+          <button class="copy" data-target="mem-init">Copy</button>
+        </div>
+        <pre class="code-block" id="mem-init" data-plain></pre>
+      </article>
+
+      <article class="file-card" id="f-checkpointer">
+        <div class="head">
+          <span class="path">backend/app/memory/checkpointer.py</span>
+          <span class="badge new">new</span>
+          <button class="copy" data-target="checkpointer">Copy</button>
+        </div>
+        <div class="note">Same idea as your original file — this part was already correct in isolation.</div>
+        <pre class="code-block" id="checkpointer" data-plain></pre>
+      </article>
+
+      <article class="file-card" id="f-graph">
+        <div class="head">
+          <span class="path">backend/app/memory/graph.py</span>
+          <span class="badge new">new</span>
+          <button class="copy" data-target="graph">Copy</button>
+        </div>
+        <div class="note">Runs as a background task pushing events onto a queue, so streaming keeps working through LangGraph instead of being disabled.</div>
+        <pre class="code-block" id="graph" data-plain></pre>
+      </article>
+
+      <article class="file-card" id="f-sse-events">
+        <div class="head">
+          <span class="path">backend/app/sse_events.py</span>
+          <span class="badge new">new</span>
+          <button class="copy" data-target="sse-events">Copy</button>
+        </div>
+        <div class="note">Small extraction so streaming.py and memory/graph.py share one event-building implementation instead of two copies.</div>
+        <pre class="code-block" id="sse-events" data-plain></pre>
+      </article>
+
+      <section class="group-heading">Backend — modified files</section>
+
+      <article class="file-card" id="f-streaming">
+        <div class="head">
+          <span class="path">backend/app/streaming.py</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="streaming">Copy</button>
+        </div>
+        <pre class="code-block" id="streaming" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-schemas">
+        <div class="head">
+          <span class="path">backend/app/schemas.py</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="schemas">Copy</button>
+        </div>
+        <pre class="code-block" id="schemas" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-dependencies">
+        <div class="head">
+          <span class="path">backend/app/dependencies.py</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="dependencies">Copy</button>
+        </div>
+        <pre class="code-block" id="dependencies" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-main">
+        <div class="head">
+          <span class="path">backend/app/main.py</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="main">Copy</button>
+        </div>
+        <div class="note">Memory only turns on if DATABASE_URL or USE_MEMORY_SAVER is set — no crash for setups that don't need it yet.</div>
+        <pre class="code-block" id="main" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-chat-route">
+        <div class="head">
+          <span class="path">backend/app/routes/chat.py</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="chat-route">Copy</button>
+        </div>
+        <pre class="code-block" id="chat-route" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-pyproject">
+        <div class="head">
+          <span class="path">backend/pyproject.toml</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="pyproject">Copy</button>
+        </div>
+        <pre class="code-block" id="pyproject" data-diff></pre>
+      </article>
+
+      <section class="group-heading">Frontend — new files</section>
+
+      <article class="file-card" id="f-thread-id">
+        <div class="head">
+          <span class="path">app/src/lib/chat/thread-id.ts</span>
+          <span class="badge new">new</span>
+          <button class="copy" data-target="thread-id">Copy</button>
+        </div>
+        <div class="note">Ticket generator — localStorage means it survives closing the browser, per the "Option B" call.</div>
+        <pre class="code-block" id="thread-id" data-plain></pre>
+      </article>
+
+      <section class="group-heading">Frontend — modified files</section>
+
+      <article class="file-card" id="f-types">
+        <div class="head">
+          <span class="path">app/src/lib/api/types.ts</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="types">Copy</button>
+        </div>
+        <pre class="code-block" id="types" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-client">
+        <div class="head">
+          <span class="path">app/src/lib/api/client.ts</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="client">Copy</button>
+        </div>
+        <pre class="code-block" id="client" data-diff></pre>
+      </article>
+
+      <article class="file-card" id="f-chat-state">
+        <div class="head">
+          <span class="path">app/src/lib/chat/chat-state.svelte.ts</span>
+          <span class="badge mod">modified</span>
+          <button class="copy" data-target="chat-state">Copy</button>
+        </div>
+        <pre class="code-block" id="chat-state" data-diff></pre>
+      </article>
+
+      <footer class="summary">
+        <strong>Not shown here:</strong> new/updated tests (<code>backend/tests/routes/test_chat.py</code>
+        additions, a new <code>test_chat_memory.py</code>). Holding those until this shape is confirmed,
+        so we're not testing code that's about to change. Say the word and I'll draft those next, same
+        format, before anything gets written.
+      </footer>
+    </main>
+  </div>
+</div>
+
+<script>
+  const PLAIN = {
+    'mem-init': `"""Conversation memory: checkpointer-backed persistence keyed by thread_id."""
+`,
+    'checkpointer': `"""Checkpointer for conversation memory."""
+
+import os
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+
+
+@asynccontextmanager
+async def get_checkpointer() -> AsyncIterator[BaseCheckpointSaver]:
+    """Yield a checkpointer, held open for the caller's lifetime.
+
+    Postgres by default. Set USE_MEMORY_SAVER=1 for an in-memory store that is
+    wiped on restart — local development only, and not safe across workers.
+
+    Yields:
+        A checkpointer ready to pass to build_graph
+    """
+    if os.getenv("USE_MEMORY_SAVER") == "1":
+        yield MemorySaver()
+        return
+
+    async with AsyncPostgresSaver.from_conn_string(os.environ["DATABASE_URL"]) as saver:
+        await saver.setup()
+        yield saver
+`,
+    'graph': `"""LangGraph wrapper around RAGOrchestrator, for conversation persistence."""
+
+import asyncio
+import logging
+from typing import Any
+
+from langchain_core.messages import BaseMessage
+from langchain_core.runnables import RunnableConfig
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.graph import END, START, MessagesState, StateGraph
+from langgraph.graph.state import CompiledStateGraph
+from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
+
+from app.agents.router import AgentRouter
+from app.schemas import CitationEvent, TokenEvent
+from app.services.rag_orchestrator import RAGOrchestrator
+from app.sse_events import citation_from_document, routing_event
+
+logger = logging.getLogger(__name__)
+
+# LangGraph stores messages with .type of "human"/"ai"; the rest of Tapio
+# uses "user"/"assistant" role dicts.
+_ROLES = {"human": "user", "ai": "assistant"}
+
+
+def to_history(messages: list[BaseMessage]) -> list[dict[str, Any]]:
+    """Convert LangGraph message objects to the role/content dicts Tapio uses."""
+    return [{"role": _ROLES.get(m.type, m.type), "content": m.content} for m in messages]
+
+
+class ChatState(MessagesState):
+    """Conversation state plus the guide selected for the current turn."""
+
+    agent_id: str
+
+
+def build_graph(
+    checkpointer: BaseCheckpointSaver,
+    orchestrator: RAGOrchestrator,
+    agent_router: AgentRouter,
+) -> CompiledStateGraph:
+    """Compile a one-node graph that persists conversation state and streams SSE events.
+
+    Each invocation must pass an ``event_queue: asyncio.Queue`` in
+    ``config["configurable"]``; the node pushes SSE-ready ``{"event", "data"}``
+    mappings onto it as the response streams.
+    """
+
+    async def call_model(state: ChatState, config: RunnableConfig) -> dict[str, Any]:
+        queue: asyncio.Queue[dict[str, str]] = config["configurable"]["event_queue"]
+        question = state["messages"][-1].content
+        history = to_history(state["messages"][:-1])
+
+        route = agent_router.route(question, state.get("agent_id", "auto"))
+        await queue.put({"event": "routing", "data": routing_event(route).model_dump_json()})
+
+        response_stream, retrieved_docs = await run_in_threadpool(
+            orchestrator.query_stream,
+            query_text=question,
+            history=history,
+            agent_id=route.agent.id,
+        )
+
+        citations = [citation_from_document(document) for document in retrieved_docs]
+        await queue.put({"event": "citation", "data": CitationEvent(citations=citations).model_dump_json()})
+
+        chunks: list[str] = []
+        async for chunk in iterate_in_threadpool(response_stream):
+            if chunk:
+                chunks.append(chunk)
+                await queue.put({"event": "token", "data": TokenEvent(text=chunk).model_dump_json()})
+
+        return {"messages": [{"role": "assistant", "content": "".join(chunks)}]}
+
+    builder = StateGraph(ChatState)
+    builder.add_node("call_model", call_model)
+    builder.add_edge(START, "call_model")
+    builder.add_edge("call_model", END)
+    return builder.compile(checkpointer=checkpointer)
+`,
+    'sse-events': `"""Build SSE event payloads shared by the stateless and memory-backed chat streams."""
+
+from typing import Any
+
+from app.agents.router import AgentRoute
+from app.schemas import Citation, RoutingEvent
+
+CITATION_SNIPPET_LENGTH = 280
+
+
+def routing_event(route: AgentRoute) -> RoutingEvent:
+    """Describe which guide was selected for this turn."""
+    return RoutingEvent(
+        agent_id=route.agent.id,
+        name=route.agent.name,
+        title=route.agent.title,
+        category=route.agent.category,
+        reason=route.reason,
+        was_explicit=route.was_explicit,
+    )
+
+
+def citation_from_document(document: Any) -> Citation:
+    """Convert a retrieved document into a user-facing citation."""
+    metadata = document.metadata if hasattr(document, "metadata") else {}
+    source_url = metadata.get("citation_url") or metadata.get("source_url") or metadata.get("url") or "Unknown source"
+    title = metadata.get("title", "Untitled source")
+    content = document.page_content if hasattr(document, "page_content") else str(document)
+    return Citation(title=title, source_url=source_url, snippet=content[:CITATION_SNIPPET_LENGTH])
+`,
+    'thread-id': `const STORAGE_KEY = 'tapio-thread-id';
+
+export function getOrCreateThreadId(): string {
+	const existing = localStorage.getItem(STORAGE_KEY);
+	if (existing) return existing;
+	const created = crypto.randomUUID();
+	localStorage.setItem(STORAGE_KEY, created);
+	return created;
+}
+
+export function startNewConversation(): string {
+	const created = crypto.randomUUID();
+	localStorage.setItem(STORAGE_KEY, created);
+	return created;
+}
+`
+  };
+
+  const DIFF = {
+    'streaming': `  """Bridge the synchronous RAGOrchestrator streaming API to an async SSE generator."""
+ \x20
+- import logging
++ import asyncio
++ import logging
+  from collections.abc import AsyncIterator
+- from typing import Any
+ \x20
+- from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
++ from langgraph.graph.state import CompiledStateGraph
++ from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
+ \x20
+- from app.agents.router import AgentRoute, AgentRouter
+- from app.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, RoutingEvent, TokenEvent
++ from app.agents.router import AgentRouter
++ from app.schemas import ChatMessage, CitationEvent, ErrorEvent, TokenEvent
+  from app.services.rag_orchestrator import RAGOrchestrator
++ from app.sse_events import citation_from_document, routing_event
+ \x20
+  logger = logging.getLogger(__name__)
+ \x20
+  GENERIC_ERROR_MESSAGE = "I encountered an error while processing your query. Please try again."
+- CITATION_SNIPPET_LENGTH = 280
++ MEMORY_NOT_CONFIGURED_MESSAGE = "Conversation memory isn't configured on this server."
+ \x20
+ \x20
+- def _routing_event(route: AgentRoute) -> RoutingEvent:
+-     return RoutingEvent(
+-         agent_id=route.agent.id,
+-         name=route.agent.name,
+-         title=route.agent.title,
+-         category=route.agent.category,
+-         reason=route.reason,
+-         was_explicit=route.was_explicit,
+-     )
+ \x20
+ \x20
+- def _citation(document: Any) -> Citation:
+-     metadata = document.metadata if hasattr(document, "metadata") else {}
+-     source_url = metadata.get("citation_url") or metadata.get("source_url") or metadata.get("url") or "Unknown source"
+-     title = metadata.get("title", "Untitled source")
+-     content = document.page_content if hasattr(document, "page_content") else str(document)
+-     return Citation(title=title, source_url=source_url, snippet=content[:CITATION_SNIPPET_LENGTH])
+ \x20
+ \x20
+  async def stream_chat_turn(
+      orchestrator: RAGOrchestrator,
+      agent_router: AgentRouter,
+      message: str,
+      history: list[ChatMessage],
+      agent_id: str,
+  ) -> AsyncIterator[dict[str, str]]:
+      """Yield SSE-ready events for one chat turn: routing, citation, token(s), then done.
+ \x20
+      Mirrors the call sequence in \`\`tapio.app.TapioAssistantApp\`\` (route, then
+      stream), bridging its synchronous retrieval and token generator onto the
+      async event loop via Starlette's threadpool helpers.
+ \x20
+      Args:
+          orchestrator: Shared RAG orchestrator built at app startup.
+          agent_router: Shared agent router built at app startup.
+          message: The user's current message.
+          history: Prior conversation turns.
+          agent_id: Explicit guide id, or \`\`AUTO_ROUTE\`\` to let the router decide.
+ \x20
+      Yields:
+          SSE event mappings with \`\`event\`\` and \`\`data\`\` keys.
+      """
+      try:
+          route = agent_router.route(message, agent_id)
+-         yield {"event": "routing", "data": _routing_event(route).model_dump_json()}
++         yield {"event": "routing", "data": routing_event(route).model_dump_json()}
+ \x20
+          raw_history = [turn.model_dump() for turn in history]
+          response_stream, retrieved_docs = await run_in_threadpool(
+              orchestrator.query_stream,
+              query_text=message,
+              history=raw_history,
+              agent_id=route.agent.id,
+          )
+ \x20
+-         citations = [_citation(document) for document in retrieved_docs]
++         citations = [citation_from_document(document) for document in retrieved_docs]
+          yield {"event": "citation", "data": CitationEvent(citations=citations).model_dump_json()}
+ \x20
+          async for chunk in iterate_in_threadpool(response_stream):
+              if chunk:
+                  yield {"event": "token", "data": TokenEvent(text=chunk).model_dump_json()}
+ \x20
+          yield {"event": "done", "data": "{}"}
+      except Exception:
+          logger.exception("Error streaming chat turn")
+          yield {"event": "error", "data": ErrorEvent(message=GENERIC_ERROR_MESSAGE).model_dump_json()}
++ \x20
++ \x20
++ async def stream_chat_turn_with_memory(
++     graph: CompiledStateGraph,
++     message: str,
++     agent_id: str,
++     thread_id: str,
++ ) -> AsyncIterator[dict[str, str]]:
++     """Yield SSE-ready events for one chat turn, persisted via the checkpointer.
++ \x20
++     Runs the graph as a background task and relays the events its node pushes
++     onto a queue, so token-by-token streaming survives going through LangGraph.
++     """
++     queue: asyncio.Queue[dict[str, str]] = asyncio.Queue()
++     config = {"configurable": {"thread_id": thread_id, "event_queue": queue}}
++ \x20
++     task = asyncio.create_task(
++         graph.ainvoke(
++             {"messages": [{"role": "user", "content": message}], "agent_id": agent_id},
++             config=config,
++         )
++     )
++ \x20
++     try:
++         while not task.done():
++             try:
++                 yield await asyncio.wait_for(queue.get(), timeout=0.1)
++             except TimeoutError:
++                 continue
++         while not queue.empty():
++             yield queue.get_nowait()
++         task.result()
++         yield {"event": "done", "data": "{}"}
++     except Exception:
++         logger.exception("Error streaming chat turn with memory")
++         yield {"event": "error", "data": ErrorEvent(message=GENERIC_ERROR_MESSAGE).model_dump_json()}
++ \x20
++ \x20
++ async def memory_not_configured_error() -> AsyncIterator[dict[str, str]]:
++     """Yield a single SSE error event when a thread_id is given but no checkpointer is configured."""
++     yield {"event": "error", "data": ErrorEvent(message=MEMORY_NOT_CONFIGURED_MESSAGE).model_dump_json()}
+`,
+    'schemas': `  """Request/response and SSE event payload models for the chat API."""
+ \x20
+  from typing import Literal
+ \x20
+  from pydantic import BaseModel, Field
+ \x20
+  from app.agents.router import AUTO_ROUTE
+ \x20
+ \x20
+  class ChatMessage(BaseModel):
+      """One turn of prior conversation history, OpenAI-style."""
+ \x20
+      role: Literal["user", "assistant"]
+      content: str
+ \x20
+ \x20
+  class ChatRequest(BaseModel):
+      """Body of \`\`POST /chat/stream\`\`."""
+ \x20
+      message: str = Field(min_length=1)
+      history: list[ChatMessage] = Field(default_factory=list)
+      agent_id: str = AUTO_ROUTE
++     thread_id: str | None = None
++     """Conversation id. When set, prior turns are loaded from the checkpointer
++     instead of \`history\`, and this turn is persisted under it."""
+ \x20
+ \x20
+  class AgentSummary(BaseModel):
+      """User-facing guide summary returned by \`\`GET /agents\`\`."""
+ \x20
+      id: str
+      name: str
+      title: str
+      category: str
+      summary: str
+      color: str
+ \x20
+ \x20
+  class RoutingEvent(BaseModel):
+      """Which guide was selected for this turn, and why."""
+ \x20
+      agent_id: str
+      name: str
+      title: str
+      category: str
+      reason: str
+      was_explicit: bool
+ \x20
+ \x20
+  class Citation(BaseModel):
+      """A single retrieved source backing the response."""
+ \x20
+      title: str
+      source_url: str
+      snippet: str
+ \x20
+ \x20
+  class CitationEvent(BaseModel):
+      """Sources retrieved for this turn."""
+ \x20
+      citations: list[Citation]
+ \x20
+ \x20
+  class TokenEvent(BaseModel):
+      """One chunk of streamed assistant text."""
+ \x20
+      text: str
+ \x20
+ \x20
+  class ErrorEvent(BaseModel):
+      """A generic, user-safe error message."""
+ \x20
+      message: str
+ \x20
+ \x20
+  class HealthResponse(BaseModel):
+      """Result of the Ollama/model availability check."""
+ \x20
+      model_available: bool
++ \x20
++ \x20
++ class ConversationHistory(BaseModel):
++     """Prior turns for a thread_id, for redrawing the UI on page load."""
++ \x20
++     messages: list[ChatMessage]
+`,
+    'dependencies': `  """FastAPI dependency providers for the shared orchestrator and agent router."""
+ \x20
+  from typing import Annotated
+ \x20
+  from fastapi import Depends, Request
++ from langgraph.graph.state import CompiledStateGraph
+ \x20
+  from app.agents.router import AgentRouter
+  from app.services.rag_orchestrator import RAGOrchestrator
+ \x20
+ \x20
+  def get_orchestrator(request: Request) -> RAGOrchestrator:
+      """Return the orchestrator instance built during app startup.
+ \x20
+      Args:
+          request: The current request, used to reach \`\`app.state\`\`.
+ \x20
+      Returns:
+          The shared \`\`RAGOrchestrator\`\` singleton.
+      """
+      return request.app.state.orchestrator
+ \x20
+ \x20
+  def get_agent_router(request: Request) -> AgentRouter:
+      """Return the agent router instance built during app startup.
+ \x20
+      Args:
+          request: The current request, used to reach \`\`app.state\`\`.
+ \x20
+      Returns:
+          The shared \`\`AgentRouter\`\` singleton.
+      """
+      return request.app.state.agent_router
+ \x20
+ \x20
++ def get_graph(request: Request) -> CompiledStateGraph | None:
++     """Return the conversation-memory graph built at startup, or None if unconfigured.
++ \x20
++     Args:
++         request: The current request, used to reach \`\`app.state\`\`.
++ \x20
++     Returns:
++         The shared compiled graph, or \`\`None\`\` if no checkpointer was configured
++         (including when the app lifespan hasn't run, as in tests that override
++         the orchestrator/router dependencies directly).
++     """
++     return getattr(request.app.state, "graph", None)
++ \x20
++ \x20
+  OrchestratorDep = Annotated[RAGOrchestrator, Depends(get_orchestrator)]
+  AgentRouterDep = Annotated[AgentRouter, Depends(get_agent_router)]
++ GraphDep = Annotated[CompiledStateGraph | None, Depends(get_graph)]
+`,
+    'main': `  """FastAPI application entrypoint for the Tapio backend."""
+ \x20
+  import logging
++ import os
+  from collections.abc import AsyncIterator
+  from contextlib import asynccontextmanager
+ \x20
+  import uvicorn
+  from fastapi import FastAPI
+  from fastapi.middleware.cors import CORSMiddleware
+ \x20
+  from app.agents.router import AgentRouter
+  from app.config import BackendSettings
+  from app.config.config_models import RAGConfig
+  from app.factories import RAGOrchestratorFactory
++ from app.memory.checkpointer import get_checkpointer
++ from app.memory.graph import build_graph
+  from app.routes import agents, chat, health
+ \x20
+  logger = logging.getLogger(__name__)
+ \x20
+ \x20
++ def _memory_enabled() -> bool:
++     return os.getenv("USE_MEMORY_SAVER") == "1" or bool(os.getenv("DATABASE_URL"))
++ \x20
++ \x20
+  @asynccontextmanager
+  async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+-     """Build the shared orchestrator and agent router once per process lifetime.
++     """Build the shared orchestrator, agent router, and (if configured) memory graph.
++ \x20
++     Conversation memory is opt-in: it's built only when \`\`USE_MEMORY_SAVER=1\`\`
++     or \`\`DATABASE_URL\`\` is set, so deployments that don't need it aren't
++     required to provision Postgres. \`\`app.state.graph\`\` is \`\`None\`\` otherwise,
++     and requests carrying a \`\`thread_id\`\` get a clear error instead of a crash.
+ \x20
+      Args:
+          app: The FastAPI application being started.
+ \x20
+      Yields:
+          Control back to FastAPI once startup state is attached to \`\`app.state\`\`.
+      """
+      app.state.orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
+      app.state.agent_router = AgentRouter()
+-     logger.info("Tapio backend started")
+-     yield
++     app.state.graph = None
++ \x20
++     if _memory_enabled():
++         async with get_checkpointer() as checkpointer:
++             app.state.graph = build_graph(checkpointer, app.state.orchestrator, app.state.agent_router)
++             logger.info("Tapio backend started (conversation memory enabled)")
++             yield
++         return
++ \x20
++     logger.info("Tapio backend started")
++     yield
+ \x20
+ \x20
+  def create_app() -> FastAPI:
+      """Construct the FastAPI application with routes and CORS configured.
+ \x20
+      Returns:
+          The configured, ready-to-serve FastAPI application.
+      """
+      settings = BackendSettings()
+      app = FastAPI(title="Tapio backend", lifespan=lifespan)
+      app.add_middleware(
+          CORSMiddleware,
+          allow_origins=settings.cors_origins,
+          allow_methods=["*"],
+          allow_headers=["*"],
+      )
+      app.include_router(health.router)
+      app.include_router(agents.router)
+      app.include_router(chat.router)
+      return app
+ \x20
+ \x20
+  app = create_app()
+ \x20
+ \x20
+  def run() -> None:
+      """Run the backend with uvicorn, honoring \`\`BackendSettings\`\` host/port."""
+      settings = BackendSettings()
+      uvicorn.run("app.main:app", host=settings.host, port=settings.port, reload=False)
+ \x20
+ \x20
+  if __name__ == "__main__":
+      run()
+`,
+    'chat-route': `  """Streaming chat endpoint."""
+ \x20
+  from fastapi import APIRouter
+  from sse_starlette.sse import EventSourceResponse
+ \x20
+- from app.dependencies import AgentRouterDep, OrchestratorDep
+- from app.schemas import ChatRequest
+- from app.streaming import stream_chat_turn
++ from app.dependencies import AgentRouterDep, GraphDep, OrchestratorDep
++ from app.memory.graph import to_history
++ from app.schemas import ChatMessage, ChatRequest, ConversationHistory
++ from app.streaming import memory_not_configured_error, stream_chat_turn, stream_chat_turn_with_memory
+ \x20
+  router = APIRouter()
+ \x20
+ \x20
+  @router.post("/chat/stream")
+  async def chat_stream(
+      chat_request: ChatRequest,
+      orchestrator: OrchestratorDep,
+      agent_router: AgentRouterDep,
++     graph: GraphDep,
+  ) -> EventSourceResponse:
+      """Stream one chat turn as Server-Sent Events: routing, citation, token(s), done.
+ \x20
++     When \`\`chat_request.thread_id\`\` is set and conversation memory is
++     configured, prior turns are loaded from the server-side checkpointer and
++     \`\`chat_request.history\`\` is ignored; otherwise the turn is stateless and
++     driven entirely by the client-supplied history.
++ \x20
+      Args:
+          chat_request: The user's message, history, and optional guide selection.
+          orchestrator: Shared RAG orchestrator, injected.
+          agent_router: Shared agent router, injected.
++         graph: Shared conversation-memory graph, injected. \`\`None\`\` if unconfigured.
+ \x20
+      Returns:
+          An SSE response streaming the turn's events as they become available.
+      """
+-     events = stream_chat_turn(
+-         orchestrator=orchestrator,
+-         agent_router=agent_router,
+-         message=chat_request.message,
+-         history=chat_request.history,
+-         agent_id=chat_request.agent_id,
+-     )
++     if chat_request.thread_id:
++         if graph is None:
++             events = memory_not_configured_error()
++         else:
++             events = stream_chat_turn_with_memory(
++                 graph=graph,
++                 message=chat_request.message,
++                 agent_id=chat_request.agent_id,
++                 thread_id=chat_request.thread_id,
++             )
++     else:
++         events = stream_chat_turn(
++             orchestrator=orchestrator,
++             agent_router=agent_router,
++             message=chat_request.message,
++             history=chat_request.history,
++             agent_id=chat_request.agent_id,
++         )
+      return EventSourceResponse(events)
++ \x20
++ \x20
++ @router.get("/chat/{thread_id}")
++ async def chat_history(thread_id: str, graph: GraphDep) -> ConversationHistory:
++     """Return a thread's prior turns, for redrawing the UI on page load.
++ \x20
++     Args:
++         thread_id: Conversation id to look up.
++         graph: Shared conversation-memory graph, injected. \`\`None\`\` if unconfigured.
++ \x20
++     Returns:
++         The thread's messages in order, or an empty list if memory isn't
++         configured or the thread doesn't exist yet.
++     """
++     if graph is None:
++         return ConversationHistory(messages=[])
++     state = await graph.aget_state({"configurable": {"thread_id": thread_id}})
++     messages = state.values.get("messages", []) if state else []
++     return ConversationHistory(messages=[ChatMessage(**turn) for turn in to_history(messages)])
+`,
+    'pyproject': `  dependencies = [
+      "fastapi>=0.115.0",
+      "uvicorn[standard]>=0.32.0",
+      "sse-starlette>=2.1.3",
+      "pydantic-settings>=2.6.0",
+      "pydantic>=2.13.4",
+      "langchain-chroma>=0.2.3",
+      "langchain-huggingface[full]>=0.1.2",
+      "ollama>=0.4.8",
++     "langgraph>=1.2.6",
++     "langgraph-checkpoint-postgres>=3.1.2",
++     "psycopg[binary,pool]>=3.3.4",
+  ]
+`,
+    'types': `  export const AUTO_ROUTE = 'auto';
+ \x20
+  export interface ChatMessage {
+  \trole: 'user' | 'assistant';
+  \tcontent: string;
+  }
+ \x20
+  export interface AgentSummary {
+  \tid: string;
+  \tname: string;
+  \ttitle: string;
+  \tcategory: string;
+  \tsummary: string;
+  \tcolor: string;
+  }
+ \x20
+  export interface RoutingEventData {
+  \tagent_id: string;
+  \tname: string;
+  \ttitle: string;
+  \tcategory: string;
+  \treason: string;
+  \twas_explicit: boolean;
+  }
+ \x20
+  export interface Citation {
+  \ttitle: string;
+  \tsource_url: string;
+  \tsnippet: string;
+  }
+ \x20
+  export interface CitationEventData {
+  \tcitations: Citation[];
+  }
+ \x20
+  export interface TokenEventData {
+  \ttext: string;
+  }
+ \x20
+  export interface ErrorEventData {
+  \tmessage: string;
+  }
+ \x20
+  export interface HealthResponse {
+  \tmodel_available: boolean;
+  }
+ \x20
+  export type ChatStreamEvent =
+  \t| { kind: 'routing'; data: RoutingEventData }
+  \t| { kind: 'citation'; data: CitationEventData }
+  \t| { kind: 'token'; data: TokenEventData }
+  \t| { kind: 'done' }
+  \t| { kind: 'error'; data: ErrorEventData };
++ \x20
++ export interface ConversationHistoryResponse {
++ \tmessages: ChatMessage[];
++ }
+`,
+    'client': `  import { env } from '$env/dynamic/public';
+  import * as m from '$lib/paraglide/messages.js';
+  import { parseSSEStream } from './sse';
+  import type {
+  \tAgentSummary,
+  \tChatMessage,
+  \tChatStreamEvent,
+  \tCitationEventData,
++ \tConversationHistoryResponse,
+  \tErrorEventData,
+  \tHealthResponse,
+  \tRoutingEventData,
+  \tTokenEventData
+  } from './types';
+ \x20
+  const API_BASE_URL = env.PUBLIC_API_BASE_URL ?? 'http://localhost:8000';
+ \x20
+  export async function getHealth(): Promise<HealthResponse> {
+  \tconst response = await fetch(\`\${API_BASE_URL}/health\`);
+  \tif (!response.ok) throw new Error(\`Health check failed: \${response.status}\`);
+  \treturn response.json();
+  }
+ \x20
+  export async function getAgents(): Promise<AgentSummary[]> {
+  \tconst response = await fetch(\`\${API_BASE_URL}/agents\`);
+  \tif (!response.ok) throw new Error(\`Failed to load guides: \${response.status}\`);
+  \treturn response.json();
+  }
+ \x20
++ export async function getHistory(threadId: string): Promise<ConversationHistoryResponse> {
++ \tconst response = await fetch(\`\${API_BASE_URL}/chat/\${threadId}\`);
++ \tif (!response.ok) throw new Error(\`Failed to load conversation: \${response.status}\`);
++ \treturn response.json();
++ }
++ \x20
+  interface ChatStreamRequest {
+  \tmessage: string;
+  \thistory: ChatMessage[];
+  \tagent_id: string;
++ \tthread_id?: string;
+  }
+ \x20
+  /** Stream one chat turn's SSE events: routing, citation, token(s), then done or error. */
+  export async function* streamChat(
+  \tbody: ChatStreamRequest,
+  \toptions: { signal?: AbortSignal } = {}
+  ): AsyncGenerator<ChatStreamEvent> {
+  \tconst response = await fetch(\`\${API_BASE_URL}/chat/stream\`, {
+  \t\tmethod: 'POST',
+  \t\theaders: { 'Content-Type': 'application/json' },
+  \t\tbody: JSON.stringify(body),
+  \t\tsignal: options.signal
+  \t});
+ \x20
+  \tif (!response.ok || !response.body) {
+  \t\tyield { kind: 'error', data: { message: m.chat_send_error() } };
+  \t\treturn;
+  \t}
+ \x20
+  \tfor await (const { event, data } of parseSSEStream(response)) {
+  \t\tswitch (event) {
+  \t\t\tcase 'routing':
+  \t\t\t\tyield { kind: 'routing', data: JSON.parse(data) as RoutingEventData };
+  \t\t\t\tbreak;
+  \t\t\tcase 'citation':
+  \t\t\t\tyield { kind: 'citation', data: JSON.parse(data) as CitationEventData };
+  \t\t\t\tbreak;
+  \t\t\tcase 'token':
+  \t\t\t\tyield { kind: 'token', data: JSON.parse(data) as TokenEventData };
+  \t\t\t\tbreak;
+  \t\t\tcase 'error':
+  \t\t\t\tyield { kind: 'error', data: JSON.parse(data) as ErrorEventData };
+  \t\t\t\tbreak;
+  \t\t\tcase 'done':
+  \t\t\t\tyield { kind: 'done' };
+  \t\t\t\tbreak;
+  \t\t}
+  \t}
+  }
+`,
+    'chat-state': `  import * as m from '$lib/paraglide/messages.js';
+- import { getAgents, streamChat } from '$lib/api/client';
++ import { getAgents, getHistory, streamChat } from '$lib/api/client';
+  import { AUTO_ROUTE } from '$lib/api/types';
+  import type { AgentSummary, ChatMessage, Citation, RoutingEventData } from '$lib/api/types';
++ import { getOrCreateThreadId, startNewConversation } from './thread-id';
+ \x20
+  export interface DisplayMessage {
+  \tid: string;
+  \trole: 'user' | 'assistant';
+  \tcontent: string;
+  \trouting?: RoutingEventData;
+  \tcolor?: string;
+  \tcitations?: Citation[];
+  \tisStreaming?: boolean;
+  }
+ \x20
+  export class ChatStore {
+  \tmessages = $state<DisplayMessage[]>([]);
+  \tagents = $state<AgentSummary[]>([]);
+  \tselectedAgentId = $state<string>(AUTO_ROUTE);
+  \tisStreaming = $state(false);
+  \terror = $state<string | null>(null);
++ \tthreadId = $state<string>(getOrCreateThreadId());
+ \x20
+  \tasync loadAgents(): Promise<void> {
+  \t\ttry {
+  \t\t\tthis.agents = await getAgents();
+  \t\t} catch {
+  \t\t\tthis.error = m.chat_agents_error();
+  \t\t}
+  \t}
+ \x20
++ \tasync loadHistory(): Promise<void> {
++ \t\ttry {
++ \t\t\tconst { messages } = await getHistory(this.threadId);
++ \t\t\tthis.messages = messages.map((message) => ({ id: crypto.randomUUID(), ...message }));
++ \t\t} catch {
++ \t\t\t// No prior conversation for this thread yet, or memory isn't configured — start blank.
++ \t\t}
++ \t}
++ \x20
++ \tnewConversation(): void {
++ \t\tthis.threadId = startNewConversation();
++ \t\tthis.messages = [];
++ \t\tthis.error = null;
++ \t}
++ \x20
+  \tasync sendMessage(text: string): Promise<void> {
+  \t\tconst trimmed = text.trim();
+  \t\tif (!trimmed || this.isStreaming) return;
+ \x20
+  \t\tconst history: ChatMessage[] = this.messages.map((message) => ({
+  \t\t\trole: message.role,
+  \t\t\tcontent: message.content
+  \t\t}));
+ \x20
+  \t\tthis.messages.push(
+  \t\t\t{ id: crypto.randomUUID(), role: 'user', content: trimmed },
+  \t\t\t{ id: crypto.randomUUID(), role: 'assistant', content: '', isStreaming: true }
+  \t\t);
+  \t\t// Re-read the pushed message back out of the $state array so mutations below
+  \t\t// go through Svelte's reactive proxy, not the original plain object reference.
+  \t\tconst assistantMessage = this.messages[this.messages.length - 1];
+ \x20
+  \t\tthis.isStreaming = true;
+  \t\tthis.error = null;
+ \x20
+  \t\ttry {
+  \t\t\tfor await (const event of streamChat({
+  \t\t\t\tmessage: trimmed,
+  \t\t\t\thistory,
+- \t\t\t\tagent_id: this.selectedAgentId
++ \t\t\t\tagent_id: this.selectedAgentId,
++ \t\t\t\tthread_id: this.threadId
+  \t\t\t})) {
+  \t\t\t\tswitch (event.kind) {
+  \t\t\t\t\tcase 'routing':
+  \t\t\t\t\t\tassistantMessage.routing = event.data;
+  \t\t\t\t\t\tassistantMessage.color = this.agents.find(
+  \t\t\t\t\t\t\t(agent) => agent.id === event.data.agent_id
+  \t\t\t\t\t\t)?.color;
+  \t\t\t\t\t\tbreak;
+  \t\t\t\t\tcase 'citation':
+  \t\t\t\t\t\tassistantMessage.citations = event.data.citations;
+  \t\t\t\t\t\tbreak;
+  \t\t\t\t\tcase 'token':
+  \t\t\t\t\t\tassistantMessage.content += event.data.text;
+  \t\t\t\t\t\tbreak;
+  \t\t\t\t\tcase 'error':
+  \t\t\t\t\t\tthis.error = event.data.message;
+  \t\t\t\t\t\tbreak;
+  \t\t\t\t\tcase 'done':
+  \t\t\t\t\t\tbreak;
+  \t\t\t\t}
+  \t\t\t}
+  \t\t} catch {
+  \t\t\tthis.error = m.chat_send_error();
+  \t\t} finally {
+  \t\t\tassistantMessage.isStreaming = false;
+  \t\t\tthis.isStreaming = false;
+  \t\t}
+  \t}
+  }
+`
+  };
+
+  function renderPlain(id) {
+    const el = document.getElementById(id);
+    const text = PLAIN[id];
+    el.textContent = text;
+    return text;
+  }
+
+  function renderDiff(id) {
+    const el = document.getElementById(id);
+    const raw = DIFF[id];
+    const lines = raw.replace(/\n$/, '').split('\n');
+    const finalLines = [];
+    const frag = document.createDocumentFragment();
+    for (const line of lines) {
+      const marker = line[0];
+      const rest = line.slice(1);
+      const div = document.createElement('div');
+      div.className = 'line';
+      let markerChar = ' ';
+      if (marker === '+') {
+        div.classList.add('add');
+        markerChar = '+';
+        finalLines.push(rest);
+      } else if (marker === '-') {
+        div.classList.add('del');
+        markerChar = '-';
+      } else {
+        finalLines.push(rest);
+      }
+      const markerSpan = document.createElement('span');
+      markerSpan.className = 'marker';
+      markerSpan.textContent = markerChar;
+      div.appendChild(markerSpan);
+      div.appendChild(document.createTextNode(rest));
+      frag.appendChild(div);
+    }
+    el.appendChild(frag);
+    return finalLines.join('\n') + '\n';
+  }
+
+  const copyText = {};
+  for (const id of Object.keys(PLAIN)) copyText[id] = renderPlain(id);
+  for (const id of Object.keys(DIFF)) copyText[id] = renderDiff(id);
+
+  document.querySelectorAll('button.copy').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.target;
+      const text = copyText[id] || '';
+      try {
+        await navigator.clipboard.writeText(text);
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById(id));
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      const original = btn.textContent;
+      btn.textContent = 'Copied';
+      btn.classList.add('copied');
+      setTimeout(() => {
+        btn.textContent = original;
+        btn.classList.remove('copied');
+      }, 1400);
+    });
+  });
+</script>

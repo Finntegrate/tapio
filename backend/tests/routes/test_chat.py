@@ -29,7 +29,11 @@ def _parse_sse_events(body: str) -> list[tuple[str, dict]]:
 def test_chat_stream_emits_routing_citation_tokens_then_done(client: TestClient) -> None:
     response = client.post(
         "/chat/stream",
-        json={"message": "How do I apply for a residence permit?", "history": [], "agent_id": "ilmarinen"},
+        json={
+            "message": "How do I apply for a residence permit?",
+            "agent_id": "ilmarinen",
+            "thread_id": "test-thread-1",
+        },
     )
 
     assert response.status_code == 200
@@ -55,7 +59,7 @@ def test_chat_stream_emits_routing_citation_tokens_then_done(client: TestClient)
 def test_chat_stream_auto_routes_without_explicit_agent(client: TestClient) -> None:
     response = client.post(
         "/chat/stream",
-        json={"message": "Where can I find an apartment to rent?"},
+        json={"message": "Where can I find an apartment to rent?", "thread_id": "test-thread-2"},
     )
 
     assert response.status_code == 200
@@ -71,7 +75,11 @@ def test_chat_stream_emits_error_event_when_orchestrator_fails(client: TestClien
 
     response = client.post(
         "/chat/stream",
-        json={"message": "How do I apply for a residence permit?", "agent_id": "ilmarinen"},
+        json={
+            "message": "How do I apply for a residence permit?",
+            "agent_id": "ilmarinen",
+            "thread_id": "test-thread-3",
+        },
     )
 
     assert response.status_code == 200
