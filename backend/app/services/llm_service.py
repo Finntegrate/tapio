@@ -13,8 +13,6 @@ logger = logging.getLogger(__name__)
 
 # Cap on prior turns included as context, to avoid overflowing the model's context window
 MAX_HISTORY_MESSAGES = 10
-
-
 def _message_content_to_text(content: Any) -> str:
     """Convert a structured chat message value into the plain text Ollama accepts.
 

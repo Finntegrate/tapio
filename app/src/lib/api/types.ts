@@ -1,10 +1,5 @@
 export const AUTO_ROUTE = 'auto';
 
-export interface ChatMessage {
-	role: 'user' | 'assistant';
-	content: string;
-}
-
 export interface AgentSummary {
 	id: string;
 	name: string;

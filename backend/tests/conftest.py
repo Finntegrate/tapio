@@ -5,10 +5,12 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
+from langgraph.checkpoint.memory import MemorySaver
 
 from app.agents.router import AgentRouter
-from app.dependencies import get_agent_router, get_orchestrator
+from app.dependencies import get_agent_router, get_graph, get_orchestrator
 from app.main import app
+from app.memory.graph import build_graph
 
 # ============================================================================
 # Mock fixtures for RAG/agent unit tests
@@ -108,14 +110,17 @@ def fake_agent_router() -> AgentRouter:
 
 @pytest.fixture
 def client(mock_rag_orchestrator: Mock, fake_agent_router: AgentRouter) -> Iterator[TestClient]:
-    """TestClient with the orchestrator/router dependencies overridden.
+    """TestClient with the orchestrator/router/graph dependencies overridden.
 
     Deliberately not entered as a context manager, so the real lifespan
     (which builds a real RAGOrchestrator against Ollama/Chroma) never runs
-    during tests.
+    during tests. The graph is built for real, against an in-memory
+    checkpointer, so it exercises the actual routing/citation/streaming logic.
     """
+    fake_graph = build_graph(MemorySaver(), mock_rag_orchestrator, fake_agent_router)
     app.dependency_overrides[get_orchestrator] = lambda: mock_rag_orchestrator
     app.dependency_overrides[get_agent_router] = lambda: fake_agent_router
+    app.dependency_overrides[get_graph] = lambda: fake_graph
     test_client = TestClient(app)
     yield test_client
     app.dependency_overrides.clear()
