@@ -77,11 +77,7 @@ def _build_messages(
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
-<<<<<<< HEAD:backend/app/services/llm_service.py
         messages.extend(_normalise_history(history))
-=======
-        messages.extend(history)
->>>>>>> 97227faa11952f07fc6417898b79000034c433ec:tapio/services/llm_service.py
 
     messages.append({"role": "user", "content": prompt})
     return messages
