@@ -2,6 +2,7 @@
 
 import asyncio
 import logging
+from collections.abc import Sequence
 from typing import Any
 
 from langchain_core.messages import BaseMessage
@@ -23,7 +24,7 @@ logger = logging.getLogger(__name__)
 _ROLES = {"human": "user", "ai": "assistant"}
 
 
-def to_history(messages: list[BaseMessage]) -> list[dict[str, Any]]:
+def to_history(messages: Sequence[BaseMessage]) -> list[dict[str, Any]]:
     """Convert LangGraph message objects to the role/content dicts Tapio uses."""
     return [{"role": _ROLES.get(m.type, m.type), "content": m.content} for m in messages]
 
@@ -73,7 +74,9 @@ def build_graph(
 
         return {"messages": [{"role": "assistant", "content": "".join(chunks)}]}
 
-    builder = StateGraph(ChatState)
+    # pyrefly rejects any TypedDict here, including langgraph's own MessagesState -
+    # https://github.com/facebook/pyrefly false positive against TypedDictLikeV1/V2.
+    builder = StateGraph(ChatState)  # pyrefly: ignore
     builder.add_node("call_model", call_model)
     builder.add_edge(START, "call_model")
     builder.add_edge("call_model", END)
