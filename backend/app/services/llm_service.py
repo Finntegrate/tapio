@@ -11,8 +11,7 @@ from app.config.settings import DEFAULT_LLM_MODEL
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Cap on prior turns included as context, to avoid overflowing the model's context window
-MAX_HISTORY_MESSAGES = 10
+
 
 
 def _message_content_to_text(content: Any) -> str:
@@ -78,7 +77,11 @@ def _build_messages(
         messages.append({"role": "system", "content": system_prompt})
 
     if history:
+<<<<<<< HEAD:backend/app/services/llm_service.py
         messages.extend(_normalise_history(history))
+=======
+        messages.extend(history)
+>>>>>>> 97227faa11952f07fc6417898b79000034c433ec:tapio/services/llm_service.py
 
     messages.append({"role": "user", "content": prompt})
     return messages
