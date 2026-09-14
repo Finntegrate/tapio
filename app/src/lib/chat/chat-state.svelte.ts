@@ -1,7 +1,7 @@
 import * as m from '$lib/paraglide/messages.js';
 import { getAgents, streamChat } from '$lib/api/client';
 import { AUTO_ROUTE } from '$lib/api/types';
-import type { AgentSummary, Citation, RoutingEventData } from '$lib/api/types';
+import type { AgentSummary, ChatMessage, Citation, RoutingEventData } from '$lib/api/types';
 
 export interface DisplayMessage {
 	id: string;
@@ -20,10 +20,6 @@ export class ChatStore {
 	isStreaming = $state(false);
 	error = $state<string | null>(null);
 
-	// One id per conversation, so the backend's checkpointer can recall this
-	// thread's history — it no longer needs to travel over the wire.
-	#threadId = crypto.randomUUID();
-
 	async loadAgents(): Promise<void> {
 		try {
 			this.agents = await getAgents();
@@ -35,6 +31,11 @@ export class ChatStore {
 	async sendMessage(text: string): Promise<void> {
 		const trimmed = text.trim();
 		if (!trimmed || this.isStreaming) return;
+
+		const history: ChatMessage[] = this.messages.map((message) => ({
+			role: message.role,
+			content: message.content
+		}));
 
 		this.messages.push(
 			{ id: crypto.randomUUID(), role: 'user', content: trimmed },
@@ -50,8 +51,8 @@ export class ChatStore {
 		try {
 			for await (const event of streamChat({
 				message: trimmed,
-				agent_id: this.selectedAgentId,
-				thread_id: this.#threadId
+				history,
+				agent_id: this.selectedAgentId
 			})) {
 				switch (event.kind) {
 					case 'routing':

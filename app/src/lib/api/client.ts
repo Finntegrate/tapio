@@ -3,6 +3,7 @@ import * as m from '$lib/paraglide/messages.js';
 import { parseSSEStream } from './sse';
 import type {
 	AgentSummary,
+	ChatMessage,
 	ChatStreamEvent,
 	CitationEventData,
 	ErrorEventData,
@@ -27,8 +28,8 @@ export async function getAgents(): Promise<AgentSummary[]> {
 
 interface ChatStreamRequest {
 	message: string;
+	history: ChatMessage[];
 	agent_id: string;
-	thread_id: string;
 }
 
 /** Stream one chat turn's SSE events: routing, citation, token(s), then done or error. */

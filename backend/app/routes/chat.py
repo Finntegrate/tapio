@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 from sse_starlette.sse import EventSourceResponse
 
-from app.dependencies import GraphDep
+from app.dependencies import AgentRouterDep, OrchestratorDep
 from app.schemas import ChatRequest
 from app.streaming import stream_chat_turn
 
@@ -13,21 +13,24 @@ router = APIRouter()
 @router.post("/chat/stream")
 async def chat_stream(
     chat_request: ChatRequest,
-    graph: GraphDep,
+    orchestrator: OrchestratorDep,
+    agent_router: AgentRouterDep,
 ) -> EventSourceResponse:
     """Stream one chat turn as Server-Sent Events: routing, citation, token(s), done.
 
     Args:
-        chat_request: The user's message, guide selection, and conversation thread id.
-        graph: Shared, checkpointer-backed conversation graph, injected.
+        chat_request: The user's message, history, and optional guide selection.
+        orchestrator: Shared RAG orchestrator, injected.
+        agent_router: Shared agent router, injected.
 
     Returns:
         An SSE response streaming the turn's events as they become available.
     """
     events = stream_chat_turn(
-        graph=graph,
+        orchestrator=orchestrator,
+        agent_router=agent_router,
         message=chat_request.message,
+        history=chat_request.history,
         agent_id=chat_request.agent_id,
-        thread_id=chat_request.thread_id,
     )
     return EventSourceResponse(events)

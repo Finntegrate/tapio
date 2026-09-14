@@ -12,8 +12,6 @@ from app.agents.router import AgentRouter
 from app.config import BackendSettings
 from app.config.config_models import RAGConfig
 from app.factories import RAGOrchestratorFactory
-from app.memory.checkpointer import get_checkpointer
-from app.memory.graph import build_graph
 from app.routes import agents, chat, health
 
 logger = logging.getLogger(__name__)
@@ -31,10 +29,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     app.state.orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
     app.state.agent_router = AgentRouter()
-    async with get_checkpointer() as checkpointer:
-        app.state.graph = build_graph(checkpointer, app.state.orchestrator, app.state.agent_router)
-        logger.info("Tapio backend started")
-        yield
+    logger.info("Tapio backend started")
+    yield
 
 
 def create_app() -> FastAPI:

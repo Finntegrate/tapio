@@ -1,61 +1,83 @@
-"""Bridge the LangGraph-driven, memory-backed chat turn to an async SSE generator."""
+"""Bridge the synchronous RAGOrchestrator streaming API to an async SSE generator."""
 
-import asyncio
 import logging
 from collections.abc import AsyncIterator
+from typing import Any
 
-from langchain_core.runnables import RunnableConfig
-from langgraph.graph.state import CompiledStateGraph
+from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
-from app.schemas import ErrorEvent
+from app.agents.router import AgentRoute, AgentRouter
+from app.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, RoutingEvent, TokenEvent
+from app.services.rag_orchestrator import RAGOrchestrator
 
 logger = logging.getLogger(__name__)
 
 GENERIC_ERROR_MESSAGE = "I encountered an error while processing your query. Please try again."
+CITATION_SNIPPET_LENGTH = 280
+
+
+def _routing_event(route: AgentRoute) -> RoutingEvent:
+    return RoutingEvent(
+        agent_id=route.agent.id,
+        name=route.agent.name,
+        title=route.agent.title,
+        category=route.agent.category,
+        reason=route.reason,
+        was_explicit=route.was_explicit,
+    )
+
+
+def _citation(document: Any) -> Citation:
+    metadata = document.metadata if hasattr(document, "metadata") else {}
+    source_url = metadata.get("citation_url") or metadata.get("source_url") or metadata.get("url") or "Unknown source"
+    title = metadata.get("title", "Untitled source")
+    content = document.page_content if hasattr(document, "page_content") else str(document)
+    return Citation(title=title, source_url=source_url, snippet=content[:CITATION_SNIPPET_LENGTH])
 
 
 async def stream_chat_turn(
-    graph: CompiledStateGraph,
+    orchestrator: RAGOrchestrator,
+    agent_router: AgentRouter,
     message: str,
+    history: list[ChatMessage],
     agent_id: str,
-    thread_id: str,
 ) -> AsyncIterator[dict[str, str]]:
     """Yield SSE-ready events for one chat turn: routing, citation, token(s), then done.
 
-    Runs the graph node in the background and relays the ``{"event", "data"}``
-    mappings it pushes onto its event queue as they arrive, so the caller sees
-    them as they're produced rather than only after the turn completes.
+    Mirrors the call sequence in ``tapio.app.TapioAssistantApp`` (route, then
+    stream), bridging its synchronous retrieval and token generator onto the
+    async event loop via Starlette's threadpool helpers.
 
     Args:
-        graph: The compiled, checkpointer-backed conversation graph.
+        orchestrator: Shared RAG orchestrator built at app startup.
+        agent_router: Shared agent router built at app startup.
         message: The user's current message.
+        history: Prior conversation turns.
         agent_id: Explicit guide id, or ``AUTO_ROUTE`` to let the router decide.
-        thread_id: Conversation id; the checkpointer keys prior turns by this.
 
     Yields:
         SSE event mappings with ``event`` and ``data`` keys.
     """
-    queue: asyncio.Queue[dict[str, str] | None] = asyncio.Queue()
-    config: RunnableConfig = {"configurable": {"thread_id": thread_id, "event_queue": queue}}
-
-    async def run_graph() -> None:
-        try:
-            await graph.ainvoke(
-                {"messages": [{"role": "user", "content": message}], "agent_id": agent_id},
-                config=config,
-            )
-        except Exception:
-            logger.exception("Error streaming chat turn")
-            await queue.put({"event": "error", "data": ErrorEvent(message=GENERIC_ERROR_MESSAGE).model_dump_json()})
-        finally:
-            await queue.put(None)
-
-    task = asyncio.create_task(run_graph())
     try:
-        while (event := await queue.get()) is not None:
-            yield event
-            if event["event"] == "error":
-                return
+        route = agent_router.route(message, agent_id)
+        yield {"event": "routing", "data": _routing_event(route).model_dump_json()}
+
+        raw_history = [turn.model_dump() for turn in history]
+        response_stream, retrieved_docs = await run_in_threadpool(
+            orchestrator.query_stream,
+            query_text=message,
+            history=raw_history,
+            agent_id=route.agent.id,
+        )
+
+        citations = [_citation(document) for document in retrieved_docs]
+        yield {"event": "citation", "data": CitationEvent(citations=citations).model_dump_json()}
+
+        async for chunk in iterate_in_threadpool(response_stream):
+            if chunk:
+                yield {"event": "token", "data": TokenEvent(text=chunk).model_dump_json()}
+
         yield {"event": "done", "data": "{}"}
-    finally:
-        await task
+    except Exception:
+        logger.exception("Error streaming chat turn")
+        yield {"event": "error", "data": ErrorEvent(message=GENERIC_ERROR_MESSAGE).model_dump_json()}
