@@ -43,7 +43,7 @@ repos:
         pass_filenames: false
       - id: pyrefly-crawler
         name: Pyrefly crawler
-        entry: uv run --directory crawler pyrefly check
+        entry: uv run --directory crawler pyrefly check tapio_crawler
         language: system
         files: ^crawler/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
@@ -55,7 +55,7 @@ repos:
         pass_filenames: false
       - id: pyrefly-ingest
         name: Pyrefly ingest
-        entry: uv run --directory ingest pyrefly check
+        entry: uv run --directory ingest pyrefly check tapio_ingest
         language: system
         files: ^ingest/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
@@ -67,7 +67,7 @@ repos:
         pass_filenames: false
       - id: pyrefly-backend
         name: Pyrefly backend
-        entry: uv run --directory backend pyrefly check
+        entry: uv run --directory backend pyrefly check app
         language: system
         files: ^backend/(?:.*\.py|mypy\.ini|pyrefly\.toml|pyproject\.toml|uv\.lock)$
         pass_filenames: false
