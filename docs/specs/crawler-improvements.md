@@ -155,8 +155,27 @@ one uniform "large sitemap = slow" story:
   matching this section's original ~5–10h sequential estimate for discovery
   alone. tyomarkkinatori.fi's pass seeded only from an English landing page
   (`https://tyomarkkinatori.fi/en`), so its 458-of-476 eligible figure
-  doesn't yet reflect Finnish/Swedish content; re-seeding from a
-  language-neutral landing page is open backlog work.
+  didn't yet reflect Finnish/Swedish content; re-seeding from a
+  language-neutral landing page landed in #83 and was re-run to confirm
+  coverage, per the next point.
+- **A follow-up discovery-only re-run on 2026-09-15, seeded from the
+  language-neutral root (`https://tyomarkkinatori.fi`, post-#83), found 994
+  discovered / 980 eligible URLs at `max_depth: 4` in ~15.5 minutes** — over
+  3x the site's then-configured `gap_crawl.max_pages: 300`. Inspecting
+  crawl4ai 0.9.2's `BFSDeepCrawlStrategy` (`deep_crawling/bfs_strategy.py`)
+  explains why: it checks `max_pages` only *between* BFS levels, not
+  mid-level, so a single large level's already-dispatched batch completes in
+  full even after crossing the configured cap — 300 was never actually a
+  hard stop for this source. Whether the run additionally reached full
+  `max_depth: 4` coverage or stopped between levels once the cumulative
+  count first crossed 300 (deeper URLs then unexplored) isn't separately
+  recorded by today's implementation, which discards per-page depth after a
+  gap-crawl run completes. Resolution and config change tracked in
+  [#88](https://github.com/Finntegrate/tapio/issues/88): `gap_crawl.max_pages`
+  raised from 300 to 1500 (comfortably above the observed 994, given the
+  same soft-cap behavior means the real stopping point can again land above
+  the nominal value) rather than building resumable multi-pass discovery —
+  see "Comprehensive means..." below for the fuller rationale.
 - **Running sites concurrently, not sequentially, bounds total wall-clock to
   the slowest single site rather than their sum.** `Crawl-delay` and
   `min_delay`/`max_delay` are enforced per host, so migri.fi's and dvv.fi's
@@ -469,7 +488,9 @@ sites:
         seed_urls: ["https://tyomarkkinatori.fi"]
         strategy: bfs
         max_depth: 4
-        max_pages: 300
+        # Raised from 300 after a 2026-09-15 re-run found 994 discovered/980
+        # eligible URLs from this seed - see "Comprehensive means..." below.
+        max_pages: 1500
       refresh:
         unchanged_audit_days: 90
         inactive_grace_cycles: 2
@@ -500,15 +521,38 @@ that every source's discovery mechanism is guaranteed to reach full
 coverage in one pass. For a sitemap-backed source (migri.fi, kela.fi,
 vero.fi, dvv.fi) that mechanism has no size limit. tyomarkkinatori.fi is
 different: it has no sitemap, so its bounded BFS gap-crawl above
-(`max_pages: 300`) is its *sole* discovery path, not the P1 supplement it is
+(`max_pages: 1500`) is its *sole* discovery path, not the P1 supplement it is
 for the other four sources (see "Bounded deep-crawl gap detection" below).
-A single capped pass can undercount a site whose real page count exceeds
-that bound, and today's config has no resumable multi-pass mechanism to
-recover URLs a capped run missed. Confirming whether 300 is enough once
-tyomarkkinatori.fi is seeded from its language-neutral root (above, not the
-English-only landing page the 2026-08-05 dry run used), and widening or
-making that discovery resumable if not, is tracked in
-[#88](https://github.com/Finntegrate/tapio/issues/88).
+
+[#88](https://github.com/Finntegrate/tapio/issues/88) confirmed, via a
+2026-09-15 discovery-only re-run seeded from the language-neutral root (see
+"Scale and timeline" above), that the site's real page count is well above
+the previous `max_pages: 300` — 994 discovered / 980 eligible URLs in one
+run. `gap_crawl.max_pages` is raised to 1500 (`crawler/tapio_crawler/config/
+site_configs.yaml`; the Pydantic field ceiling in `config_models.py` raised
+from 1,000 to 3,000 to allow it), giving headroom above the observed count
+rather than building a resumable multi-pass gap-crawl. That is a deliberate
+choice given what the re-run showed, not the only defensible one:
+
+- A single, already-overshooting pass already reached deep, multi-language
+  coverage (994 URLs spanning `fi`/`en`/`sv`/`saame` sections and paths up to
+  8 segments deep) without any new persistence or scheduling logic —
+  resumable multi-pass would add a new state table, checkpoint format, and
+  cross-run scheduling contract for a source whose real size is now known
+  to be within easy reach of one generously-capped run.
+- The undercount this spec worried about was real, but the mechanism was a
+  wrong assumption about `max_pages`, not an inherently small site: reading
+  crawl4ai 0.9.2's `BFSDeepCrawlStrategy` shows `max_pages` is checked only
+  *between* BFS levels, so raising it (rather than adding resumability) is a
+  direct fix for the actual cause, not a workaround.
+- This is still a single-pass bound, not a proof of completeness. If a
+  future scheduled run's `discovered` count approaches 1500 again, that is
+  the signal to revisit this decision and build the resumable multi-pass
+  mechanism described in the now-superseded option above, rather than
+  raising the cap indefinitely — "every source is crawled comprehensively"
+  for tyomarkkinatori.fi should be re-verified, not assumed, at each
+  scheduled gap-crawl run until a sitemap or other unbounded discovery
+  source becomes available for it.
 
 `min_delay`/`max_delay` above are illustrative starting points, not settled
 values — the actual safe rate per source is an open question below. What the
@@ -846,6 +890,15 @@ only discovery path and is required from Phase 1, per Requirement 2.
 - Add newly discovered, eligible URLs to the manifest with `deep_crawl` provenance.
 - Use Best-First scoring to prioritise initial processing, not to suppress eligible
   records permanently.
+- **`max_pages` is a per-source config value, not a guaranteed hard stop.**
+  crawl4ai 0.9.2's `BFSDeepCrawlStrategy` only checks it *between* BFS
+  levels ([#88](https://github.com/Finntegrate/tapio/issues/88) traced this
+  in `deep_crawling/bfs_strategy.py` after tyomarkkinatori.fi's re-run
+  returned 994 pages against a configured cap of 300), so a level that is
+  already large when the check runs completes in full before the next
+  level is skipped. Treat a configured `max_pages` as "stop at or shortly
+  after this many pages," not an exact ceiling, when sizing it or
+  interpreting a run's `discovered` count.
 
 #### Retrieval-quality evaluation
 

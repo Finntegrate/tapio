@@ -61,7 +61,7 @@ class GapCrawlConfig(BaseModel):
     seed_urls: list[str] = Field(default_factory=list)
     strategy: Literal["bfs"] = "bfs"
     max_depth: Annotated[int, Field(ge=0, le=10)] = 2
-    max_pages: Annotated[int, Field(ge=1, le=1_000)] = 100
+    max_pages: Annotated[int, Field(ge=1, le=3_000)] = 100
 
 
 class RefreshConfig(BaseModel):
