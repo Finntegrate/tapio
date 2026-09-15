@@ -78,6 +78,7 @@ Skills in `.claude/skills/` are automatically available as slash commands when t
 | --- | --- |
 | `/create-issue <description or yaml path>` | Create a single issue (or batch from YAML) after a backlog scan |
 | `/backlog [keyword / number / label / gaps]` | Explore and review the open backlog |
+| `/retro [PR-number / branch]` | Reflect on a PR's diff and review comments, file backlog issues for what it left behind |
 
 ## Key files
 
@@ -86,6 +87,7 @@ Skills in `.claude/skills/` are automatically available as slash commands when t
 | `.claude/skills/create-issue/references/issue-schema.yaml` | YAML schema for drafting batches of issues |
 | `.claude/skills/create-issue/SKILL.md`    | Source for `/create-issue`                               |
 | `.claude/skills/backlog/SKILL.md`         | Source for `/backlog`                                    |
+| `.claude/skills/retro/SKILL.md`           | Source for `/retro`                                      |
 | `mise.toml`                               | Task runner targets (`mise run <task>`)                  |
 
 ## Conventions
