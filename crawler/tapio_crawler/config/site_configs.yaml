@@ -58,7 +58,13 @@ sites:
         seed_urls: ["https://tyomarkkinatori.fi"]
         strategy: bfs
         max_depth: 4
-        max_pages: 300
+        # A 2026-09-15 discovery-only run from this language-neutral seed
+        # found 994 discovered / 980 eligible pages at max_depth 4 - over 3x
+        # the prior max_pages: 300, which crawl4ai 0.9.2's BFSDeepCrawlStrategy
+        # only enforces between BFS levels, not mid-level, so the old value
+        # did not actually stop the crawl at 300. Raised with headroom above
+        # the observed count; see docs/specs/crawler-improvements.md and #88.
+        max_pages: 1500
 
   # Example configuration for Kela website
   kela:
