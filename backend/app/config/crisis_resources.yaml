@@ -1,0 +1,105 @@
+# Approved crisis and escalation resources for Tapio guides.
+#
+# #29 (guardrails for sensitive and off-topic queries) loads this file
+# directly at runtime to surface human/official support for crisis-adjacent
+# queries (PRD §7.4) rather than hardcoding resources inline in guide
+# prompts. Do not add, remove, or edit an entry without following the
+# governance process in docs/specs/crisis-escalation-resources.md.
+
+version: 1
+last_reviewed: "2026-09-16"
+next_review_due: "2026-12-16"
+review_cadence: quarterly
+# draft = not yet signed off by a named safety/legal/partnerships owner.
+# #29 must not treat a draft list as authoritative for production traffic.
+status: draft
+approved_by: []
+
+resources:
+  - id: emergency-112
+    category: emergency
+    name: "General emergency number (112)"
+    description: >-
+      Immediate danger to life, health, or property. Covers all of Finland;
+      interpretation is available for any language.
+    url: "https://112.fi/en"
+    phone: "112"
+    languages: [fi, sv, en]
+    hours: "24/7"
+
+  - id: crisis-line-mieli
+    category: mental_health_crisis
+    name: "MIELI Crisis Helpline (Kriisipuhelin)"
+    description: >-
+      National crisis helpline for anyone in emotional distress, run by
+      MIELI Mental Health Finland.
+    url: "https://mieli.fi/en/support-and-help/crisis-helpline/"
+    phone: "09 2525 0111"
+    phone_notes: >-
+      Finnish 24/7 on 09 2525 0111. Also English/Arabic (09 2525 0113),
+      Swedish (09 2525 0112), Ukrainian (09 2525 0114), Russian
+      (09 2525 0115) at limited hours — check the url for the current
+      schedule before surfacing a specific non-Finnish number.
+    languages: [fi, sv, en, ar, uk, ru]
+    hours: "24/7 in Finnish; limited hours for other languages"
+
+  - id: domestic-violence-nollalinja
+    category: domestic_abuse_support
+    name: "Nollalinja — domestic violence helpline"
+    description: >-
+      Free national helpline and chat for anyone experiencing domestic
+      violence or violence against women, run by the Finnish Institute for
+      Health and Welfare (THL).
+    url: "https://nollalinja.fi/en/"
+    phone: "116 016"
+    languages: [fi, sv, en]
+    hours: "24/7"
+
+  - id: victim-support-riku
+    category: crime_victim_support
+    name: "Victim Support Finland (Rikosuhripäivystys, RIKU)"
+    description: >-
+      Support and guidance for victims of crime; calls can be anonymous.
+      English-language support is via the online contact form rather than
+      phone.
+    url: "https://www.riku.fi/en/"
+    phone: "116 006"
+    languages: [fi, sv]
+    hours: >-
+      Mon-Thu 9:00-18:00 and Fri 9:00-16:00 (Finnish); Mon-Fri 12:00-14:00
+      (Swedish); English via contact form
+
+  - id: legal-aid-oikeusapu
+    category: legal_aid
+    name: "State legal aid (Oikeusapu)"
+    description: >-
+      Publicly funded, means-tested legal aid from the nearest Public Legal
+      Aid Office, including for asylum and immigration matters.
+    url: "https://oikeus.fi/oikeusapu/en/"
+    phone: null
+    languages: [fi, sv, en]
+    hours: "Varies by regional office"
+
+  - id: legal-aid-pakolaisneuvonta
+    category: legal_aid
+    name: "Finnish Refugee Advice Centre (Pakolaisneuvonta)"
+    description: >-
+      Free legal counselling specifically for asylum seekers and refugees,
+      independent of the state legal aid system.
+    url: "https://www.pakolaisneuvonta.fi/en/"
+    phone: null
+    languages: [fi, en]
+    hours: "See website"
+
+  - id: migri-customer-service
+    category: immigration_authority
+    name: "Finnish Immigration Service (Migri) customer service"
+    description: >-
+      Official immigration authority contact for status, permit, and
+      application questions. Not a crisis line, but the correct escalation
+      point for authoritative case guidance rather than Tapio answering as
+      if qualified to give it.
+    url: "https://migri.fi/en/contact-information"
+    phone: "0295 419 600"
+    languages: [fi, sv, en]
+    hours: "Mon-Fri 8:30-12:00 and 13:00-15:30"
