@@ -35,11 +35,12 @@ Each entry below follows the same fields as the live guides in `backend/app/agen
 
 ### Mielikki — The Healer (healthcare navigation)
 
-- **In scope:** Public healthcare system navigation (registering with a health center, appointments), health insurance (Kela health insurance, EU health insurance card), finding services (dental, maternity, occupational health), understanding fees and co-pays.
+- **In scope (v1):** Public healthcare system navigation at the national-rules level (how the system works, how to register with a health center as a process), health insurance (Kela health insurance, EU health insurance card), understanding fees and co-pay structure.
+- **Deferred (post-v1):** Per-county service-finding — which specific health center, dental, maternity, or occupational-health provider to use — since that detail lives with 21 wellbeing services counties plus Helsinki individually, not a national source. Revisit once a county-source ingest task (see grounding source research) is scoped and built.
 - **Out of scope:** Medical diagnosis or treatment advice, mental-health and wellbeing support (Lempi), Kela benefit payments not tied to health insurance (Rauni).
-- **Example queries:** "How do I register with a local health center?" · "Does Kela cover my healthcare costs while my residence permit is pending?" · "Where can I find a dentist accepting new patients?"
+- **Example queries:** "How does registering with a public health center work in Finland?" · "Does Kela cover my healthcare costs while my residence permit is pending?" · "What's the difference between public and occupational healthcare?"
 - **Note:** Rauni's current out-of-scope line ("medical diagnosis and legal representation") anticipates this boundary. When Mielikki is built, Rauni's definition should be updated to name Mielikki as the handoff rather than leaving the boundary implicit.
-- **Correction:** the [grounding source research](../research/guide-network-grounding-sources.md#mielikki-healthcare-navigation) found national rules (insurance eligibility, co-pay structure) are centralized via Kela/THL as assumed, but this guide's own example queries ("register with a local health center," "find a dentist accepting new patients") depend on service-level detail that lives with 21 wellbeing services counties plus Helsinki individually, not one centralized source. Treat that as a scoping decision for v1 (national rules only vs. also per-county service-finding), not an assumption that one crawl covers both.
+- **Resolved:** the [grounding source research](../research/guide-network-grounding-sources.md#mielikki-healthcare-navigation) found national rules (insurance eligibility, co-pay structure) are centralized via Kela/THL as assumed, but per-county service-finding is not. Decision: v1 ships national-only, matching this guide's early build-order rank (premised on centralized sources); the two example queries that depended on county-level detail ("register with a local health center" as a lookup, "find a dentist accepting new patients") are replaced above with national-rules equivalents, and per-county service-finding is deferred rather than assumed in scope.
 
 ### Lempi — The Wellbeing Supporter (mental health and community)
 
@@ -76,7 +77,7 @@ Each entry below follows the same fields as the live guides in `backend/app/agen
 
 Ranking basis: user demand (how many newcomers hit this need, and how early), source availability (whether centralized official sources already exist to ground answers), and blocking dependencies (safety or infrastructure work that has to land first regardless of demand).
 
-**Open question:** the [grounding source research](../research/guide-network-grounding-sources.md#comparison-against-the-specs-build-order) found Mielikki's source picture is more fragmented than assumed above (§ Mielikki correction) and Louhi's blocking source-policy question is resolved, which — on source availability alone — would argue for moving Louhi up and Mielikki down. This table keeps the original demand-led order; whether to re-rank is a call for reviewers, not resolved by this document.
+**Open question:** the [grounding source research](../research/guide-network-grounding-sources.md#comparison-against-the-specs-build-order) found Mielikki's full source picture (national rules plus per-county service-finding) is more fragmented than assumed above (§ Mielikki, resolved) and Louhi's blocking source-policy question is resolved, which — on source availability alone — would argue for moving Louhi up and Mielikki down. This table keeps the original demand-led order; whether to re-rank is a call for reviewers, not resolved by this document.
 
 ## Follow-up
 
