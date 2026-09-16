@@ -24,6 +24,7 @@ dependencies = [
     "ollama>=0.4.8",
     "tzdata>=2026.2",
     "pyyaml>=6.0.3",
+    "langchain-ollama>=1.1.0",
 ]
 
 [project.scripts]

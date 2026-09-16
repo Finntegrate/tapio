@@ -7,7 +7,7 @@ from typing import Any
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from app.agents.router import AgentRoute, AgentRouter
-from app.guardrails import GuardrailClassifier, GuardrailMatch, build_guardrail_response
+from app.guardrails import GuardrailClassifierProtocol, GuardrailMatch, build_guardrail_response
 from app.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, GuardrailEvent, RoutingEvent, TokenEvent
 from app.services.rag_orchestrator import RAGOrchestrator
 
@@ -43,7 +43,7 @@ def _citation(document: Any) -> Citation:
 async def stream_chat_turn(
     orchestrator: RAGOrchestrator,
     agent_router: AgentRouter,
-    guardrail_classifier: GuardrailClassifier,
+    guardrail_classifier: GuardrailClassifierProtocol,
     message: str,
     history: list[ChatMessage],
     agent_id: str,
@@ -56,9 +56,11 @@ async def stream_chat_turn(
 
     Before retrieval and generation, the message is classified for guardrail
     handling (#29, PRD §7.4). A crisis-adjacent, legally sensitive, or
-    out-of-scope message short-circuits the RAG pipeline entirely: an extra
-    ``guardrail`` event is emitted, and the response text is a canned,
-    non-LLM message rather than a generated answer.
+    out-of-scope message short-circuits the RAG pipeline's retrieval step
+    entirely: an extra ``guardrail`` event is emitted, and the response text
+    comes from a small, focused, language-matching LLM call plus (for
+    crisis/legal-sensitive matches) deterministically-formatted entries from
+    the approved crisis/escalation resource list, rather than a RAG answer.
 
     Args:
         orchestrator: Shared RAG orchestrator built at app startup.
@@ -75,12 +77,12 @@ async def stream_chat_turn(
         route = agent_router.route(message, agent_id)
         yield {"event": "routing", "data": _routing_event(route).model_dump_json()}
 
-        guardrail_match = guardrail_classifier.classify(message)
+        guardrail_match = await guardrail_classifier.classify(message)
         if guardrail_match is not None:
             logger.info("Guardrail intercepted message: %s (%s)", guardrail_match.reason, guardrail_match.category)
             yield {"event": "guardrail", "data": _guardrail_event(guardrail_match).model_dump_json()}
             yield {"event": "citation", "data": CitationEvent(citations=[]).model_dump_json()}
-            response_text = build_guardrail_response(guardrail_match)
+            response_text = await build_guardrail_response(guardrail_match, message, orchestrator.llm_service)
             yield {"event": "token", "data": TokenEvent(text=response_text).model_dump_json()}
             yield {"event": "done", "data": "{}"}
             return

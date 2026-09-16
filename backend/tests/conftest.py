@@ -1,6 +1,7 @@
 """Shared fixtures for backend tests: RAG/agent unit tests and the FastAPI API tests."""
 
 from collections.abc import Iterator
+from types import SimpleNamespace
 from unittest.mock import Mock
 
 import pytest
@@ -8,7 +9,8 @@ from fastapi.testclient import TestClient
 
 from app.agents.router import AgentRouter
 from app.dependencies import get_agent_router, get_guardrail_classifier, get_orchestrator
-from app.guardrails import GuardrailClassifier
+from app.guardrails import GuardrailClassifierProtocol, LLMGuardrailClassifier
+from app.guardrails.llm_classifier import GuardrailCheckResult
 from app.main import app
 
 # ============================================================================
@@ -90,7 +92,14 @@ def pytest_configure(config):
 
 @pytest.fixture
 def mock_rag_orchestrator() -> Mock:
-    """Fake RAGOrchestrator whose query_stream returns a finite token stream."""
+    """Fake RAGOrchestrator whose query_stream returns a finite token stream.
+
+    Its ``llm_service.generate_response`` is also stubbed: ``build_guardrail_response``
+    (see ``app.guardrails.responses``) calls ``orchestrator.llm_service`` directly to
+    generate a guardrail interception's localized intro text, mirroring how
+    ``app.main``'s production wiring shares the same LLM service between the
+    orchestrator and the guardrail response step.
+    """
     orchestrator = Mock()
     mock_doc = Mock()
     mock_doc.page_content = "Test document content"
@@ -98,6 +107,8 @@ def mock_rag_orchestrator() -> Mock:
 
     orchestrator.query_stream.return_value = (iter(["Mocked ", "response"]), [mock_doc])
     orchestrator.check_model_availability.return_value = True
+    orchestrator.llm_service = Mock()
+    orchestrator.llm_service.generate_response.return_value = "Mocked guardrail intro."
     return orchestrator
 
 
@@ -108,16 +119,40 @@ def fake_agent_router() -> AgentRouter:
 
 
 @pytest.fixture
-def fake_guardrail_classifier() -> GuardrailClassifier:
-    """Real GuardrailClassifier — pure and deterministic, no need to fake it."""
-    return GuardrailClassifier()
+def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
+    """A real LLMGuardrailClassifier with its structured model call stubbed.
+
+    Constructing ``LLMGuardrailClassifier`` doesn't touch the network (the
+    ``ChatOllama`` binding is lazy), so the classifier's own routing/priority
+    logic runs for real; only the underlying model call is replaced, keyed
+    off which check's prompt it receives so route/streaming tests stay
+    deterministic without a live Ollama connection. Recognizes exactly the
+    two phrasings used in ``tests/routes/test_chat.py``'s guardrail tests;
+    ``LLMGuardrailClassifier`` itself is covered more broadly in
+    ``tests/guardrails/test_llm_classifier.py``.
+    """
+    classifier = LLMGuardrailClassifier(model_name="test-model")
+
+    async def fake_ainvoke(prompt: str) -> GuardrailCheckResult:
+        # The few-shot examples baked into every check's own prompt can themselves
+        # contain trigger phrases (e.g. the crisis check's own example text mentions
+        # "kill myself"), so only the actual message section is checked for a match.
+        message_section = prompt.rsplit("BEGIN MESSAGE TO CLASSIFY", 1)[-1]
+        if "self-harm or" in prompt and "kill myself" in message_section:
+            return GuardrailCheckResult(match=True, subtype="self_harm", reason="Message expresses self-harm intent.")
+        if "completely unrelated" in prompt and "poem" in message_section:
+            return GuardrailCheckResult(match=True, subtype="none", reason="Off-topic creative writing request.")
+        return GuardrailCheckResult(match=False, subtype="none", reason="")
+
+    classifier._structured_model = SimpleNamespace(ainvoke=fake_ainvoke)
+    return classifier
 
 
 @pytest.fixture
 def client(
     mock_rag_orchestrator: Mock,
     fake_agent_router: AgentRouter,
-    fake_guardrail_classifier: GuardrailClassifier,
+    fake_guardrail_classifier: GuardrailClassifierProtocol,
 ) -> Iterator[TestClient]:
     """TestClient with the orchestrator/router/classifier dependencies overridden.
 
