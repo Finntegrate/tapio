@@ -8,7 +8,7 @@
 
 **Out of scope:** The `crawler/` and `ingest/` projects are independent pipelines that populate the shared content corpus Tapio reads from. They have their own roadmaps, operators, and documentation (see their respective READMEs) and are not covered here. This document treats "fresh, complete source content" as an input Tapio depends on, not a capability Tapio itself delivers.
 
-**Related documents:** [ADR 0005 — multi-agent chat experience](ADRs/0005-multi-agent-chat-experience.md), [ADR 0006 — retire Gradio](ADRs/0006-retire-gradio.md), [Multi-agent chat spec](specs/multi-agent-chat.md).
+**Related documents:** [ADR 0005 — multi-agent chat experience](ADRs/0005-multi-agent-chat-experience.md), [ADR 0006 — retire Gradio](ADRs/0006-retire-gradio.md), [Multi-agent chat spec](specs/multi-agent-chat.md), [Crisis and escalation resource list — governance](specs/crisis-escalation-resources.md).
 
 ## 1. Summary
 
@@ -107,7 +107,7 @@ A user can let Tapio route automatically, pick a guide explicitly, or reach one 
 ### 7.4 Safety boundary
 
 - Tapio never presents a guide as an official authority, legal representative, or caseworker.
-- Questions that are legal, medical, or crisis-adjacent are recognized and redirected to appropriate official or human support rather than answered as if Tapio were qualified to help directly.
+- Questions that are legal, medical, or crisis-adjacent are recognized and redirected to appropriate official or human support rather than answered as if Tapio were qualified to help directly. The resources redirected to come from the [approved crisis/escalation resource list](specs/crisis-escalation-resources.md) (see §11), not from an ad hoc list in a guide prompt.
 
 ### 7.5 Privacy by design
 
@@ -182,7 +182,7 @@ No usage baseline exists yet; treat these as launch hypotheses to instrument, no
 
 | Question | Owner | Blocking? |
 | --- | --- | --- |
-| What is the approved crisis/escalation resource list, and how is it kept current? | Safety, legal, partnerships | Yes, for broad release |
+| What is the approved crisis/escalation resource list, and how is it kept current? Governance, cadence, and a draft list are defined in the [crisis/escalation resource spec](specs/crisis-escalation-resources.md); a named owner still needs to sign off before #29 can treat the list as authoritative. | Safety, legal, partnerships | Yes, for broad release — sign-off pending |
 | What consent model applies to pilot usage analytics and partner-visible reporting? | Privacy and data | Yes, before collecting usage data |
 | Which languages and locales does the first public pilot support? | Product and research | No — an English-first pilot can proceed |
 | What does "partner-affiliated" mean for account/tenancy purposes, and how does it interact with individual accounts? | Product and engineering | Yes, before #30/#45 are designed |
