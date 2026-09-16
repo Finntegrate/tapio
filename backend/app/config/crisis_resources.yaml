@@ -20,8 +20,7 @@ resources:
     category: emergency
     name: "General emergency number (112)"
     description: >-
-      Immediate danger to life, health, or property. Covers all of Finland;
-      interpretation is available for any language.
+      Immediate danger to life, health, or property. Covers all of Finland.
     url: "https://112.fi/en"
     phone: "112"
     languages: [fi, sv, en]
@@ -36,24 +35,33 @@ resources:
     url: "https://mieli.fi/en/support-and-help/crisis-helpline/"
     phone: "09 2525 0111"
     phone_notes: >-
-      Finnish 24/7 on 09 2525 0111. Also English/Arabic (09 2525 0113),
-      Swedish (09 2525 0112), Ukrainian (09 2525 0114), Russian
-      (09 2525 0115) at limited hours — check the url for the current
-      schedule before surfacing a specific non-Finnish number.
-    languages: [fi, sv, en, ar, uk, ru]
+      Finnish 24/7 on 09 2525 0111. English on 09 2525 0116, confirmed open
+      Fridays 9 am-1 pm; check the url for the rest of the weekly schedule
+      before surfacing it as complete. The Arabic/Ukrainian/Russian numbers
+      previously listed here (0113/0114/0115) no longer appear on MIELI's
+      own English page as of this review and are not repeated below since
+      they could only be confirmed via a third-party aggregator
+      (mentalhealth.fi), not MIELI's own site.
+    languages: [fi, sv, en]
     hours: "24/7 in Finnish; limited hours for other languages"
 
   - id: domestic-violence-nollalinja
     category: domestic_abuse_support
-    name: "Nollalinja — domestic violence helpline"
+    name: "Nollalinja: domestic violence helpline"
     description: >-
       Free national helpline and chat for anyone experiencing domestic
-      violence or violence against women, run by the Finnish Institute for
-      Health and Welfare (THL).
+      violence or violence against women. Site footer credits Setlementti
+      Tampere, THL, and the Ministry of Justice; treat it as a national
+      helpline rather than asserting a specific operator without further
+      confirmation.
     url: "https://nollalinja.fi/en/"
     phone: "116 016"
-    languages: [fi, sv, en]
-    hours: "24/7"
+    languages: [fi, sv, en, ar, prs, es, fa, so, ckb, th, uk, ru]
+    hours: >-
+      Phone: 24/7 in Finnish, Swedish, and English, plus nine interpreted
+      languages (Arabic, Dari, Spanish, Farsi, Somali, Sorani, Thai,
+      Ukrainian, Russian), free of charge. Chat: Mon-Wed 9:00-15:00 and
+      Thu-Fri 14:00-20:00, Finnish/Swedish/English only.
 
   - id: victim-support-riku
     category: crime_victim_support
@@ -61,35 +69,62 @@ resources:
     description: >-
       Support and guidance for victims of crime; calls can be anonymous.
       English-language support is via the online contact form rather than
-      phone.
+      phone; RIKU replies to contact-form requests within five working
+      days, so the form is not suitable for an urgent English-language
+      need.
     url: "https://www.riku.fi/en/"
     phone: "116 006"
     languages: [fi, sv]
     hours: >-
       Mon-Thu 9:00-18:00 and Fri 9:00-16:00 (Finnish); Mon-Fri 12:00-14:00
-      (Swedish); English via contact form
+      (Swedish); English via contact form, five-working-day response time
 
   - id: legal-aid-oikeusapu
     category: legal_aid
     name: "State legal aid (Oikeusapu)"
     description: >-
-      Publicly funded, means-tested legal aid from the nearest Public Legal
-      Aid Office, including for asylum and immigration matters.
-    url: "https://oikeus.fi/oikeusapu/en/"
+      Means-tested legal aid from the nearest Public Legal Aid Office,
+      including for asylum and immigration matters. Usually subject to a
+      fee unless the legal aid office decides otherwise. Note: asylum
+      applications submitted on or after 12 June 2026 follow a changed
+      process under Migri's separate before/after guidance.
+    url: "https://www.oikeuspalveluvirasto.fi/en/legal-aid/"
     phone: null
     languages: [fi, sv, en]
     hours: "Varies by regional office"
+
+  - id: legal-aid-migri-counselling
+    category: legal_aid
+    name: "Migri Free Legal Counselling (asylum seekers)"
+    description: >-
+      Free legal counselling for asylum seekers, provided by Legal
+      Information Officers of the Finnish Immigration Service, separate
+      from and in addition to state legal aid. Covers rights, obligations,
+      procedures, appeals, and help completing application forms.
+    url: "https://migri.fi/en/legal-advice"
+    phone: "+358 295 433 056"
+    languages: [fi, sv, en]
+    hours: "Weekdays 13:00-15:00"
 
   - id: legal-aid-pakolaisneuvonta
     category: legal_aid
     name: "Finnish Refugee Advice Centre (Pakolaisneuvonta)"
     description: >-
-      Free legal counselling specifically for asylum seekers and refugees,
-      independent of the state legal aid system.
+      Free legal advice line for asylum seekers and refugees on
+      international protection, residence permits, and family
+      reunification. Paid representation by their own lawyers costs 150
+      EUR/hour (+ possible 25.5% VAT); for applicants without sufficient
+      funds, the centre applies for state legal aid to cover that cost
+      rather than operating independently of the state legal aid system.
     url: "https://www.pakolaisneuvonta.fi/en/"
-    phone: null
+    phone: "+358 9 2313 9325"
+    phone_notes: >-
+      +358 9 2313 9325 is the free advice line, open Mon-Tue and Thu-Fri
+      10:00-12:00 (closed Wednesdays). General switchboard +358 9 2313
+      9300 is open weekdays 10 am-3 pm. A separate hotline for
+      undocumented migrants, +358 45 2377 104, is open Mondays 2-4 pm.
     languages: [fi, en]
-    hours: "See website"
+    hours: "Advice line Mon-Tue and Thu-Fri 10:00-12:00"
 
   - id: migri-customer-service
     category: immigration_authority
@@ -98,8 +133,21 @@ resources:
       Official immigration authority contact for status, permit, and
       application questions. Not a crisis line, but the correct escalation
       point for authoritative case guidance rather than Tapio answering as
-      if qualified to give it.
-    url: "https://migri.fi/en/contact-information"
-    phone: "0295 419 600"
+      if qualified to give it. Contact numbers are topic-specific and have
+      changed more than once recently; treat this entry as a candidate for
+      a shorter-than-quarterly review cadence given the pace of change and
+      the 12 June 2026 asylum-process reform.
+    url: "https://migri.fi/en/telephone-service1"
+    phone: null
+    phone_notes: >-
+      EU/Brexit/au pairs/asylum seekers' work rights/travel documents/
+      temporary protection: 0295 790 600. Studies and work-based permits:
+      0295 790 602. Family-based permits: 0295 790 603. Citizenship and
+      permanent residence: 0295 790 604. Employer guidance: 0295 790 601.
+      Enter Finland online service support: 0295 790 606. International
+      callers replace the leading 0 with +358. Phone service is closed
+      7-8 October 2026.
     languages: [fi, sv, en]
-    hours: "Mon-Fri 8:30-12:00 and 13:00-15:30"
+    hours: >-
+      Mon-Wed and Fri 8:30-11:30 and 12:30-15:30; Thu 10:30-11:30 and
+      12:30-15:30
