@@ -7,7 +7,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agents.router import AgentRouter
-from app.dependencies import get_agent_router, get_orchestrator
+from app.dependencies import get_agent_router, get_guardrail_classifier, get_orchestrator
+from app.guardrails import GuardrailClassifier
 from app.main import app
 
 # ============================================================================
@@ -107,8 +108,18 @@ def fake_agent_router() -> AgentRouter:
 
 
 @pytest.fixture
-def client(mock_rag_orchestrator: Mock, fake_agent_router: AgentRouter) -> Iterator[TestClient]:
-    """TestClient with the orchestrator/router dependencies overridden.
+def fake_guardrail_classifier() -> GuardrailClassifier:
+    """Real GuardrailClassifier — pure and deterministic, no need to fake it."""
+    return GuardrailClassifier()
+
+
+@pytest.fixture
+def client(
+    mock_rag_orchestrator: Mock,
+    fake_agent_router: AgentRouter,
+    fake_guardrail_classifier: GuardrailClassifier,
+) -> Iterator[TestClient]:
+    """TestClient with the orchestrator/router/classifier dependencies overridden.
 
     Deliberately not entered as a context manager, so the real lifespan
     (which builds a real RAGOrchestrator against Ollama/Chroma) never runs
@@ -116,6 +127,7 @@ def client(mock_rag_orchestrator: Mock, fake_agent_router: AgentRouter) -> Itera
     """
     app.dependency_overrides[get_orchestrator] = lambda: mock_rag_orchestrator
     app.dependency_overrides[get_agent_router] = lambda: fake_agent_router
+    app.dependency_overrides[get_guardrail_classifier] = lambda: fake_guardrail_classifier
     test_client = TestClient(app)
     yield test_client
     app.dependency_overrides.clear()

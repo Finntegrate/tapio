@@ -7,7 +7,8 @@ from typing import Any
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from app.agents.router import AgentRoute, AgentRouter
-from app.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, RoutingEvent, TokenEvent
+from app.guardrails import GuardrailClassifier, GuardrailMatch, build_guardrail_response
+from app.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, GuardrailEvent, RoutingEvent, TokenEvent
 from app.services.rag_orchestrator import RAGOrchestrator
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,10 @@ def _routing_event(route: AgentRoute) -> RoutingEvent:
     )
 
 
+def _guardrail_event(match: GuardrailMatch) -> GuardrailEvent:
+    return GuardrailEvent(category=match.category.value, reason=match.reason)
+
+
 def _citation(document: Any) -> Citation:
     metadata = document.metadata if hasattr(document, "metadata") else {}
     source_url = metadata.get("citation_url") or metadata.get("source_url") or metadata.get("url") or "Unknown source"
@@ -38,6 +43,7 @@ def _citation(document: Any) -> Citation:
 async def stream_chat_turn(
     orchestrator: RAGOrchestrator,
     agent_router: AgentRouter,
+    guardrail_classifier: GuardrailClassifier,
     message: str,
     history: list[ChatMessage],
     agent_id: str,
@@ -48,9 +54,16 @@ async def stream_chat_turn(
     stream), bridging its synchronous retrieval and token generator onto the
     async event loop via Starlette's threadpool helpers.
 
+    Before retrieval and generation, the message is classified for guardrail
+    handling (#29, PRD §7.4). A crisis-adjacent, legally sensitive, or
+    out-of-scope message short-circuits the RAG pipeline entirely: an extra
+    ``guardrail`` event is emitted, and the response text is a canned,
+    non-LLM message rather than a generated answer.
+
     Args:
         orchestrator: Shared RAG orchestrator built at app startup.
         agent_router: Shared agent router built at app startup.
+        guardrail_classifier: Shared guardrail classifier built at app startup.
         message: The user's current message.
         history: Prior conversation turns.
         agent_id: Explicit guide id, or ``AUTO_ROUTE`` to let the router decide.
@@ -61,6 +74,16 @@ async def stream_chat_turn(
     try:
         route = agent_router.route(message, agent_id)
         yield {"event": "routing", "data": _routing_event(route).model_dump_json()}
+
+        guardrail_match = guardrail_classifier.classify(message)
+        if guardrail_match is not None:
+            logger.info("Guardrail intercepted message: %s (%s)", guardrail_match.reason, guardrail_match.category)
+            yield {"event": "guardrail", "data": _guardrail_event(guardrail_match).model_dump_json()}
+            yield {"event": "citation", "data": CitationEvent(citations=[]).model_dump_json()}
+            response_text = build_guardrail_response(guardrail_match)
+            yield {"event": "token", "data": TokenEvent(text=response_text).model_dump_json()}
+            yield {"event": "done", "data": "{}"}
+            return
 
         raw_history = [turn.model_dump() for turn in history]
         response_stream, retrieved_docs = await run_in_threadpool(

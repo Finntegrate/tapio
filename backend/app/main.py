@@ -12,6 +12,7 @@ from app.agents.router import AgentRouter
 from app.config import BackendSettings
 from app.config.config_models import RAGConfig
 from app.factories import RAGOrchestratorFactory
+from app.guardrails import GuardrailClassifier
 from app.routes import agents, chat, health
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Build the shared orchestrator and agent router once per process lifetime.
+    """Build the shared orchestrator, agent router, and guardrail classifier once per process lifetime.
 
     Args:
         app: The FastAPI application being started.
@@ -29,6 +30,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     app.state.orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
     app.state.agent_router = AgentRouter()
+    app.state.guardrail_classifier = GuardrailClassifier()
     logger.info("Tapio backend started")
     yield
 

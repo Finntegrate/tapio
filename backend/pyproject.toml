@@ -23,6 +23,7 @@ dependencies = [
     "langchain-huggingface[full]>=0.1.2",
     "ollama>=0.4.8",
     "tzdata>=2026.2",
+    "pyyaml>=6.0.3",
 ]
 
 [project.scripts]
@@ -140,4 +141,5 @@ dev = [
     "pytest-asyncio>=1.0.0",
     "pytest-cov>=7.1.0",
     "ruff>=0.16.1",
+    "types-pyyaml>=6.0.12",
 ]
