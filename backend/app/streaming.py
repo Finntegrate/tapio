@@ -67,7 +67,10 @@ async def stream_chat_turn(
     back in as an explicit selection) so that a guardrail match can still
     short-circuit retrieval and generation without running them first. Both
     calls are pure keyword scoring (#138) with no LLM cost, so the repeat is
-    free.
+    free. This first call uses ``safe_route`` rather than
+    ``agent_router.route()`` directly, since ``ChatRequest.agent_id`` is
+    client-supplied and an unrecognized id would otherwise raise here, before
+    any SSE event (including ``routing``) is ever yielded.
 
     Args:
         orchestrator_graph: Shared orchestrator graph built at app startup.
@@ -80,7 +83,7 @@ async def stream_chat_turn(
         SSE event mappings with ``event`` and ``data`` keys.
     """
     try:
-        route = orchestrator_graph.agent_router.route(message, agent_id)
+        route = orchestrator_graph.safe_route(message, agent_id)
         yield {"event": "routing", "data": _routing_event(route).model_dump_json()}
 
         guardrail_match = await guardrail_classifier.classify(message)

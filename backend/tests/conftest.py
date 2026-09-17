@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 
 from app.agents.router import AgentRouter
 from app.dependencies import get_guardrail_classifier, get_orchestrator, get_orchestrator_graph
+from app.graph.orchestrator_graph import TapioOrchestratorGraph
 from app.guardrails import GuardrailClassifierProtocol, LLMGuardrailClassifier
 from app.guardrails.llm_classifier import GuardrailCheckResult
 from app.main import app
@@ -122,24 +123,31 @@ def fake_agent_router() -> AgentRouter:
 def mock_orchestrator_graph(fake_agent_router: AgentRouter) -> Mock:
     """Fake TapioOrchestratorGraph whose query_stream returns a finite token stream.
 
-    Its ``agent_router`` is a real ``AgentRouter`` (pure and deterministic, see
-    ``fake_agent_router``) since ``stream_chat_turn`` calls it directly for the
-    turn's routing event. Its ``llm_service.generate_response`` is stubbed for
-    ``build_guardrail_response`` (see ``app.guardrails.responses``), mirroring how
-    ``app.main``'s production wiring shares the same LLM service between the
-    orchestrator graph and the guardrail response step.
+    Its ``safe_route`` delegates to a real ``AgentRouter`` (pure and
+    deterministic, see ``fake_agent_router``) since ``stream_chat_turn`` calls
+    it directly for the turn's routing event. Its ``llm_service.generate_response``
+    is stubbed for ``build_guardrail_response`` (see ``app.guardrails.responses``),
+    mirroring how ``app.main``'s production wiring shares the same LLM service
+    between the orchestrator graph and the guardrail response step.
 
     Args:
-        fake_agent_router: Real, deterministic ``AgentRouter`` to expose as
-            ``graph.agent_router``.
+        fake_agent_router: Real, deterministic ``AgentRouter`` to back
+            ``graph.agent_router`` and ``graph.safe_route``.
 
     Returns:
         A ``Mock`` standing in for ``TapioOrchestratorGraph``, with
-        ``agent_router``, ``query_stream``, ``check_model_availability``, and
-        ``llm_service`` preconfigured.
+        ``agent_router``, ``safe_route``, ``query_stream``,
+        ``check_model_availability``, and ``llm_service`` preconfigured.
     """
     graph = Mock()
     graph.agent_router = fake_agent_router
+    # Delegates to a real graph's safe_route (rather than re-deriving its unknown-agent_id
+    # fallback here) so a test exercising that fallback exercises the real behavior.
+    graph.safe_route.side_effect = TapioOrchestratorGraph(
+        agent_router=fake_agent_router,
+        doc_retrieval_service=Mock(),
+        llm_service=Mock(),
+    ).safe_route
     mock_doc = Mock()
     mock_doc.page_content = "Test document content"
     mock_doc.metadata = {"source_url": "https://example.com", "title": "Example source"}

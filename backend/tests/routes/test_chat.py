@@ -66,6 +66,24 @@ def test_chat_stream_auto_routes_without_explicit_agent(client: TestClient) -> N
     assert routing_data["was_explicit"] is False
 
 
+def test_chat_stream_falls_back_to_tapio_for_an_unrecognized_agent_id(client: TestClient) -> None:
+    """A client-supplied agent_id that isn't a real guide must not skip straight to an error event."""
+    response = client.post(
+        "/chat/stream",
+        json={"message": "How do I apply for a residence permit?", "agent_id": "not-a-real-guide"},
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    event_types = [event_type for event_type, _ in events]
+
+    assert event_types[0] == "routing"
+    assert event_types[-1] == "done"
+
+    routing_data = events[0][1]
+    assert routing_data["agent_id"] == "tapio"
+
+
 def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
     client: TestClient, mock_orchestrator_graph: Mock
 ) -> None:

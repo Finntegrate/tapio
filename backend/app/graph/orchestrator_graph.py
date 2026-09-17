@@ -100,7 +100,7 @@ class TapioOrchestratorGraph:
             result = self._invoke(query_text, history, agent_id, stream=False)
         except Exception:
             logger.exception("Error generating RAG response")
-            return self._safe_route(query_text, agent_id), GENERIC_ERROR_MESSAGE, []
+            return self.safe_route(query_text, agent_id), GENERIC_ERROR_MESSAGE, []
 
         return result["route"], result["response"], result["retrieved_docs"]
 
@@ -129,7 +129,7 @@ class TapioOrchestratorGraph:
                 """Yield the single generic error chunk in place of a real response stream."""
                 yield GENERIC_ERROR_MESSAGE
 
-            return self._safe_route(query_text, agent_id), error_generator(), []
+            return self.safe_route(query_text, agent_id), error_generator(), []
 
         upstream_stream = result["response_stream"]
 
@@ -166,23 +166,23 @@ class TapioOrchestratorGraph:
         """
         return self.doc_retrieval_service.format_documents_for_display(documents)
 
-    def _safe_route(self, query_text: str, agent_id: str) -> AgentRoute:
-        """Resolve a route for a generic-error fallback, without ever raising.
+    def safe_route(self, query_text: str, agent_id: str) -> AgentRoute:
+        """Resolve a route the way ``AgentRouter.route()`` would, without ever raising.
 
-        ``query()``/``query_stream()`` fall back to this after the graph
-        itself failed - which can happen because ``agent_id`` doesn't resolve
-        to a real guide (``AgentRouter.route()`` looks it up via
-        ``get_agent()``, which raises for an unknown id). Re-running the same
-        lookup here would just repeat that failure and crash the documented
-        generic-error path, so this falls back to Tapio instead of raising a
-        second time.
+        ``AgentRouter.route()`` looks an explicit ``agent_id`` up via
+        ``get_agent()``, which raises for an unknown id - streaming.py's
+        pre-guardrail routing call, and this graph's own generic-error
+        fallback in ``query()``/``query_stream()``, both need a route to
+        report even when the id they were given doesn't resolve to a real
+        guide, so both call this instead of ``self.agent_router.route()``
+        directly.
 
         Args:
             query_text: The user's query.
-            agent_id: The guide id that was requested for the failed turn.
+            agent_id: An explicit guide id, or ``AUTO_ROUTE`` to infer one.
 
         Returns:
-            The resolved route, or a Tapio fallback if resolving it also failed.
+            The resolved route, or a Tapio fallback if resolving it failed.
         """
         try:
             return self.agent_router.route(query_text, agent_id)
