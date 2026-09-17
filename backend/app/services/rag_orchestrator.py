@@ -18,7 +18,7 @@ from typing import Any
 from app.agents.router import AgentRouter
 from app.graph.orchestrator_graph import TapioOrchestratorGraph
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
+from app.services.llm import LLMProvider
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -35,13 +35,13 @@ class RAGOrchestrator:
     def __init__(
         self,
         doc_retrieval_service: DocumentRetrievalService,
-        llm_service: LLMService,
+        llm_service: LLMProvider,
     ) -> None:
         """Initialize the RAG orchestrator.
 
         Args:
             doc_retrieval_service: Service for retrieving documents from vector store
-            llm_service: Service for LLM generation
+            llm_service: Provider for LLM generation
 
         Example:
             >>> from app.factories import RAGOrchestratorFactory
@@ -53,7 +53,7 @@ class RAGOrchestrator:
             >>>
             >>> # Or manually for advanced use cases:
             >>> doc_service = DocumentRetrievalService(vector_store=my_store)
-            >>> llm_service = LLMService(model_name="gemma4:latest")
+            >>> llm_service = OllamaProvider(model_name="gemma4:latest")
             >>> orchestrator = RAGOrchestrator(doc_service, llm_service)
         """
         self.doc_retrieval_service = doc_retrieval_service

@@ -51,7 +51,7 @@ def mock_chroma_store():
 
 @pytest.fixture
 def mock_llm_service():
-    """Mock LLMService for unit tests."""
+    """Mock LLMProvider for unit tests."""
     service = Mock()
     service.generate_response.return_value = "Mocked LLM response"
     service.generate_response_stream.return_value = iter(["Mocked ", "streamed ", "response"])

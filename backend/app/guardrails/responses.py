@@ -43,7 +43,7 @@ from app.config import BackendSettings
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
-from app.services.llm_service import LLMService
+from app.services.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -99,7 +99,7 @@ _INTENT_DESCRIPTIONS_RESOURCES_WITHHELD: dict[GuardrailCategory, str] = {
 }
 
 
-async def build_guardrail_response(match: GuardrailMatch, message: str, llm_service: LLMService) -> str:
+async def build_guardrail_response(match: GuardrailMatch, message: str, llm_service: LLMProvider) -> str:
     """Compose the user-facing text for a guardrail interception, in the user's own language.
 
     Args:
@@ -173,7 +173,7 @@ def _resources_for(match: GuardrailMatch) -> tuple[CrisisResource, ...]:
 async def _localized_intro(
     category: GuardrailCategory,
     message: str,
-    llm_service: LLMService,
+    llm_service: LLMProvider,
     intent_descriptions: dict[GuardrailCategory, str],
 ) -> str:
     """Generate the category's explanatory sentence in the user's own language.
@@ -196,11 +196,11 @@ async def _localized_intro(
         intent_description=intent_descriptions[category],
         message=message,
     )
-    # The timeout is enforced by LLMService's own Ollama client, not by wrapping this
-    # (threadpool-dispatched, synchronous) call in asyncio.timeout(): AnyIO's
+    # The timeout is enforced by the configured LLMProvider's own client, not by wrapping
+    # this (threadpool-dispatched, synchronous) call in asyncio.timeout(): AnyIO's
     # to_thread.run_sync ignores cancellation by default and waits for the worker thread
     # to finish regardless, so an outer asyncio-level timeout would not actually bound a
-    # stalled call here. See LLMService.generate_response's `timeout` parameter docstring.
+    # stalled call here. See LLMProvider.generate_response's `timeout` parameter docstring.
     raw_response = await run_in_threadpool(llm_service.generate_response, prompt=prompt, timeout=_INTRO_TIMEOUT_SECONDS)
 
     if not isinstance(raw_response, str) or not raw_response.strip() or raw_response.startswith("Error:"):

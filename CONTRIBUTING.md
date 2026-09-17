@@ -389,14 +389,14 @@ For full control over component creation:
 from langchain_huggingface import HuggingFaceEmbeddings
 from app.retrieval import ChromaRetriever
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
+from app.services.llm import OllamaProvider
 from app.services.rag_orchestrator import RAGOrchestrator
 
 # Create dependencies
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 chroma_store = ChromaRetriever("my_docs", embeddings, "./db")
 doc_service = DocumentRetrievalService(chroma_store, num_results=5)
-llm_service = LLMService(model_name="gemma4:latest", max_tokens=1024)
+llm_service = OllamaProvider(model_name="gemma4:latest", max_tokens=1024)
 
 # Create orchestrator
 orchestrator = RAGOrchestrator(doc_service, llm_service)
@@ -406,7 +406,7 @@ orchestrator = RAGOrchestrator(doc_service, llm_service)
 
 - **RAGOrchestrator**: Main orchestrator that coordinates document retrieval and LLM generation
 - **DocumentRetrievalService**: Handles vector-based document retrieval
-- **LLMService**: Manages LLM interactions via Ollama
+- **LLMProvider**: Swappable interface for LLM interactions — `OllamaProvider` (local Ollama) or `LiteLLMProvider` (OpenAI, Anthropic, Scaleway, and other OpenAI-compatible endpoints), selected via `TAPIO_LLM_PROVIDER` (see `backend/README.md`)
 - **ChromaRetriever**: Vector database abstraction layer
 - **Factories**: Simplify dependency wiring with sensible defaults
 

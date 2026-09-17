@@ -136,8 +136,8 @@ async def test_legal_sensitive_response_falls_back_to_safe_intro_when_localizati
 
 
 async def test_localized_intro_passes_the_timeout_to_the_llm_service() -> None:
-    """The timeout is enforced by LLMService's own Ollama client (see its tests), not here —
-    this only checks the value actually reaches generate_response's `timeout` kwarg."""
+    """The timeout is enforced by the configured LLMProvider's own client (see its tests), not
+    here — this only checks the value actually reaches generate_response's `timeout` kwarg."""
     match = GuardrailMatch(category=GuardrailCategory.OUT_OF_SCOPE, reason="off-topic")
     llm_service = _mock_llm_service()
 

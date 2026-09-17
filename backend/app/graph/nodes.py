@@ -16,7 +16,7 @@ from app.agents.router import AUTO_ROUTE, AgentRouter
 from app.graph.state import OrchestratorState
 from app.prompts import load_prompt
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
+from app.services.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +92,7 @@ def make_retrieve_node(doc_retrieval_service: DocumentRetrievalService) -> NodeF
     return retrieve_node
 
 
-def make_generate_node(llm_service: LLMService) -> NodeFn:
+def make_generate_node(llm_service: LLMProvider) -> NodeFn:
     """Build the specialist generation node: prompts and calls the LLM.
 
     Args:

@@ -14,7 +14,7 @@ from app.config.config_models import RAGConfig
 from app.factories import RAGOrchestratorFactory
 from app.retrieval import ChromaRetriever
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
+from app.services.llm import LLMProvider
 from app.services.rag_orchestrator import RAGOrchestrator
 
 
@@ -55,7 +55,7 @@ def test_rag_pipeline_end_to_end(tmp_chroma_db, mock_embeddings):
     chroma_store.vector_db.add_documents(test_docs)
 
     # Create mock LLM service
-    mock_llm = Mock(spec=LLMService)
+    mock_llm = Mock(spec=LLMProvider)
     mock_llm.generate_response.return_value = (
         "Based on the documents, residence permits require a valid passport and "
         "proof of income, with processing times of 4-6 months."

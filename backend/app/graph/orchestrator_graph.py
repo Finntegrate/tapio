@@ -12,7 +12,7 @@ from app.agents.router import AUTO_ROUTE, AgentRoute, AgentRouter
 from app.graph.nodes import make_generate_node, make_retrieve_node, make_route_node
 from app.graph.state import OrchestratorState
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
+from app.services.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +44,7 @@ class TapioOrchestratorGraph:
         self,
         agent_router: AgentRouter,
         doc_retrieval_service: DocumentRetrievalService,
-        llm_service: LLMService,
+        llm_service: LLMProvider,
     ) -> None:
         """Build the graph and store the dependencies its nodes close over.
 
