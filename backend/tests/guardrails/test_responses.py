@@ -1,13 +1,12 @@
 """Tests for guardrail interception copy (#29)."""
 
-import time
 from unittest.mock import Mock
 
 import pytest
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, CrisisResourceList
-from app.guardrails.responses import build_guardrail_response
+from app.guardrails.responses import _INTRO_TIMEOUT_SECONDS, build_guardrail_response
 
 _DRAFT_RESOURCE_LIST = CrisisResourceList(
     version=1,
@@ -136,31 +135,15 @@ async def test_legal_sensitive_response_falls_back_to_safe_intro_when_localizati
     assert "Oikeusapu" in response
 
 
-def _slow_generate_response(prompt: str) -> str:
-    time.sleep(0.2)
-    return "too slow to matter"
-
-
-async def test_intro_generation_timeout_falls_back_to_safe_intro_when_resources_exist(monkeypatch) -> None:
-    monkeypatch.setattr("app.guardrails.responses._INTRO_TIMEOUT_SECONDS", 0.05)
-    llm_service = Mock()
-    llm_service.generate_response.side_effect = _slow_generate_response
-    match = GuardrailMatch(category=GuardrailCategory.CRISIS, reason="risk to life", resource_categories=("emergency",))
-
-    response = await build_guardrail_response(match, "emergency message", llm_service)
-
-    assert response.startswith("Please contact one of these services:\n\n")
-    assert "General emergency number (112)" in response
-
-
-async def test_intro_generation_timeout_raises_when_no_resources_to_fall_back_on(monkeypatch) -> None:
-    monkeypatch.setattr("app.guardrails.responses._INTRO_TIMEOUT_SECONDS", 0.05)
-    llm_service = Mock()
-    llm_service.generate_response.side_effect = _slow_generate_response
+async def test_localized_intro_passes_the_timeout_to_the_llm_service() -> None:
+    """The timeout is enforced by LLMService's own Ollama client (see its tests), not here —
+    this only checks the value actually reaches generate_response's `timeout` kwarg."""
     match = GuardrailMatch(category=GuardrailCategory.OUT_OF_SCOPE, reason="off-topic")
+    llm_service = _mock_llm_service()
 
-    with pytest.raises(RuntimeError):
-        await build_guardrail_response(match, "some message", llm_service)
+    await build_guardrail_response(match, "some message", llm_service)
+
+    assert llm_service.generate_response.call_args.kwargs["timeout"] == _INTRO_TIMEOUT_SECONDS
 
 
 async def test_crisis_resources_withheld_when_gate_enabled_and_status_not_approved(monkeypatch) -> None:
@@ -259,20 +242,5 @@ async def test_legal_sensitive_response_uses_no_resources_fallback_when_unmatche
     llm_service = _mock_llm_service("Error: Could not generate a response.")
 
     response = await build_guardrail_response(match, "I was denied asylum.", llm_service)
-
-    assert response == "Please contact your local emergency services or a trusted support line directly."
-
-
-async def test_crisis_response_no_resources_fallback_on_timeout(monkeypatch) -> None:
-    monkeypatch.setattr("app.guardrails.responses._INTRO_TIMEOUT_SECONDS", 0.05)
-    llm_service = Mock()
-    llm_service.generate_response.side_effect = _slow_generate_response
-    match = GuardrailMatch(
-        category=GuardrailCategory.CRISIS,
-        reason="risk to life",
-        resource_categories=("a_category_with_no_entries",),
-    )
-
-    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
 
     assert response == "Please contact your local emergency services or a trusted support line directly."

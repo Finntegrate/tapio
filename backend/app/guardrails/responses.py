@@ -34,7 +34,6 @@ governance doc treats sign-off, not a code gate, as the control for the
 draft period — but a deployer who wants a hard gate now has one.
 """
 
-import asyncio
 import logging
 from typing import Final
 
@@ -197,11 +196,12 @@ async def _localized_intro(
         intent_description=intent_descriptions[category],
         message=message,
     )
-    try:
-        async with asyncio.timeout(_INTRO_TIMEOUT_SECONDS):
-            raw_response = await run_in_threadpool(llm_service.generate_response, prompt=prompt)
-    except TimeoutError:
-        raw_response = None
+    # The timeout is enforced by LLMService's own Ollama client, not by wrapping this
+    # (threadpool-dispatched, synchronous) call in asyncio.timeout(): AnyIO's
+    # to_thread.run_sync ignores cancellation by default and waits for the worker thread
+    # to finish regardless, so an outer asyncio-level timeout would not actually bound a
+    # stalled call here. See LLMService.generate_response's `timeout` parameter docstring.
+    raw_response = await run_in_threadpool(llm_service.generate_response, prompt=prompt, timeout=_INTRO_TIMEOUT_SECONDS)
 
     if not isinstance(raw_response, str) or not raw_response.strip() or raw_response.startswith("Error:"):
         msg = f"Guardrail response intro generation failed for category {category.value!r}: {raw_response!r}"
