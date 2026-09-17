@@ -1,11 +1,22 @@
-"""RAG orchestrator service that coordinates document retrieval and LLM generation."""
+"""RAG orchestrator service that coordinates document retrieval and LLM generation.
+
+As of #138, the actual coordination lives in ``TapioOrchestratorGraph``
+(``app.graph.orchestrator_graph``): a LangGraph ``StateGraph`` with explicit
+routing, retrieval, and generation nodes. This class is now a thin,
+backward-compatible facade over that graph, kept for callers (tests,
+scripts, notebooks) that want a simple, non-graph-aware orchestrator whose
+``agent_id`` is always an explicit guide selection rather than something to
+auto-route. The FastAPI chat route talks to the graph directly (see
+``app.graph``, ``app.dependencies.OrchestratorGraphDep``) via
+``self.graph``, since it also needs the resolved ``AgentRoute``.
+"""
 
 import logging
 from collections.abc import Generator
 from typing import Any
 
-from app.agents import get_agent
-from app.prompts import load_prompt
+from app.agents.router import AgentRouter
+from app.graph.orchestrator_graph import TapioOrchestratorGraph
 from app.services.document_retrieval_service import DocumentRetrievalService
 from app.services.llm_service import LLMService
 
@@ -47,6 +58,11 @@ class RAGOrchestrator:
         """
         self.doc_retrieval_service = doc_retrieval_service
         self.llm_service = llm_service
+        self.graph = TapioOrchestratorGraph(
+            agent_router=AgentRouter(),
+            doc_retrieval_service=doc_retrieval_service,
+            llm_service=llm_service,
+        )
 
         logger.info(
             "Initialized RAG orchestrator",
@@ -68,40 +84,8 @@ class RAGOrchestrator:
         Returns:
             Tuple containing the response and the retrieved documents
         """
-        try:
-            # Step 1: Retrieve relevant documents
-            retrieved_docs = self.doc_retrieval_service.retrieve_documents(
-                query_text,
-            )
-
-            # Step 2: Format documents as context for LLM
-            context_text = self.doc_retrieval_service.format_documents_as_context(
-                retrieved_docs,
-            )
-
-            # Step 3: Create prompts
-            system_prompt = self._get_system_prompt(agent_id)
-            user_prompt = load_prompt(
-                "user_query",
-                context=context_text,
-                question=query_text,
-            )
-
-            # Step 4: Generate response using LLM service
-            logger.info("Generating response with LLM")
-            response = self.llm_service.generate_response(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                history=history,
-            )
-
-            return str(response), retrieved_docs
-        except Exception:
-            logger.exception("Error generating RAG response")
-            return (
-                "I encountered an error while processing your query. Please try again.",
-                [],
-            )
+        _route, response, retrieved_docs = self.graph.query(query_text, history, agent_id)
+        return response, retrieved_docs
 
     def query_stream(
         self,
@@ -119,57 +103,8 @@ class RAGOrchestrator:
         Returns:
             Tuple containing the response generator and the retrieved documents
         """
-        try:
-            # Step 1: Retrieve relevant documents up front
-            logger.info("Retrieving relevant documents")
-            retrieved_docs = self.doc_retrieval_service.retrieve_documents(
-                query_text,
-            )
-
-            # Step 2: Format documents as context for LLM
-            context_text = self.doc_retrieval_service.format_documents_as_context(
-                retrieved_docs,
-            )
-
-            # Step 3: Create prompts
-            system_prompt = self._get_system_prompt(agent_id)
-            user_prompt = load_prompt(
-                "user_query",
-                context=context_text,
-                question=query_text,
-            )
-
-            # Step 4: Create the streaming generator
-            logger.info("Generating streaming response with LLM")
-
-            def stream_generator() -> Generator[str]:
-                llm_response_stream = self.llm_service.generate_response_stream(
-                    prompt=user_prompt,
-                    system_prompt=system_prompt,
-                    history=history,
-                )
-                try:
-                    logger.info("Starting to consume LLM response stream")
-                    # Stream the LLM response directly using yield from
-                    yield from llm_response_stream
-
-                except Exception:
-                    logger.exception("Error in stream generator")
-                    yield "I encountered an error while processing your query. Please try again."
-                finally:
-                    # Ensure proper cleanup of upstream generator
-                    if hasattr(llm_response_stream, "close"):
-                        llm_response_stream.close()
-
-            return stream_generator(), retrieved_docs
-
-        except Exception:
-            logger.exception("Error in query_stream setup")
-
-            def error_generator() -> Generator[str]:
-                yield "I encountered an error while processing your query. Please try again."
-
-            return error_generator(), []
+        _route, response_stream, retrieved_docs = self.graph.query_stream(query_text, history, agent_id)
+        return response_stream, retrieved_docs
 
     def check_model_availability(self) -> bool:
         """Check if the LLM model is available.
@@ -177,24 +112,7 @@ class RAGOrchestrator:
         Returns:
             bool: True if the model is available, False otherwise
         """
-        return self.llm_service.check_model_availability()
-
-    def _get_system_prompt(self, agent_id: str) -> str:
-        """Combine Tapio's safety baseline with a specialist's scope when needed.
-
-        Args:
-            agent_id: Identifier for the guide whose specialist prompt may be loaded.
-
-        Returns:
-            The shared prompt, optionally extended with a specialist prompt.
-        """
-        base_prompt = load_prompt("system_prompt")
-        agent = get_agent(agent_id)
-        if agent.specialist_prompt is None:
-            return base_prompt
-
-        specialist_prompt = load_prompt(agent.specialist_prompt)
-        return f"{base_prompt}\n\n{specialist_prompt}".strip()
+        return self.graph.check_model_availability()
 
     def format_documents_for_display(self, documents: list[Any]) -> str:
         """Format retrieved documents for display.

@@ -45,9 +45,9 @@ This directly addresses the original concern (an isolated, repeated failure on t
 
 ## Where it runs
 
-The three checks run concurrently (`asyncio.gather`) and are wired into `stream_chat_turn` (`backend/app/streaming.py`), which runs them immediately after routing and before calling `RAGOrchestrator`. On a match, the turn short-circuits: no documents are retrieved, and the response comes from `app.guardrails.responses.build_guardrail_response` instead of a RAG-generated answer. An SSE `guardrail` event (`category`, `reason`) precedes the usual `citation`/`token`/`done` sequence, so a client can special-case the display later without a wire-format change today (the existing SvelteKit client already ignores unrecognized SSE event types).
+The three checks run concurrently (`asyncio.gather`) and are wired into `stream_chat_turn` (`backend/app/streaming.py`), which runs them immediately after routing and before calling the orchestrator graph (`app.graph.TapioOrchestratorGraph`, #138). On a match, the turn short-circuits: no documents are retrieved, and the response comes from `app.guardrails.responses.build_guardrail_response` instead of a RAG-generated answer. An SSE `guardrail` event (`category`, `reason`) precedes the usual `citation`/`token`/`done` sequence, so a client can special-case the display later without a wire-format change today (the existing SvelteKit client already ignores unrecognized SSE event types).
 
-**LangGraph note:** the app doesn't have a LangGraph graph yet (`CLAUDE.md`: "LangChain → LangGraph (in progress)"). The three parallel checks feeding one decision are written to be the shape a LangGraph input-classifier node is expected to take once that migration happens: parallel branches run before the routing node.
+**LangGraph note:** the guardrail checks still run outside the graph, ahead of its routing node, so a match can short-circuit before retrieval or generation ever run. The three parallel checks feeding one decision are written to be the shape a LangGraph input-classifier node would take if they moved inside the graph later: parallel branches run before the routing node.
 
 ## Response text: no hardcoded user-facing string
 

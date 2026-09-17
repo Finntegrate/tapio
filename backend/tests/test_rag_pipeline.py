@@ -75,7 +75,7 @@ def test_rag_pipeline_end_to_end(tmp_chroma_db, mock_embeddings):
     )
 
     # Query the system
-    with patch("app.services.rag_orchestrator.load_prompt") as mock_load_prompt:
+    with patch("app.graph.nodes.load_prompt") as mock_load_prompt:
         mock_load_prompt.side_effect = ["You are a helpful assistant.", "Context: {context}\n\nQuestion: {question}"]
 
         response, retrieved_docs = orchestrator.query("How do I apply for a residence permit?")

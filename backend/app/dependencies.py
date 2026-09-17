@@ -4,7 +4,7 @@ from typing import Annotated
 
 from fastapi import Depends, Request
 
-from app.agents.router import AgentRouter
+from app.graph.orchestrator_graph import TapioOrchestratorGraph
 from app.guardrails import GuardrailClassifierProtocol
 from app.services.rag_orchestrator import RAGOrchestrator
 
@@ -21,16 +21,17 @@ def get_orchestrator(request: Request) -> RAGOrchestrator:
     return request.app.state.orchestrator
 
 
-def get_agent_router(request: Request) -> AgentRouter:
-    """Return the agent router instance built during app startup.
+def get_orchestrator_graph(request: Request) -> TapioOrchestratorGraph:
+    """Return the orchestrator graph instance built during app startup.
 
     Args:
         request: The current request, used to reach ``app.state``.
 
     Returns:
-        The shared ``AgentRouter`` singleton.
+        The shared ``TapioOrchestratorGraph`` singleton (see ``app.graph``), which
+        the chat route uses directly for routing, retrieval, and generation.
     """
-    return request.app.state.agent_router
+    return request.app.state.orchestrator_graph
 
 
 def get_guardrail_classifier(request: Request) -> GuardrailClassifierProtocol:
@@ -46,5 +47,5 @@ def get_guardrail_classifier(request: Request) -> GuardrailClassifierProtocol:
 
 
 OrchestratorDep = Annotated[RAGOrchestrator, Depends(get_orchestrator)]
-AgentRouterDep = Annotated[AgentRouter, Depends(get_agent_router)]
+OrchestratorGraphDep = Annotated[TapioOrchestratorGraph, Depends(get_orchestrator_graph)]
 GuardrailClassifierDep = Annotated[GuardrailClassifierProtocol, Depends(get_guardrail_classifier)]

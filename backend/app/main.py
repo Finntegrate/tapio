@@ -8,7 +8,6 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.agents.router import AgentRouter
 from app.config import BackendSettings
 from app.config.config_models import RAGConfig
 from app.factories import RAGOrchestratorFactory
@@ -20,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Build the shared orchestrator, agent router, and guardrail classifier once per process lifetime.
+    """Build the shared orchestrator graph and guardrail classifier once per process lifetime.
 
     Args:
         app: The FastAPI application being started.
@@ -30,7 +29,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """
     orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
     app.state.orchestrator = orchestrator
-    app.state.agent_router = AgentRouter()
+    # The chat route talks to the graph directly (see app.graph, OrchestratorGraphDep);
+    # app.state.orchestrator itself is kept for /health and for LLMGuardrailClassifier below.
+    app.state.orchestrator_graph = orchestrator.graph
     # Reuses the orchestrator's configured model name so the guardrail's LLM checks
     # run against the same model as ordinary RAG generation.
     app.state.guardrail_classifier = LLMGuardrailClassifier(orchestrator.llm_service.model_name)

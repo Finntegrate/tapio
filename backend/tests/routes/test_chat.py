@@ -66,8 +66,26 @@ def test_chat_stream_auto_routes_without_explicit_agent(client: TestClient) -> N
     assert routing_data["was_explicit"] is False
 
 
+def test_chat_stream_falls_back_to_tapio_for_an_unrecognized_agent_id(client: TestClient) -> None:
+    """A client-supplied agent_id that isn't a real guide must not skip straight to an error event."""
+    response = client.post(
+        "/chat/stream",
+        json={"message": "How do I apply for a residence permit?", "agent_id": "not-a-real-guide"},
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    event_types = [event_type for event_type, _ in events]
+
+    assert event_types[0] == "routing"
+    assert event_types[-1] == "done"
+
+    routing_data = events[0][1]
+    assert routing_data["agent_id"] == "tapio"
+
+
 def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
-    client: TestClient, mock_rag_orchestrator: Mock
+    client: TestClient, mock_orchestrator_graph: Mock
 ) -> None:
     response = client.post(
         "/chat/stream",
@@ -79,7 +97,7 @@ def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
     event_types = [event_type for event_type, _ in events]
 
     assert event_types == ["routing", "guardrail", "citation", "token", "done"]
-    mock_rag_orchestrator.query_stream.assert_not_called()
+    mock_orchestrator_graph.query_stream.assert_not_called()
 
     guardrail_data = dict(events)["guardrail"]
     assert guardrail_data["category"] == "crisis"
@@ -92,7 +110,7 @@ def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
 
 
 def test_chat_stream_intercepts_out_of_scope_messages_before_rag(
-    client: TestClient, mock_rag_orchestrator: Mock
+    client: TestClient, mock_orchestrator_graph: Mock
 ) -> None:
     response = client.post(
         "/chat/stream",
@@ -104,14 +122,16 @@ def test_chat_stream_intercepts_out_of_scope_messages_before_rag(
     event_types = [event_type for event_type, _ in events]
 
     assert event_types == ["routing", "guardrail", "citation", "token", "done"]
-    mock_rag_orchestrator.query_stream.assert_not_called()
+    mock_orchestrator_graph.query_stream.assert_not_called()
 
     guardrail_data = dict(events)["guardrail"]
     assert guardrail_data["category"] == "out_of_scope"
 
 
-def test_chat_stream_emits_error_event_when_orchestrator_fails(client: TestClient, mock_rag_orchestrator: Mock) -> None:
-    mock_rag_orchestrator.query_stream.side_effect = RuntimeError("boom")
+def test_chat_stream_emits_error_event_when_orchestrator_fails(
+    client: TestClient, mock_orchestrator_graph: Mock
+) -> None:
+    mock_orchestrator_graph.query_stream.side_effect = RuntimeError("boom")
 
     response = client.post(
         "/chat/stream",
