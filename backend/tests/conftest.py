@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.agents.router import AgentRouter
-from app.dependencies import get_agent_router, get_guardrail_classifier, get_orchestrator
+from app.dependencies import get_guardrail_classifier, get_orchestrator, get_orchestrator_graph
 from app.guardrails import GuardrailClassifierProtocol, LLMGuardrailClassifier
 from app.guardrails.llm_classifier import GuardrailCheckResult
 from app.main import app
@@ -119,6 +119,30 @@ def fake_agent_router() -> AgentRouter:
 
 
 @pytest.fixture
+def mock_orchestrator_graph(fake_agent_router: AgentRouter) -> Mock:
+    """Fake TapioOrchestratorGraph whose query_stream returns a finite token stream.
+
+    Its ``agent_router`` is a real ``AgentRouter`` (pure and deterministic, see
+    ``fake_agent_router``) since ``stream_chat_turn`` calls it directly for the
+    turn's routing event. Its ``llm_service.generate_response`` is stubbed for
+    ``build_guardrail_response`` (see ``app.guardrails.responses``), mirroring how
+    ``app.main``'s production wiring shares the same LLM service between the
+    orchestrator graph and the guardrail response step.
+    """
+    graph = Mock()
+    graph.agent_router = fake_agent_router
+    mock_doc = Mock()
+    mock_doc.page_content = "Test document content"
+    mock_doc.metadata = {"source_url": "https://example.com", "title": "Example source"}
+
+    graph.query_stream.return_value = (None, iter(["Mocked ", "response"]), [mock_doc])
+    graph.check_model_availability.return_value = True
+    graph.llm_service = Mock()
+    graph.llm_service.generate_response.return_value = "Mocked guardrail intro."
+    return graph
+
+
+@pytest.fixture
 def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
     """A real LLMGuardrailClassifier with its structured model call stubbed.
 
@@ -151,17 +175,17 @@ def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
 @pytest.fixture
 def client(
     mock_rag_orchestrator: Mock,
-    fake_agent_router: AgentRouter,
+    mock_orchestrator_graph: Mock,
     fake_guardrail_classifier: GuardrailClassifierProtocol,
 ) -> Iterator[TestClient]:
-    """TestClient with the orchestrator/router/classifier dependencies overridden.
+    """TestClient with the orchestrator/graph/classifier dependencies overridden.
 
     Deliberately not entered as a context manager, so the real lifespan
     (which builds a real RAGOrchestrator against Ollama/Chroma) never runs
     during tests.
     """
     app.dependency_overrides[get_orchestrator] = lambda: mock_rag_orchestrator
-    app.dependency_overrides[get_agent_router] = lambda: fake_agent_router
+    app.dependency_overrides[get_orchestrator_graph] = lambda: mock_orchestrator_graph
     app.dependency_overrides[get_guardrail_classifier] = lambda: fake_guardrail_classifier
     test_client = TestClient(app)
     yield test_client

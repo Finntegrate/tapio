@@ -67,7 +67,7 @@ def test_chat_stream_auto_routes_without_explicit_agent(client: TestClient) -> N
 
 
 def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
-    client: TestClient, mock_rag_orchestrator: Mock
+    client: TestClient, mock_orchestrator_graph: Mock
 ) -> None:
     response = client.post(
         "/chat/stream",
@@ -79,7 +79,7 @@ def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
     event_types = [event_type for event_type, _ in events]
 
     assert event_types == ["routing", "guardrail", "citation", "token", "done"]
-    mock_rag_orchestrator.query_stream.assert_not_called()
+    mock_orchestrator_graph.query_stream.assert_not_called()
 
     guardrail_data = dict(events)["guardrail"]
     assert guardrail_data["category"] == "crisis"
@@ -92,7 +92,7 @@ def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
 
 
 def test_chat_stream_intercepts_out_of_scope_messages_before_rag(
-    client: TestClient, mock_rag_orchestrator: Mock
+    client: TestClient, mock_orchestrator_graph: Mock
 ) -> None:
     response = client.post(
         "/chat/stream",
@@ -104,14 +104,16 @@ def test_chat_stream_intercepts_out_of_scope_messages_before_rag(
     event_types = [event_type for event_type, _ in events]
 
     assert event_types == ["routing", "guardrail", "citation", "token", "done"]
-    mock_rag_orchestrator.query_stream.assert_not_called()
+    mock_orchestrator_graph.query_stream.assert_not_called()
 
     guardrail_data = dict(events)["guardrail"]
     assert guardrail_data["category"] == "out_of_scope"
 
 
-def test_chat_stream_emits_error_event_when_orchestrator_fails(client: TestClient, mock_rag_orchestrator: Mock) -> None:
-    mock_rag_orchestrator.query_stream.side_effect = RuntimeError("boom")
+def test_chat_stream_emits_error_event_when_orchestrator_fails(
+    client: TestClient, mock_orchestrator_graph: Mock
+) -> None:
+    mock_orchestrator_graph.query_stream.side_effect = RuntimeError("boom")
 
     response = client.post(
         "/chat/stream",
