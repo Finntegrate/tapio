@@ -58,6 +58,13 @@ class CitationEvent(BaseModel):
     citations: list[Citation]
 
 
+class GuardrailEvent(BaseModel):
+    """A guardrail interception: the message needed handling other than a RAG answer."""
+
+    category: str
+    reason: str
+
+
 class TokenEvent(BaseModel):
     """One chunk of streamed assistant text."""
 

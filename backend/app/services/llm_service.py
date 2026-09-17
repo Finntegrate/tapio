@@ -162,6 +162,7 @@ class LLMService:
         prompt: str,
         system_prompt: str | None = None,
         history: list[dict[str, Any]] | None = None,
+        timeout: float | None = None,
     ) -> str | dict:
         """Generate a response from the LLM model.
 
@@ -169,6 +170,15 @@ class LLMService:
             prompt: The prompt to generate a response for
             system_prompt: Optional system prompt to set context
             history: Optional prior conversation turns to include as context
+            timeout: Optional request timeout in seconds, enforced by the underlying
+                Ollama HTTP client itself (not just the calling coroutine's await) so a
+                stalled request actually returns within this bound. ``None`` (the
+                default) waits indefinitely, matching Ollama's own client default —
+                an ``asyncio.timeout()`` wrapped around a threadpool-dispatched call
+                to this method does *not* bound it on its own: AnyIO's
+                ``to_thread.run_sync`` ignores cancellation by default and waits for
+                the worker thread to finish regardless, so passing this parameter is
+                the only way for a caller to actually bound the call.
 
         Returns:
             str: The generated response
@@ -176,7 +186,7 @@ class LLMService:
         try:
             messages = _build_messages(prompt, system_prompt, history)
 
-            response = ollama.chat(
+            response = ollama.Client(timeout=timeout).chat(
                 model=self.model_name,
                 messages=messages,
                 options={

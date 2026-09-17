@@ -217,8 +217,8 @@ class TestLLMService:
         assert result is True
         mock_list.assert_called_once()
 
-    @patch("app.services.llm_service.ollama.chat")
-    def test_generate_response_success(self, mock_chat):
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_success(self, mock_client_class):
         """Test successful response generation."""
         # Mock successful response
         mock_response = {
@@ -226,13 +226,15 @@ class TestLLMService:
                 "content": "This is a test response.",
             },
         }
-        mock_chat.return_value = mock_response
+        mock_client = mock_client_class.return_value
+        mock_client.chat.return_value = mock_response
 
         service = LLMService("llama3.2:latest", max_tokens=512, temperature=0.5)
         result = service.generate_response("Test prompt")
 
         assert result == "This is a test response."
-        mock_chat.assert_called_once_with(
+        mock_client_class.assert_called_once_with(timeout=None)
+        mock_client.chat.assert_called_once_with(
             model="llama3.2:latest",
             messages=[{"role": "user", "content": "Test prompt"}],
             options={
@@ -241,8 +243,8 @@ class TestLLMService:
             },
         )
 
-    @patch("app.services.llm_service.ollama.chat")
-    def test_generate_response_with_system_prompt(self, mock_chat):
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_with_system_prompt(self, mock_client_class):
         """Test response generation with system prompt."""
         # Mock successful response
         mock_response = {
@@ -250,7 +252,8 @@ class TestLLMService:
                 "content": "This is a test response with system prompt.",
             },
         }
-        mock_chat.return_value = mock_response
+        mock_client = mock_client_class.return_value
+        mock_client.chat.return_value = mock_response
 
         service = LLMService("llama3.2:latest")
         result = service.generate_response(
@@ -259,7 +262,7 @@ class TestLLMService:
         )
 
         assert result == "This is a test response with system prompt."
-        mock_chat.assert_called_once_with(
+        mock_client.chat.assert_called_once_with(
             model="llama3.2:latest",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
@@ -271,10 +274,11 @@ class TestLLMService:
             },
         )
 
-    @patch("app.services.llm_service.ollama.chat")
-    def test_generate_response_with_history(self, mock_chat):
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_with_history(self, mock_client_class):
         """Test response generation includes prior conversation turns."""
-        mock_chat.return_value = {"message": {"content": "Sure, following up."}}
+        mock_client = mock_client_class.return_value
+        mock_client.chat.return_value = {"message": {"content": "Sure, following up."}}
 
         service = LLMService("llama3.2:latest")
         history = [
@@ -288,7 +292,7 @@ class TestLLMService:
         )
 
         assert result == "Sure, following up."
-        mock_chat.assert_called_once_with(
+        mock_client.chat.assert_called_once_with(
             model="llama3.2:latest",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
@@ -302,32 +306,56 @@ class TestLLMService:
             },
         )
 
-    @patch("app.services.llm_service.ollama.chat")
-    def test_generate_response_history_is_truncated(self, mock_chat):
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_history_is_truncated(self, mock_client_class):
         """Test that only the most recent MAX_HISTORY_MESSAGES turns are kept."""
-        mock_chat.return_value = {"message": {"content": "ok"}}
+        mock_client = mock_client_class.return_value
+        mock_client.chat.return_value = {"message": {"content": "ok"}}
 
         service = LLMService("llama3.2:latest")
         history = [{"role": "user", "content": f"message {i}"} for i in range(20)]
         service.generate_response(prompt="latest question", history=history)
 
-        sent_messages = mock_chat.call_args[1]["messages"]
+        sent_messages = mock_client.chat.call_args[1]["messages"]
         # All but the final appended user prompt should come from the tail of history
         assert sent_messages[:-1] == history[-10:]
         assert sent_messages[-1] == {"role": "user", "content": "latest question"}
 
-    @patch("app.services.llm_service.ollama.chat")
-    def test_generate_response_error(self, mock_chat):
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_error(self, mock_client_class):
         """Test response generation when an error occurs."""
         # Mock error
-        mock_chat.side_effect = Exception("Connection error")
+        mock_client = mock_client_class.return_value
+        mock_client.chat.side_effect = Exception("Connection error")
 
         service = LLMService("llama3.2:latest")
         result = service.generate_response("Test prompt")
 
         assert "Error: Could not generate a response" in result
         assert "llama3.2:latest" in result
-        mock_chat.assert_called_once()
+        mock_client.chat.assert_called_once()
+
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_passes_timeout_to_the_client(self, mock_client_class):
+        """A timeout is enforced by the underlying Ollama HTTP client, not just the caller's await."""
+        mock_client = mock_client_class.return_value
+        mock_client.chat.return_value = {"message": {"content": "ok"}}
+
+        service = LLMService("llama3.2:latest")
+        service.generate_response("Test prompt", timeout=5.0)
+
+        mock_client_class.assert_called_once_with(timeout=5.0)
+
+    @patch("app.services.llm_service.ollama.Client")
+    def test_generate_response_timeout_becomes_a_safe_error_message(self, mock_client_class):
+        """A client-side timeout (e.g. httpx.TimeoutException) is caught like any other error."""
+        mock_client = mock_client_class.return_value
+        mock_client.chat.side_effect = TimeoutError("timed out")
+
+        service = LLMService("llama3.2:latest")
+        result = service.generate_response("Test prompt", timeout=0.01)
+
+        assert "Error: Could not generate a response" in result
 
     @patch("app.services.llm_service.ollama.chat")
     def test_generate_response_stream_yields_content_without_a_context_cap(self, mock_chat):

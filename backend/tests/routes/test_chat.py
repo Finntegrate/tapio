@@ -66,6 +66,50 @@ def test_chat_stream_auto_routes_without_explicit_agent(client: TestClient) -> N
     assert routing_data["was_explicit"] is False
 
 
+def test_chat_stream_intercepts_crisis_adjacent_messages_before_rag(
+    client: TestClient, mock_rag_orchestrator: Mock
+) -> None:
+    response = client.post(
+        "/chat/stream",
+        json={"message": "I want to kill myself, I don't know who to talk to."},
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    event_types = [event_type for event_type, _ in events]
+
+    assert event_types == ["routing", "guardrail", "citation", "token", "done"]
+    mock_rag_orchestrator.query_stream.assert_not_called()
+
+    guardrail_data = dict(events)["guardrail"]
+    assert guardrail_data["category"] == "crisis"
+
+    citation_data = dict(events)["citation"]
+    assert citation_data["citations"] == []
+
+    token_text = next(data["text"] for event_type, data in events if event_type == "token")
+    assert "MIELI Crisis Helpline" in token_text
+
+
+def test_chat_stream_intercepts_out_of_scope_messages_before_rag(
+    client: TestClient, mock_rag_orchestrator: Mock
+) -> None:
+    response = client.post(
+        "/chat/stream",
+        json={"message": "Can you write me a poem about autumn?"},
+    )
+
+    assert response.status_code == 200
+    events = _parse_sse_events(response.text)
+    event_types = [event_type for event_type, _ in events]
+
+    assert event_types == ["routing", "guardrail", "citation", "token", "done"]
+    mock_rag_orchestrator.query_stream.assert_not_called()
+
+    guardrail_data = dict(events)["guardrail"]
+    assert guardrail_data["category"] == "out_of_scope"
+
+
 def test_chat_stream_emits_error_event_when_orchestrator_fails(client: TestClient, mock_rag_orchestrator: Mock) -> None:
     mock_rag_orchestrator.query_stream.side_effect = RuntimeError("boom")
 

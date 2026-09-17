@@ -12,6 +12,7 @@ from app.agents.router import AgentRouter
 from app.config import BackendSettings
 from app.config.config_models import RAGConfig
 from app.factories import RAGOrchestratorFactory
+from app.guardrails import LLMGuardrailClassifier
 from app.routes import agents, chat, health
 
 logger = logging.getLogger(__name__)
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    """Build the shared orchestrator and agent router once per process lifetime.
+    """Build the shared orchestrator, agent router, and guardrail classifier once per process lifetime.
 
     Args:
         app: The FastAPI application being started.
@@ -27,8 +28,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     Yields:
         Control back to FastAPI once startup state is attached to ``app.state``.
     """
-    app.state.orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
+    orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
+    app.state.orchestrator = orchestrator
     app.state.agent_router = AgentRouter()
+    # Reuses the orchestrator's configured model name so the guardrail's LLM checks
+    # run against the same model as ordinary RAG generation.
+    app.state.guardrail_classifier = LLMGuardrailClassifier(orchestrator.llm_service.model_name)
     logger.info("Tapio backend started")
     yield
 

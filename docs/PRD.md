@@ -107,7 +107,7 @@ A user can let Tapio route automatically, pick a guide explicitly, or reach one 
 ### 7.4 Safety boundary
 
 - Tapio never presents a guide as an official authority, legal representative, or caseworker.
-- Questions that are legal, medical, or crisis-adjacent are recognized and redirected to appropriate official or human support rather than answered as if Tapio were qualified to help directly. The resources redirected to come from the [approved crisis/escalation resource list](specs/crisis-escalation-resources.md) (see §11), not from an ad hoc list in a guide prompt.
+- Questions that are legal, medical, or crisis-adjacent are recognized and redirected to appropriate official or human support rather than answered as if Tapio were qualified to help directly. The resources redirected to come from the [approved crisis/escalation resource list](specs/crisis-escalation-resources.md) (see §11), not from an ad hoc list in a guide prompt. Recognition and redirection are implemented as a guardrail classifier that runs before routing; see the [guardrails policy](specs/guardrails.md) (#29). "Medical" here currently means a medical emergency, covered under the classifier's crisis category — ordinary (non-emergency) medical questions are not yet a distinct guardrail category and are answered as an ordinary guide question; broadening this is tracked as an open follow-up in the guardrails policy.
 
 ### 7.5 Privacy by design
 
