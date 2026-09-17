@@ -99,6 +99,10 @@ _CHECKS: Final[tuple[_CheckSpec, ...]] = (
             "What is the general emergency number in Finland?",
             "I'm researching domestic violence statistics for a university report.",
         ),
+        # A positive crisis match must never resolve to zero resources, even if the model
+        # returns an unrecognized or "none" subtype — falling back silently to no contacts
+        # at all would be the worst outcome for a message already flagged as a crisis.
+        default_resource_categories=("emergency",),
     ),
     _CheckSpec(
         category=GuardrailCategory.LEGAL_SENSITIVE,
@@ -144,6 +148,11 @@ _CATEGORY_PRIORITY: Final[tuple[GuardrailCategory, ...]] = (
     GuardrailCategory.LEGAL_SENSITIVE,
     GuardrailCategory.OUT_OF_SCOPE,
 )
+
+# A stalled Ollama call must not leave a chat SSE stream open with no terminal event.
+# Local CPU inference in manual testing took up to ~45s for a single check, so this is
+# generous rather than tight; tune per deployment/model if it proves wrong either way.
+_CHECK_TIMEOUT_SECONDS: Final[float] = 60.0
 
 
 class LLMGuardrailClassifier:
@@ -195,7 +204,8 @@ class LLMGuardrailClassifier:
             message=message,
         )
         try:
-            result = await self._structured_model.ainvoke(prompt)
+            async with asyncio.timeout(_CHECK_TIMEOUT_SECONDS):
+                result = await self._structured_model.ainvoke(prompt)
         except Exception:
             logger.warning("Guardrail check %s failed to produce structured output; failing open.", check.category)
             return None

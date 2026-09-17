@@ -37,5 +37,13 @@ class GuardrailClassifierProtocol(Protocol):
     """What ``stream_chat_turn`` needs from the guardrail classifier."""
 
     async def classify(self, message: str) -> GuardrailMatch | None:
-        """Classify a message, or return ``None`` if it needs no special handling."""
+        """Classify a message for guardrail handling.
+
+        Args:
+            message: The user's raw message.
+
+        Returns:
+            A ``GuardrailMatch`` describing the category to handle specially, or ``None``
+            if the message needs no special handling and should proceed to routing/RAG.
+        """
         ...

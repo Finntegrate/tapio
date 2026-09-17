@@ -1,7 +1,6 @@
 """Tests for the parallel, structured-output LLM guardrail classification stage (#29)."""
 
 from types import SimpleNamespace
-from typing import Any
 
 import pytest
 
@@ -10,8 +9,12 @@ from app.guardrails.llm_classifier import GuardrailCheckResult
 
 _NO_MATCH = GuardrailCheckResult(match=False, subtype="none", reason="")
 
+_CheckOutcome = GuardrailCheckResult | Exception
 
-def _build_classifier(*, crisis: Any, legal_sensitive: Any, out_of_scope: Any) -> LLMGuardrailClassifier:
+
+def _build_classifier(
+    *, crisis: _CheckOutcome, legal_sensitive: _CheckOutcome, out_of_scope: _CheckOutcome
+) -> LLMGuardrailClassifier:
     """Build a real LLMGuardrailClassifier with its structured model stubbed per check.
 
     ``ChatOllama(...).with_structured_output(...)`` is lazily bound (no network call at
@@ -101,6 +104,23 @@ async def test_classify_fails_open_when_a_check_errors(failure: Exception) -> No
     result = await classifier.classify("some message")
 
     assert result is None
+
+
+@pytest.mark.parametrize("subtype", ["none", "unexpected_value", ""])
+async def test_classify_never_returns_a_crisis_match_with_zero_resources(subtype: str) -> None:
+    """A positive crisis match must always carry at least the emergency resource category."""
+    classifier = _build_classifier(
+        crisis=GuardrailCheckResult(match=True, subtype=subtype, reason="crisis"),
+        legal_sensitive=_NO_MATCH,
+        out_of_scope=_NO_MATCH,
+    )
+
+    result = await classifier.classify("some message")
+
+    assert result is not None
+    assert result.category is GuardrailCategory.CRISIS
+    assert result.resource_categories != ()
+    assert "emergency" in result.resource_categories
 
 
 async def test_classify_defaults_legal_sensitive_resources_when_subtype_unrecognized() -> None:
