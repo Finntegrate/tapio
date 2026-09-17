@@ -6,7 +6,25 @@ from unittest.mock import Mock
 import pytest
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
+from app.guardrails.resources import CrisisResource, CrisisResourceList
 from app.guardrails.responses import build_guardrail_response
+
+_DRAFT_RESOURCE_LIST = CrisisResourceList(
+    version=1,
+    status="draft",
+    resources=(
+        CrisisResource(
+            id="test-crisis-line",
+            category="mental_health_crisis",
+            name="Test Crisis Line",
+            description="A test resource.",
+            url="https://example.com/crisis",
+            phone="000",
+            languages=("en",),
+            hours="24/7",
+        ),
+    ),
+)
 
 
 def _mock_llm_service(intro_text: str = "Localized intro text.") -> Mock:
@@ -143,3 +161,55 @@ async def test_intro_generation_timeout_raises_when_no_resources_to_fall_back_on
 
     with pytest.raises(RuntimeError):
         await build_guardrail_response(match, "some message", llm_service)
+
+
+async def test_crisis_resources_withheld_when_gate_enabled_and_status_not_approved(monkeypatch) -> None:
+    """The require_approved_crisis_resources fail-closed path withholds specific contacts."""
+    monkeypatch.setenv("TAPIO_BACKEND_REQUIRE_APPROVED_CRISIS_RESOURCES", "true")
+    monkeypatch.setattr("app.guardrails.responses.load_crisis_resources", lambda: _DRAFT_RESOURCE_LIST)
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("mental_health_crisis",),
+    )
+    llm_service = _mock_llm_service("Please contact emergency services.")
+
+    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
+
+    assert "Test Crisis Line" not in response
+    assert "000" not in response
+    prompt = llm_service.generate_response.call_args.kwargs["prompt"]
+    assert "aren't available right now" in prompt
+
+
+async def test_crisis_resources_shown_when_gate_enabled_and_status_approved(monkeypatch) -> None:
+    """The gate only withholds non-approved lists — an approved list still surfaces contacts."""
+    approved_list = CrisisResourceList(version=1, status="approved", resources=_DRAFT_RESOURCE_LIST.resources)
+    monkeypatch.setenv("TAPIO_BACKEND_REQUIRE_APPROVED_CRISIS_RESOURCES", "true")
+    monkeypatch.setattr("app.guardrails.responses.load_crisis_resources", lambda: approved_list)
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("mental_health_crisis",),
+    )
+    llm_service = _mock_llm_service("Please contact emergency services.")
+
+    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
+
+    assert "Test Crisis Line" in response
+
+
+async def test_crisis_resources_shown_when_gate_disabled_regardless_of_status(monkeypatch) -> None:
+    """The default (gate disabled) preserves existing behavior: draft data is still shown."""
+    monkeypatch.setenv("TAPIO_BACKEND_REQUIRE_APPROVED_CRISIS_RESOURCES", "false")
+    monkeypatch.setattr("app.guardrails.responses.load_crisis_resources", lambda: _DRAFT_RESOURCE_LIST)
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("mental_health_crisis",),
+    )
+    llm_service = _mock_llm_service("Please contact emergency services.")
+
+    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
+
+    assert "Test Crisis Line" in response

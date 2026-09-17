@@ -18,6 +18,14 @@ an LLM hiccup is worse than one line of plain English. For an
 generation call still raises, and ``stream_chat_turn``'s existing exception
 handling reports the same generic error it already reports for any other
 LLM failure.
+
+``BackendSettings.require_approved_crisis_resources`` (default off) is a
+deployer-controlled, fail-closed serving path: when set, specific contact
+details are withheld unless ``crisis_resources.yaml`` has ``status:
+approved`` (see docs/specs/crisis-escalation-resources.md and PRD §11).
+It defaults off because nothing has shipped to broad release yet and the
+governance doc treats sign-off, not a code gate, as the control for the
+draft period — but a deployer who wants a hard gate now has one.
 """
 
 import asyncio
@@ -26,12 +34,15 @@ from typing import Final
 
 from starlette.concurrency import run_in_threadpool
 
+from app.config import BackendSettings
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
 from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
+
+_APPROVED_STATUS: Final[str] = "approved"
 
 # A stalled Ollama call must not leave a chat SSE stream open with no terminal event.
 # Local CPU inference in manual testing took up to ~45s for a single call, so this is
@@ -60,6 +71,22 @@ _INTENT_DESCRIPTIONS: dict[GuardrailCategory, str] = {
     ),
 }
 
+# Used instead of _INTENT_DESCRIPTIONS' crisis/legal_sensitive entries when
+# require_approved_crisis_resources withholds the specific contact list, so the
+# generated intro doesn't promise a list that won't follow.
+_INTENT_DESCRIPTIONS_RESOURCES_WITHHELD: dict[GuardrailCategory, str] = {
+    GuardrailCategory.CRISIS: (
+        "Tell them this sounds urgent and Tapio is not the right place for this kind of support. "
+        "Tapio's specific service contacts for this aren't available right now, so tell them to "
+        "contact their country's general emergency number or a local crisis line directly."
+    ),
+    GuardrailCategory.LEGAL_SENSITIVE: (
+        "Tell them this touches on a legal process Tapio is not qualified to advise on directly. "
+        "Tapio's specific service contacts for this aren't available right now, so suggest they "
+        "search for official Finnish immigration or legal aid services directly."
+    ),
+}
+
 
 async def build_guardrail_response(match: GuardrailMatch, message: str, llm_service: LLMService) -> str:
     """Compose the user-facing text for a guardrail interception, in the user's own language.
@@ -74,15 +101,19 @@ async def build_guardrail_response(match: GuardrailMatch, message: str, llm_serv
 
     Raises:
         RuntimeError: If localized intro generation fails and there are no resources to
-            fall back with (i.e. an ``out_of_scope`` match, or a crisis/legal-sensitive
-            match whose resource categories have no entries).
+            fall back with (i.e. an ``out_of_scope`` match, a crisis/legal-sensitive match
+            whose resource categories have no entries, or one where resources were withheld
+            by ``require_approved_crisis_resources``).
     """
-    resources: tuple[CrisisResource, ...] = ()
-    if match.category is not GuardrailCategory.OUT_OF_SCOPE:
-        resources = load_crisis_resources().by_categories(match.resource_categories)
+    resources = _resources_for(match)
+    intent_descriptions = (
+        _INTENT_DESCRIPTIONS
+        if resources or match.category is GuardrailCategory.OUT_OF_SCOPE
+        else _INTENT_DESCRIPTIONS_RESOURCES_WITHHELD
+    )
 
     try:
-        intro = await _localized_intro(match.category, message, llm_service)
+        intro = await _localized_intro(match.category, message, llm_service, intent_descriptions)
     except RuntimeError:
         if not resources:
             raise
@@ -101,13 +132,48 @@ async def build_guardrail_response(match: GuardrailMatch, message: str, llm_serv
     return "\n".join(lines)
 
 
-async def _localized_intro(category: GuardrailCategory, message: str, llm_service: LLMService) -> str:
+def _resources_for(match: GuardrailMatch) -> tuple[CrisisResource, ...]:
+    """Resolve the resources a match should surface, honoring the approval gate.
+
+    Args:
+        match: The classifier's decision for this message.
+
+    Returns:
+        Matching resources, or an empty tuple for an ``out_of_scope`` match, an empty
+        ``resource_categories``, or a non-``approved`` list while
+        ``require_approved_crisis_resources`` is enabled.
+    """
+    if match.category is GuardrailCategory.OUT_OF_SCOPE:
+        return ()
+
+    resource_list = load_crisis_resources()
+    if resource_list.status != _APPROVED_STATUS and BackendSettings().require_approved_crisis_resources:
+        logger.warning(
+            "Withholding %s resources: crisis_resources.yaml status is %r, not %r, and "
+            "require_approved_crisis_resources is enabled.",
+            match.category,
+            resource_list.status,
+            _APPROVED_STATUS,
+        )
+        return ()
+
+    return resource_list.by_categories(match.resource_categories)
+
+
+async def _localized_intro(
+    category: GuardrailCategory,
+    message: str,
+    llm_service: LLMService,
+    intent_descriptions: dict[GuardrailCategory, str],
+) -> str:
     """Generate the category's explanatory sentence in the user's own language.
 
     Args:
         category: The matched guardrail category.
         message: The user's original message, used only to detect language and tone.
         llm_service: The LLM service used for the generation call.
+        intent_descriptions: Which intent-description set to draw from — differs depending on
+            whether resources will actually follow the generated intro (see ``_resources_for``).
 
     Returns:
         A short localized paragraph.
@@ -117,7 +183,7 @@ async def _localized_intro(category: GuardrailCategory, message: str, llm_servic
     """
     prompt = load_prompt(
         "guardrail_response_intro",
-        intent_description=_INTENT_DESCRIPTIONS[category],
+        intent_description=intent_descriptions[category],
         message=message,
     )
     try:
