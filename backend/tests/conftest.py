@@ -128,6 +128,15 @@ def mock_orchestrator_graph(fake_agent_router: AgentRouter) -> Mock:
     ``build_guardrail_response`` (see ``app.guardrails.responses``), mirroring how
     ``app.main``'s production wiring shares the same LLM service between the
     orchestrator graph and the guardrail response step.
+
+    Args:
+        fake_agent_router: Real, deterministic ``AgentRouter`` to expose as
+            ``graph.agent_router``.
+
+    Returns:
+        A ``Mock`` standing in for ``TapioOrchestratorGraph``, with
+        ``agent_router``, ``query_stream``, ``check_model_availability``, and
+        ``llm_service`` preconfigured.
     """
     graph = Mock()
     graph.agent_router = fake_agent_router

@@ -52,6 +52,14 @@ def make_route_node(agent_router: AgentRouter) -> NodeFn:
     """
 
     def route_node(state: OrchestratorState) -> dict[str, Any]:
+        """Resolve the guide for this turn.
+
+        Args:
+            state: Graph state; reads ``query_text`` and ``preferred_agent_id``.
+
+        Returns:
+            A partial state update setting ``route``.
+        """
         route = agent_router.route(state["query_text"], state.get("preferred_agent_id", AUTO_ROUTE))
         return {"route": route}
 
@@ -69,6 +77,14 @@ def make_retrieve_node(doc_retrieval_service: DocumentRetrievalService) -> NodeF
     """
 
     def retrieve_node(state: OrchestratorState) -> dict[str, Any]:
+        """Fetch and format the context documents for this turn's query.
+
+        Args:
+            state: Graph state; reads ``query_text``.
+
+        Returns:
+            A partial state update setting ``retrieved_docs`` and ``context_text``.
+        """
         retrieved_docs = doc_retrieval_service.retrieve_documents(state["query_text"])
         context_text = doc_retrieval_service.format_documents_as_context(retrieved_docs)
         return {"retrieved_docs": retrieved_docs, "context_text": context_text}
@@ -88,6 +104,16 @@ def make_generate_node(llm_service: LLMService) -> NodeFn:
     """
 
     def generate_node(state: OrchestratorState) -> dict[str, Any]:
+        """Prompt and call the LLM for the resolved guide, streamed or not.
+
+        Args:
+            state: Graph state; reads ``route``, ``context_text``, ``query_text``,
+                ``history``, and ``stream``.
+
+        Returns:
+            A partial state update setting the prompts plus ``response`` or
+            ``response_stream``, depending on ``state["stream"]``.
+        """
         system_prompt = build_system_prompt(state["route"].agent.id)
         user_prompt = load_prompt(
             "user_query",

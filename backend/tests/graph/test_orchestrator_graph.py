@@ -12,12 +12,12 @@ from unittest import mock
 import pytest
 
 from app.agents import get_agent
-from app.agents.router import AUTO_ROUTE, AgentRouter
+from app.agents.router import AUTO_ROUTE, AgentRoute, AgentRouter
 from app.graph.orchestrator_graph import GENERIC_ERROR_MESSAGE, TapioOrchestratorGraph
 
 
 @pytest.fixture
-def orchestrator_graph(mock_doc_retrieval_service, mock_llm_service) -> TapioOrchestratorGraph:
+def orchestrator_graph(mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock) -> TapioOrchestratorGraph:
     """A graph wired with a real AgentRouter and mocked retrieval/LLM services."""
     return TapioOrchestratorGraph(
         agent_router=AgentRouter(),
@@ -27,20 +27,22 @@ def orchestrator_graph(mock_doc_retrieval_service, mock_llm_service) -> TapioOrc
 
 
 def test_graph_runs_nodes_in_route_retrieve_generate_order(
-    orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service, mock_llm_service
+    orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
 ) -> None:
     """The compiled graph must execute routing before retrieval before generation."""
     call_order: list[str] = []
 
-    def route_side_effect(*args: object, **kwargs: object) -> object:
+    def route_side_effect(message: str, preferred_agent_id: str = AUTO_ROUTE) -> AgentRoute:
         call_order.append("route")
-        return AgentRouter().route(*args, **kwargs)
+        return AgentRouter().route(message, preferred_agent_id)
 
-    def retrieve_side_effect(*_args: object, **_kwargs: object) -> list[object]:
+    def retrieve_side_effect(_query_text: str) -> list[object]:
         call_order.append("retrieve")
         return []
 
-    def generate_side_effect(*_args: object, **_kwargs: object) -> str:
+    def generate_side_effect(
+        *, prompt: str, system_prompt: str | None = None, history: list[dict[str, object]] | None = None
+    ) -> str:
         call_order.append("generate")
         return "response"
 
@@ -54,7 +56,7 @@ def test_graph_runs_nodes_in_route_retrieve_generate_order(
 
 
 def test_query_ports_agent_router_keyword_scoring_unchanged(
-    orchestrator_graph: TapioOrchestratorGraph, mock_llm_service
+    orchestrator_graph: TapioOrchestratorGraph, mock_llm_service: mock.Mock
 ) -> None:
     """Auto-routing inside the graph must select the same guide AgentRouter would alone."""
     with mock.patch("app.graph.nodes.load_prompt", return_value="prompt"):
@@ -79,7 +81,7 @@ def test_query_honors_explicit_agent_selection(orchestrator_graph: TapioOrchestr
 
 
 def test_query_retrieves_documents_and_generates_a_response(
-    orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service, mock_llm_service
+    orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
 ) -> None:
     """Retrieval and generation must still run with the query text and formatted context."""
     mock_llm_service.generate_response.return_value = "Final answer"
@@ -93,7 +95,7 @@ def test_query_retrieves_documents_and_generates_a_response(
 
 
 def test_query_stream_preserves_streaming_behavior(
-    orchestrator_graph: TapioOrchestratorGraph, mock_llm_service
+    orchestrator_graph: TapioOrchestratorGraph, mock_llm_service: mock.Mock
 ) -> None:
     """query_stream must return a lazily-consumed generator of the LLM's streamed chunks."""
     mock_llm_service.generate_response_stream.return_value = iter(["Hello ", "world"])
@@ -105,7 +107,7 @@ def test_query_stream_preserves_streaming_behavior(
 
 
 def test_query_falls_back_to_a_generic_error_on_generation_failure(
-    orchestrator_graph: TapioOrchestratorGraph, mock_llm_service
+    orchestrator_graph: TapioOrchestratorGraph, mock_llm_service: mock.Mock
 ) -> None:
     """A node failure must not propagate; query() returns the same generic error as before."""
     mock_llm_service.generate_response.side_effect = RuntimeError("boom")
@@ -119,7 +121,7 @@ def test_query_falls_back_to_a_generic_error_on_generation_failure(
 
 
 def test_query_stream_falls_back_to_a_generic_error_generator_on_setup_failure(
-    orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service
+    orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service: mock.Mock
 ) -> None:
     """A setup failure (e.g. retrieval) must yield the same generic error message as before."""
     mock_doc_retrieval_service.retrieve_documents.side_effect = RuntimeError("boom")
@@ -127,5 +129,23 @@ def test_query_stream_falls_back_to_a_generic_error_generator_on_setup_failure(
     route, response_stream, docs = orchestrator_graph.query_stream("Test query", agent_id="sampo")
 
     assert route.agent == get_agent("sampo")
+    assert list(response_stream) == [GENERIC_ERROR_MESSAGE]
+    assert docs == []
+
+
+def test_query_does_not_crash_on_an_unrecognized_agent_id(orchestrator_graph: TapioOrchestratorGraph) -> None:
+    """An unknown agent_id fails the route node itself; the fallback must not re-raise the same error."""
+    route, response, docs = orchestrator_graph.query("Test query", agent_id="not-a-real-guide")
+
+    assert route.agent == get_agent("tapio")
+    assert response == GENERIC_ERROR_MESSAGE
+    assert docs == []
+
+
+def test_query_stream_does_not_crash_on_an_unrecognized_agent_id(orchestrator_graph: TapioOrchestratorGraph) -> None:
+    """The streaming path must have the same unrecognized-agent_id fallback as query()."""
+    route, response_stream, docs = orchestrator_graph.query_stream("Test query", agent_id="not-a-real-guide")
+
+    assert route.agent == get_agent("tapio")
     assert list(response_stream) == [GENERIC_ERROR_MESSAGE]
     assert docs == []

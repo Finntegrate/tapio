@@ -7,6 +7,7 @@ from typing import Any, cast
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
+from app.agents import get_agent
 from app.agents.router import AUTO_ROUTE, AgentRoute, AgentRouter
 from app.graph.nodes import make_generate_node, make_retrieve_node, make_route_node
 from app.graph.state import OrchestratorState
@@ -99,7 +100,7 @@ class TapioOrchestratorGraph:
             result = self._invoke(query_text, history, agent_id, stream=False)
         except Exception:
             logger.exception("Error generating RAG response")
-            return self.agent_router.route(query_text, agent_id), GENERIC_ERROR_MESSAGE, []
+            return self._safe_route(query_text, agent_id), GENERIC_ERROR_MESSAGE, []
 
         return result["route"], result["response"], result["retrieved_docs"]
 
@@ -125,13 +126,15 @@ class TapioOrchestratorGraph:
             logger.exception("Error in query_stream setup")
 
             def error_generator() -> Generator[str]:
+                """Yield the single generic error chunk in place of a real response stream."""
                 yield GENERIC_ERROR_MESSAGE
 
-            return self.agent_router.route(query_text, agent_id), error_generator(), []
+            return self._safe_route(query_text, agent_id), error_generator(), []
 
         upstream_stream = result["response_stream"]
 
         def stream_generator() -> Generator[str]:
+            """Relay the LLM's chunks, substituting a generic error if it fails mid-stream."""
             try:
                 logger.info("Starting to consume LLM response stream")
                 yield from upstream_stream
@@ -162,6 +165,34 @@ class TapioOrchestratorGraph:
             Formatted string containing document information
         """
         return self.doc_retrieval_service.format_documents_for_display(documents)
+
+    def _safe_route(self, query_text: str, agent_id: str) -> AgentRoute:
+        """Resolve a route for a generic-error fallback, without ever raising.
+
+        ``query()``/``query_stream()`` fall back to this after the graph
+        itself failed - which can happen because ``agent_id`` doesn't resolve
+        to a real guide (``AgentRouter.route()`` looks it up via
+        ``get_agent()``, which raises for an unknown id). Re-running the same
+        lookup here would just repeat that failure and crash the documented
+        generic-error path, so this falls back to Tapio instead of raising a
+        second time.
+
+        Args:
+            query_text: The user's query.
+            agent_id: The guide id that was requested for the failed turn.
+
+        Returns:
+            The resolved route, or a Tapio fallback if resolving it also failed.
+        """
+        try:
+            return self.agent_router.route(query_text, agent_id)
+        except Exception:
+            logger.exception("Error resolving fallback route for generic error response")
+            return AgentRoute(
+                agent=get_agent("tapio"),
+                reason="Tapio is standing in after an error resolving your selected guide.",
+                was_explicit=False,
+            )
 
     def _invoke(
         self,
