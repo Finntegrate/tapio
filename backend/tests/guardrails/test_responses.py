@@ -213,3 +213,66 @@ async def test_crisis_resources_shown_when_gate_disabled_regardless_of_status(mo
     response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
 
     assert "Test Crisis Line" in response
+
+
+@pytest.mark.parametrize("bad_response", ["", "Error: Could not generate a response."])
+async def test_crisis_response_uses_no_resources_fallback_when_unmatched_and_localization_fails(
+    bad_response: str,
+) -> None:
+    """A crisis match with no matching resource category must not surface a bare generic error."""
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("a_category_with_no_entries",),
+    )
+    llm_service = _mock_llm_service(bad_response)
+
+    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
+
+    assert response == "Please contact your local emergency services or a trusted support line directly."
+
+
+async def test_crisis_response_uses_no_resources_fallback_when_gate_withholds_and_localization_fails(
+    monkeypatch,
+) -> None:
+    """Same fallback applies when the gate, not an unmatched category, is why there are no resources."""
+    monkeypatch.setenv("TAPIO_BACKEND_REQUIRE_APPROVED_CRISIS_RESOURCES", "true")
+    monkeypatch.setattr("app.guardrails.responses.load_crisis_resources", lambda: _DRAFT_RESOURCE_LIST)
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("mental_health_crisis",),
+    )
+    llm_service = _mock_llm_service("Error: Could not generate a response.")
+
+    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
+
+    assert response == "Please contact your local emergency services or a trusted support line directly."
+
+
+async def test_legal_sensitive_response_uses_no_resources_fallback_when_unmatched_and_localization_fails() -> None:
+    match = GuardrailMatch(
+        category=GuardrailCategory.LEGAL_SENSITIVE,
+        reason="asylum process",
+        resource_categories=("a_category_with_no_entries",),
+    )
+    llm_service = _mock_llm_service("Error: Could not generate a response.")
+
+    response = await build_guardrail_response(match, "I was denied asylum.", llm_service)
+
+    assert response == "Please contact your local emergency services or a trusted support line directly."
+
+
+async def test_crisis_response_no_resources_fallback_on_timeout(monkeypatch) -> None:
+    monkeypatch.setattr("app.guardrails.responses._INTRO_TIMEOUT_SECONDS", 0.05)
+    llm_service = Mock()
+    llm_service.generate_response.side_effect = _slow_generate_response
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("a_category_with_no_entries",),
+    )
+
+    response = await build_guardrail_response(match, "I want to kill myself.", llm_service)
+
+    assert response == "Please contact your local emergency services or a trusted support line directly."

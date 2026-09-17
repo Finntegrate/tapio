@@ -11,13 +11,19 @@ step can't rephrase, translate, or hallucinate a phone number or URL.
 Resources are loaded before the intro generation call, not after: a
 crisis/legal-sensitive match with known resources must still surface them
 even if that unrelated LLM call times out or otherwise fails, via
-``_SAFE_FALLBACK_INTRO``. That is a deliberate, narrow exception to "no
-hardcoded user-facing string" — losing already-known emergency contacts to
-an LLM hiccup is worse than one line of plain English. For an
-``out_of_scope`` match, where there are no resources to protect, a failed
-generation call still raises, and ``stream_chat_turn``'s existing exception
-handling reports the same generic error it already reports for any other
-LLM failure.
+``_SAFE_FALLBACK_INTRO``. Any crisis/legal-sensitive match — including one
+with no resources to show (an unmatched category, or one withheld by
+``require_approved_crisis_resources``) — falls back to a deterministic,
+category-appropriate line (``_SAFE_FALLBACK_INTRO`` or
+``_SAFE_FALLBACK_NO_RESOURCES_INTRO``) rather than raising, so a second,
+independent failure (the intro call) can never turn a safety-relevant
+match into a bare generic error. These are the deliberate, narrow
+exceptions to "no hardcoded user-facing string" — a plain English line is
+a better outcome than silence for a message already flagged as crisis or
+legal-sensitive. Only an ``out_of_scope`` match, which carries no safety
+stakes, still raises on a failed generation call, and
+``stream_chat_turn``'s existing exception handling reports the same
+generic error it already reports for any other LLM failure.
 
 ``BackendSettings.require_approved_crisis_resources`` (default off) is a
 deployer-controlled, fail-closed serving path: when set, specific contact
@@ -52,6 +58,12 @@ _INTRO_TIMEOUT_SECONDS: Final[float] = 60.0
 # Used only when a crisis/legal-sensitive match has resources to show but the localized
 # intro call failed (error or timeout) — see the module docstring.
 _SAFE_FALLBACK_INTRO: Final[str] = "Please contact one of these services:"
+
+# Used when a crisis/legal-sensitive match has no resources to show (unmatched category, or
+# withheld by require_approved_crisis_resources) and the localized intro call also failed.
+_SAFE_FALLBACK_NO_RESOURCES_INTRO: Final[str] = (
+    "Please contact your local emergency services or a trusted support line directly."
+)
 
 # Fed into the prompt template as an instruction to the model — never shown to
 # the user directly, so this is prompt content, not user-facing copy.
@@ -100,12 +112,11 @@ async def build_guardrail_response(match: GuardrailMatch, message: str, llm_serv
         Response text to show instead of a RAG answer.
 
     Raises:
-        RuntimeError: If localized intro generation fails and there are no resources to
-            fall back with (i.e. an ``out_of_scope`` match, a crisis/legal-sensitive match
-            whose resource categories have no entries, or one where resources were withheld
-            by ``require_approved_crisis_resources``).
+        RuntimeError: If localized intro generation fails for an ``out_of_scope`` match,
+            the only category with no safety stakes and thus no deterministic fallback.
     """
     resources = _resources_for(match)
+    is_safety_critical = match.category is not GuardrailCategory.OUT_OF_SCOPE
     intent_descriptions = (
         _INTENT_DESCRIPTIONS
         if resources or match.category is GuardrailCategory.OUT_OF_SCOPE
@@ -115,14 +126,14 @@ async def build_guardrail_response(match: GuardrailMatch, message: str, llm_serv
     try:
         intro = await _localized_intro(match.category, message, llm_service, intent_descriptions)
     except RuntimeError:
-        if not resources:
+        if not is_safety_critical:
             raise
         logger.warning(
-            "Guardrail intro generation failed for a %s match with known resources; "
-            "using the safe fallback intro instead of losing the resource list.",
+            "Guardrail intro generation failed for a safety-critical (%s) match; using a "
+            "deterministic fallback intro instead of surfacing a generic error.",
             match.category,
         )
-        intro = _SAFE_FALLBACK_INTRO
+        intro = _SAFE_FALLBACK_INTRO if resources else _SAFE_FALLBACK_NO_RESOURCES_INTRO
 
     if not resources:
         return intro
