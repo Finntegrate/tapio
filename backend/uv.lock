@@ -2230,6 +2230,7 @@ version = "0.1.0"
 source = { editable = "." }
 dependencies = [
     { name = "fastapi" },
+    { name = "httpx" },
     { name = "langchain-chroma" },
     { name = "langchain-core" },
     { name = "langchain-huggingface", extra = ["full"] },
@@ -2245,7 +2246,6 @@ dependencies = [
 
 [package.dev-dependencies]
 dev = [
-    { name = "httpx" },
     { name = "mypy" },
     { name = "prek" },
     { name = "pyrefly" },
@@ -2259,6 +2259,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "fastapi", specifier = ">=0.115.0" },
+    { name = "httpx", specifier = ">=0.27.0" },
     { name = "langchain-chroma", specifier = ">=0.2.3" },
     { name = "langchain-core", specifier = ">=1.5.3" },
     { name = "langchain-huggingface", extras = ["full"], specifier = ">=0.1.2" },
@@ -2274,7 +2275,6 @@ requires-dist = [
 
 [package.metadata.requires-dev]
 dev = [
-    { name = "httpx", specifier = ">=0.27.0" },
     { name = "mypy", specifier = ">=2.3.0" },
     { name = "prek", specifier = ">=0.2.3" },
     { name = "pyrefly", specifier = ">=1.1.1" },

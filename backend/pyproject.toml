@@ -25,6 +25,7 @@ dependencies = [
     "tzdata>=2026.2",
     "pyyaml>=6.0.3",
     "langchain-ollama>=1.1.0",
+    "httpx>=0.27.0",
 ]
 
 [project.scripts]
@@ -134,7 +135,6 @@ line-ending = "auto"
 
 [dependency-groups]
 dev = [
-    "httpx>=0.27.0",
     "mypy>=2.3.0",
     "prek>=0.2.3",
     "pyrefly>=1.1.1",

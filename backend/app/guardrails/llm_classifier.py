@@ -19,11 +19,30 @@ This is the shape a LangGraph input-classifier node is expected to take
 once the app's graph migration lands: parallel branches feeding one
 decision, run before the routing node.
 
-Classification is inherently less deterministic than a regex match. It
-fails open (returns ``None``, letting the turn proceed to a normal RAG
-answer) whenever a check's model call errors or can't satisfy the schema —
-the same degradation the RAG pipeline already has for an unreachable
-model, not a new failure mode.
+A check's failure is not treated as one undifferentiated case. It is
+split into two kinds (see ``_InfraError``/``_ParseError`` and
+``_invoke``), because they carry different information and call for
+different responses:
+
+- An **infra failure** (connection error, timeout, a server-level error
+  response) is message-independent — it says nothing about whether this
+  particular message is a crisis, and it means the RAG pipeline's own
+  generation call is likely to hit the same failure right after, ending
+  the turn at the existing generic-error path anyway. These fail open
+  immediately: the same degradation the RAG pipeline already has for an
+  unreachable model, not a new failure mode.
+- A **parse failure** (the model responded, but its output didn't fit the
+  schema) means the model *was* reachable and *did* respond — this is
+  specific to that one call, not evidence of an outage, so it's retried
+  once before drawing any conclusion (a single malformed response is not
+  unusual and often succeeds on retry). If the retry also fails to parse,
+  that is a real, repeated signal that this check couldn't be completed
+  for this specific message: for the crisis check, that surfaces as a
+  conservative crisis match (with the general ``emergency`` resource)
+  instead of silently falling through to an unguarded RAG answer. The
+  other two checks still fail open on a repeated parse failure — missing
+  an out-of-scope or legal-sensitive redirect is a much smaller cost than
+  a missed crisis.
 """
 
 import asyncio
@@ -31,6 +50,8 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
+import httpx
+import ollama
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel, Field
 
@@ -38,6 +59,14 @@ from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.prompts import load_prompt
 
 logger = logging.getLogger(__name__)
+
+
+class _InfraError(Exception):
+    """A check's model call failed for reasons unrelated to the message itself."""
+
+
+class _ParseError(Exception):
+    """The model responded, but its output didn't fit the expected schema."""
 
 
 class GuardrailCheckResult(BaseModel):
@@ -186,15 +215,16 @@ class LLMGuardrailClassifier:
         return None
 
     async def _run_check(self, check: _CheckSpec, message: str) -> GuardrailMatch | None:
-        """Run one focused, structured-output classification check.
+        """Run one focused, structured-output classification check, retrying once on a parse failure.
 
         Args:
             check: The category-specific check to run.
             message: The user's raw message.
 
         Returns:
-            A ``GuardrailMatch`` if the check matched, else ``None`` (including on any
-            model or parsing failure, which fails open rather than propagating).
+            A ``GuardrailMatch`` if the check matched; ``None`` if it cleanly didn't, or if it
+            failed for infra reasons; or — for the crisis check only — a conservative crisis
+            match if the response couldn't be parsed twice in a row. See the module docstring.
         """
         prompt = load_prompt(
             "guardrail_check",
@@ -204,13 +234,91 @@ class LLMGuardrailClassifier:
             message=message,
         )
         try:
+            result = await self._invoke(prompt)
+        except _InfraError:
+            logger.warning("Guardrail check %s failed (infra); failing open.", check.category)
+            return None
+        except _ParseError:
+            logger.info("Guardrail check %s got an unparseable response; retrying once.", check.category)
+            try:
+                result = await self._invoke(prompt)
+            except _InfraError:
+                logger.warning("Guardrail check %s retry failed (infra); failing open.", check.category)
+                return None
+            except _ParseError:
+                return self._degraded_result(check)
+
+        return self._to_match(check, result)
+
+    async def _invoke(self, prompt: str) -> GuardrailCheckResult:
+        """Call the structured-output model once, categorizing any failure.
+
+        Args:
+            prompt: The fully-rendered check prompt.
+
+        Returns:
+            The parsed, schema-valid result.
+
+        Raises:
+            _InfraError: A connection, timeout, or server-level failure — message-independent,
+                and the same failure the RAG pipeline's own generation call would likely hit too.
+            _ParseError: The model responded, but its output didn't fit the expected schema —
+                specific to this call, not evidence that the model/connection is unreachable.
+        """
+        try:
             async with asyncio.timeout(_CHECK_TIMEOUT_SECONDS):
                 result = await self._structured_model.ainvoke(prompt)
-        except Exception:
-            logger.warning("Guardrail check %s failed to produce structured output; failing open.", check.category)
+        except (httpx.RequestError, ollama.ResponseError, TimeoutError) as error:
+            raise _InfraError from error
+        except Exception as error:
+            raise _ParseError from error
+
+        if not isinstance(result, GuardrailCheckResult):
+            msg = f"Unexpected structured-output result type: {type(result)!r}"
+            raise _ParseError(msg)
+        return result
+
+    @staticmethod
+    def _degraded_result(check: _CheckSpec) -> GuardrailMatch | None:
+        """Resolve two consecutive parse failures: escalate for crisis, fail open otherwise.
+
+        Args:
+            check: The check that failed to produce a parseable result twice in a row.
+
+        Returns:
+            A conservative crisis ``GuardrailMatch`` if ``check`` was the crisis check,
+            else ``None``.
+        """
+        if check.category is not GuardrailCategory.CRISIS:
+            logger.warning(
+                "Guardrail check %s failed to produce structured output after a retry; failing open.",
+                check.category,
+            )
             return None
 
-        if not isinstance(result, GuardrailCheckResult) or not result.match:
+        logger.warning(
+            "Guardrail check %s failed to produce structured output after a retry; treating "
+            "conservatively as a crisis rather than failing open.",
+            check.category,
+        )
+        return GuardrailMatch(
+            category=GuardrailCategory.CRISIS,
+            reason="The safety check could not confirm this message was safe to route normally.",
+            resource_categories=("emergency",),
+        )
+
+    @staticmethod
+    def _to_match(check: _CheckSpec, result: GuardrailCheckResult) -> GuardrailMatch | None:
+        """Convert a successfully parsed result into a ``GuardrailMatch``, or ``None``.
+
+        Args:
+            check: The check this result came from.
+            result: The parsed, schema-valid model output.
+
+        Returns:
+            A ``GuardrailMatch`` if ``result.match`` is true, else ``None``.
+        """
+        if not result.match:
             return None
 
         subtype = result.subtype.strip().lower()
