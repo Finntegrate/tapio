@@ -6,13 +6,14 @@ instances without tight coupling.
 """
 
 from langchain_core.embeddings import Embeddings
+from langchain_core.language_models import BaseChatModel
 from langchain_huggingface import HuggingFaceEmbeddings
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
 from app.retrieval import ChromaRetriever
+from app.services.chat_model import build_chat_model
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm import LiteLLMProvider, LLMProvider, OllamaProvider
 from app.services.rag_orchestrator import RAGOrchestrator
 
 
@@ -88,30 +89,18 @@ class RAGOrchestratorFactory:
             num_results=self.config.num_results,
         )
 
-    def create_llm_provider(self) -> LLMProvider:
-        """Create the configured LLM provider.
+    def create_chat_model(self) -> BaseChatModel:
+        """Create the configured chat model.
 
-        Selects between ``OllamaProvider`` and ``LiteLLMProvider`` based on
-        ``self.config.llm_provider`` (``TAPIO_LLM_PROVIDER`` — see
-        ``app.config.llm_settings``), so the LLM backend is swappable via
+        Delegates to ``build_chat_model``, which reads ``self.config.llm_provider``
+        (``TAPIO_LLM_PROVIDER`` — see ``app.config.llm_settings``) and constructs the
+        matching LangChain chat model, so the LLM backend is swappable via
         configuration without a code change (#9).
 
         Returns:
-            Configured LLMProvider instance.
+            Configured ``BaseChatModel`` instance.
         """
-        if self.config.llm_provider == "litellm":
-            llm_settings = LLMSettings()
-            return LiteLLMProvider(
-                model_name=self.config.llm_model_name,
-                max_tokens=self.config.max_tokens,
-                api_base=llm_settings.api_base,
-                api_key=llm_settings.api_key.get_secret_value() if llm_settings.api_key else None,
-            )
-
-        return OllamaProvider(
-            model_name=self.config.llm_model_name,
-            max_tokens=self.config.max_tokens,
-        )
+        return build_chat_model(self.config, LLMSettings())
 
     def create_orchestrator(self) -> RAGOrchestrator:
         """Create fully configured RAG orchestrator.
@@ -135,7 +124,7 @@ class RAGOrchestratorFactory:
 
         # Create services
         doc_service = self.create_document_retrieval_service(chroma_store)
-        llm_service = self.create_llm_provider()
+        llm_service = self.create_chat_model()
 
         # Create and return orchestrator
         return RAGOrchestrator(

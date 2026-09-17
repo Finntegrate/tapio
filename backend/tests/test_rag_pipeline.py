@@ -9,12 +9,13 @@ from unittest.mock import Mock, patch
 
 import pytest
 from langchain_core.documents import Document  # type: ignore[import-not-found]
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage
 
 from app.config.config_models import RAGConfig
 from app.factories import RAGOrchestratorFactory
 from app.retrieval import ChromaRetriever
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm import LLMProvider
 from app.services.rag_orchestrator import RAGOrchestrator
 
 
@@ -54,13 +55,14 @@ def test_rag_pipeline_end_to_end(tmp_chroma_db, mock_embeddings):
     # Add documents to vector store
     chroma_store.vector_db.add_documents(test_docs)
 
-    # Create mock LLM service
-    mock_llm = Mock(spec=LLMProvider)
-    mock_llm.generate_response.return_value = (
-        "Based on the documents, residence permits require a valid passport and "
-        "proof of income, with processing times of 4-6 months."
+    # Create mock chat model
+    mock_llm = Mock(spec=BaseChatModel)
+    mock_llm.invoke.return_value = AIMessage(
+        content=(
+            "Based on the documents, residence permits require a valid passport and "
+            "proof of income, with processing times of 4-6 months."
+        ),
     )
-    mock_llm.check_model_availability.return_value = True
 
     # Create document retrieval service
     doc_service = DocumentRetrievalService(
@@ -88,7 +90,7 @@ def test_rag_pipeline_end_to_end(tmp_chroma_db, mock_embeddings):
     assert len(retrieved_docs) > 0
 
     # Verify LLM was called
-    mock_llm.generate_response.assert_called_once()
+    mock_llm.invoke.assert_called_once()
 
 
 @pytest.mark.integration

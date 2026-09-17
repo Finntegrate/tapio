@@ -27,14 +27,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     Yields:
         Control back to FastAPI once startup state is attached to ``app.state``.
     """
-    orchestrator = RAGOrchestratorFactory(RAGConfig()).create_orchestrator()
+    config = RAGConfig()
+    orchestrator = RAGOrchestratorFactory(config).create_orchestrator()
     app.state.orchestrator = orchestrator
     # The chat route talks to the graph directly (see app.graph, OrchestratorGraphDep);
     # app.state.orchestrator itself is kept for /health and for LLMGuardrailClassifier below.
     app.state.orchestrator_graph = orchestrator.graph
-    # Reuses the orchestrator's configured model name so the guardrail's LLM checks
-    # run against the same model as ordinary RAG generation.
-    app.state.guardrail_classifier = LLMGuardrailClassifier(orchestrator.llm_service.model_name)
+    # Reuses the same configured model name so the guardrail's LLM checks run against the
+    # same model as ordinary RAG generation.
+    app.state.guardrail_classifier = LLMGuardrailClassifier(config.llm_model_name)
     logger.info("Tapio backend started")
     yield
 

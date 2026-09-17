@@ -3,6 +3,7 @@
 from unittest import mock
 
 import pytest
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 from app.services.rag_orchestrator import RAGOrchestrator
 
@@ -42,7 +43,7 @@ def test_rag_orchestrator_query(rag_orchestrator):
         rag_orchestrator.mock_doc_service.format_documents_as_context.return_value = "Test document content"
 
         # Mock LLM response
-        rag_orchestrator.mock_llm_service.generate_response.return_value = "Test LLM response"
+        rag_orchestrator.mock_llm_service.invoke.return_value = AIMessage(content="Test LLM response")
 
         # Call the method under test
         response, docs = rag_orchestrator.query("Test query")
@@ -73,10 +74,10 @@ def test_rag_orchestrator_query(rag_orchestrator):
         assert user_prompt_kwargs["context"] == "Test document content"
 
         # Verify the LLM was called with the correct prompts
-        rag_orchestrator.mock_llm_service.generate_response.assert_called_once()
-        call_args = rag_orchestrator.mock_llm_service.generate_response.call_args[1]
-        assert call_args["system_prompt"] == "Mocked system prompt"
-        assert call_args["prompt"] == "Mocked user prompt with context"
+        rag_orchestrator.mock_llm_service.invoke.assert_called_once()
+        messages = rag_orchestrator.mock_llm_service.invoke.call_args.args[0]
+        assert messages[0] == {"role": "system", "content": "Mocked system prompt"}
+        assert messages[-1] == {"role": "user", "content": "Mocked user prompt with context"}
 
         # Verify the results
         assert response == "Test LLM response"
@@ -103,11 +104,11 @@ def test_rag_orchestrator_query_stream(rag_orchestrator):
 
         # Mock LLM streaming response
         def mock_stream():
-            yield "Test "
-            yield "streaming "
-            yield "response"
+            yield AIMessageChunk(content="Test ")
+            yield AIMessageChunk(content="streaming ")
+            yield AIMessageChunk(content="response")
 
-        rag_orchestrator.mock_llm_service.generate_response_stream.return_value = mock_stream()
+        rag_orchestrator.mock_llm_service.stream.return_value = mock_stream()
 
         # Call the method under test
         response_stream, docs = rag_orchestrator.query_stream("Test query")
@@ -130,7 +131,7 @@ def test_rag_orchestrator_query_stream(rag_orchestrator):
         assert chunks == ["Test ", "streaming ", "response"]
 
         # Verify the LLM was called with streaming (check after consuming the generator)
-        rag_orchestrator.mock_llm_service.generate_response_stream.assert_called_once()
+        rag_orchestrator.mock_llm_service.stream.assert_called_once()
 
 
 def test_rag_orchestrator_adds_specialist_prompt(rag_orchestrator):
@@ -148,8 +149,11 @@ def test_rag_orchestrator_adds_specialist_prompt(rag_orchestrator):
             mock.call("agents/sampo"),
             mock.call("user_query", context="Test document content", question="How do I find work?"),
         ]
-        call_args = rag_orchestrator.mock_llm_service.generate_response.call_args.kwargs
-        assert call_args["system_prompt"] == "Tapio's shared system prompt\n\nSampo's specialist prompt"
+        messages = rag_orchestrator.mock_llm_service.invoke.call_args.args[0]
+        assert messages[0] == {
+            "role": "system",
+            "content": "Tapio's shared system prompt\n\nSampo's specialist prompt",
+        }
 
 
 def test_rag_orchestrator_uses_only_the_shared_prompt_for_tapio(rag_orchestrator):
@@ -162,20 +166,17 @@ def test_rag_orchestrator_uses_only_the_shared_prompt_for_tapio(rag_orchestrator
             mock.call("system_prompt"),
             mock.call("user_query", context="Test document content", question="Where should I start?"),
         ]
-        call_args = rag_orchestrator.mock_llm_service.generate_response.call_args.kwargs
-        assert call_args["system_prompt"] == "Tapio's shared system prompt"
+        messages = rag_orchestrator.mock_llm_service.invoke.call_args.args[0]
+        assert messages[0] == {"role": "system", "content": "Tapio's shared system prompt"}
 
 
 def test_rag_orchestrator_check_model_availability(rag_orchestrator):
-    """Test that RAG orchestrator correctly checks model availability."""
-    # Mock LLM model availability check
-    rag_orchestrator.mock_llm_service.check_model_availability.return_value = True
+    """Test that RAG orchestrator delegates model availability checks to check_model_availability."""
+    with mock.patch("app.graph.orchestrator_graph.check_model_availability", return_value=True) as mock_check:
+        result = rag_orchestrator.check_model_availability()
 
-    # Call the method under test
-    result = rag_orchestrator.check_model_availability()
-
-    # Verify the LLM service was called
-    rag_orchestrator.mock_llm_service.check_model_availability.assert_called_once()
+    # Verify it was checked against this orchestrator's own chat model
+    mock_check.assert_called_once_with(rag_orchestrator.llm_service)
 
     # Verify the result
     assert result is True

@@ -18,13 +18,13 @@ def test_llm_settings_defaults() -> None:
 
 def test_llm_settings_reads_provider_and_model_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """TAPIO_LLM_PROVIDER and TAPIO_LLM_MODEL override the defaults."""
-    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "litellm")
-    monkeypatch.setenv("TAPIO_LLM_MODEL", "openai/gpt-4o-mini")
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("TAPIO_LLM_MODEL", "gpt-4o-mini")
 
     settings = LLMSettings()
 
-    assert settings.provider == "litellm"
-    assert settings.model == "openai/gpt-4o-mini"
+    assert settings.provider == "openai"
+    assert settings.model == "gpt-4o-mini"
 
 
 def test_llm_settings_reads_api_base_and_key_from_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -41,18 +41,18 @@ def test_llm_settings_reads_api_base_and_key_from_env(monkeypatch: pytest.Monkey
 
 def test_rag_config_defaults_pick_up_llm_env_vars(monkeypatch: pytest.MonkeyPatch) -> None:
     """RAGConfig's provider/model defaults track LLMSettings, not a fixed constant."""
-    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "litellm")
-    monkeypatch.setenv("TAPIO_LLM_MODEL", "anthropic/claude-3-5-haiku-20241022")
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "anthropic")
+    monkeypatch.setenv("TAPIO_LLM_MODEL", "claude-3-5-haiku-20241022")
 
     config = RAGConfig()
 
-    assert config.llm_provider == "litellm"
-    assert config.llm_model_name == "anthropic/claude-3-5-haiku-20241022"
+    assert config.llm_provider == "anthropic"
+    assert config.llm_model_name == "claude-3-5-haiku-20241022"
 
 
 def test_rag_config_explicit_llm_fields_override_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """An explicitly passed llm_provider/llm_model_name wins over the env-derived default."""
-    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "litellm")
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "anthropic")
 
     config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
 

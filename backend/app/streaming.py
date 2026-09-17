@@ -91,7 +91,7 @@ async def stream_chat_turn(
             logger.info("Guardrail intercepted message: %s (%s)", guardrail_match.reason, guardrail_match.category)
             yield {"event": "guardrail", "data": _guardrail_event(guardrail_match).model_dump_json()}
             yield {"event": "citation", "data": CitationEvent(citations=[]).model_dump_json()}
-            response_text = await build_guardrail_response(guardrail_match, message, orchestrator_graph.llm_service)
+            response_text = await build_guardrail_response(guardrail_match, message)
             yield {"event": "token", "data": TokenEvent(text=response_text).model_dump_json()}
             yield {"event": "done", "data": "{}"}
             return

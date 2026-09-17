@@ -10,28 +10,36 @@ Run `uv sync`, then `uv run uvicorn app.main:app --reload --port 8000`. It reads
 
 ### LLM provider (`TAPIO_LLM_` env vars)
 
-The LLM backend is swappable via configuration — no code change needed to switch between a local Ollama model and a cloud provider (#9).
+The LLM backend is a plain [LangChain `BaseChatModel`](https://python.langchain.com/docs/concepts/chat_models/), selected at runtime via LangChain's own [`init_chat_model`](https://python.langchain.com/docs/how_to/chat_models_universal_init/) — no custom provider abstraction, and no code change needed to switch between a local Ollama model and a cloud provider (#9). `TAPIO_LLM_PROVIDER`'s values are exactly the provider names LangChain itself recognizes.
 
 | Variable            | Default            | Purpose                                                                                                                                                                                    |
 | -------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TAPIO_LLM_PROVIDER` | `ollama`            | `ollama` for the local Ollama runtime, or `litellm` for OpenAI, Anthropic, Scaleway, and other OpenAI-compatible endpoints (via [LiteLLM](https://docs.litellm.ai/)).                    |
-| `TAPIO_LLM_MODEL`    | `gemma4:latest`     | For `ollama`, a plain Ollama model tag. For `litellm`, a LiteLLM model string, e.g. `openai/gpt-4o-mini`, `anthropic/claude-3-5-haiku-20241022`, or `openai/<model-id>` for an OpenAI-compatible endpoint used together with `TAPIO_LLM_API_BASE`. |
-| `TAPIO_LLM_API_BASE` | unset               | Custom API base URL, passed straight to LiteLLM. Required for Scaleway's Generative APIs and other self-hosted OpenAI-compatible endpoints.                                              |
-| `TAPIO_LLM_API_KEY`  | unset               | Explicit API key, passed straight to LiteLLM. When unset, LiteLLM falls back to the provider's standard environment variable (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).               |
+| `TAPIO_LLM_PROVIDER` | `ollama`            | `ollama` for the local Ollama runtime, `openai` for OpenAI (or any OpenAI-compatible endpoint, via `TAPIO_LLM_API_BASE` — see Scaleway below), or `anthropic` for Anthropic.             |
+| `TAPIO_LLM_MODEL`    | `gemma4:latest`     | The model identifier, in whatever form the chosen provider expects, e.g. `gemma4:latest` (Ollama), `gpt-4o-mini` (OpenAI), `claude-3-5-haiku-20241022` (Anthropic).                      |
+| `TAPIO_LLM_API_BASE` | unset               | Custom API base URL. Required for Scaleway's Generative APIs and other self-hosted OpenAI-compatible endpoints (used with `TAPIO_LLM_PROVIDER=openai`); unused by Ollama and by OpenAI/Anthropic's own default endpoints. |
+| `TAPIO_LLM_API_KEY`  | unset               | Explicit API key. When unset, each provider's LangChain integration falls back to its own standard environment variable (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).                    |
 
 Example for OpenAI:
 
 ```bash
-export TAPIO_LLM_PROVIDER=litellm
-export TAPIO_LLM_MODEL=openai/gpt-4o-mini
+export TAPIO_LLM_PROVIDER=openai
+export TAPIO_LLM_MODEL=gpt-4o-mini
 export OPENAI_API_KEY=sk-...
+```
+
+Example for Anthropic:
+
+```bash
+export TAPIO_LLM_PROVIDER=anthropic
+export TAPIO_LLM_MODEL=claude-3-5-haiku-20241022
+export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 Example for Scaleway's OpenAI-compatible endpoint:
 
 ```bash
-export TAPIO_LLM_PROVIDER=litellm
-export TAPIO_LLM_MODEL=openai/<scaleway-model-id>
+export TAPIO_LLM_PROVIDER=openai
+export TAPIO_LLM_MODEL=<scaleway-model-id>
 export TAPIO_LLM_API_BASE=https://api.scaleway.ai/v1
 export TAPIO_LLM_API_KEY=...
 ```

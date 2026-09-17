@@ -7,13 +7,20 @@ graph existed: ``AgentRouter``'s keyword-scoring logic is unchanged, and
 modeled as explicit nodes now.
 """
 
+from typing import Any
 from unittest import mock
 
 import pytest
+from langchain_core.messages import AIMessage, AIMessageChunk
 
 from app.agents import get_agent
 from app.agents.router import AUTO_ROUTE, AgentRoute, AgentRouter
 from app.graph.orchestrator_graph import GENERIC_ERROR_MESSAGE, TapioOrchestratorGraph
+
+
+def _system_prompt(messages: list[dict[str, Any]]) -> str | None:
+    """Pull the system message's content out of a messages list built by build_messages."""
+    return next((m["content"] for m in messages if m["role"] == "system"), None)
 
 
 @pytest.fixture
@@ -40,15 +47,13 @@ def test_graph_runs_nodes_in_route_retrieve_generate_order(
         call_order.append("retrieve")
         return []
 
-    def generate_side_effect(
-        *, prompt: str, system_prompt: str | None = None, history: list[dict[str, object]] | None = None
-    ) -> str:
+    def generate_side_effect(messages: list[dict[str, object]]) -> AIMessage:
         call_order.append("generate")
-        return "response"
+        return AIMessage(content="response")
 
     orchestrator_graph.agent_router.route = mock.Mock(side_effect=route_side_effect)
     mock_doc_retrieval_service.retrieve_documents.side_effect = retrieve_side_effect
-    mock_llm_service.generate_response.side_effect = generate_side_effect
+    mock_llm_service.invoke.side_effect = generate_side_effect
 
     orchestrator_graph.query("How do I find work?", agent_id="sampo")
 
@@ -67,8 +72,8 @@ def test_query_ports_agent_router_keyword_scoring_unchanged(
 
     assert route.agent == get_agent("ilmarinen")
     assert route.was_explicit is False
-    call_args = mock_llm_service.generate_response.call_args.kwargs
-    assert call_args["system_prompt"] == "prompt\n\nprompt"
+    messages = mock_llm_service.invoke.call_args.args[0]
+    assert _system_prompt(messages) == "prompt\n\nprompt"
 
 
 def test_query_honors_explicit_agent_selection(orchestrator_graph: TapioOrchestratorGraph) -> None:
@@ -84,7 +89,7 @@ def test_query_retrieves_documents_and_generates_a_response(
     orchestrator_graph: TapioOrchestratorGraph, mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
 ) -> None:
     """Retrieval and generation must still run with the query text and formatted context."""
-    mock_llm_service.generate_response.return_value = "Final answer"
+    mock_llm_service.invoke.return_value = AIMessage(content="Final answer")
 
     with mock.patch("app.graph.nodes.load_prompt", return_value="prompt"):
         _route, response, docs = orchestrator_graph.query("Test query")
@@ -98,7 +103,7 @@ def test_query_stream_preserves_streaming_behavior(
     orchestrator_graph: TapioOrchestratorGraph, mock_llm_service: mock.Mock
 ) -> None:
     """query_stream must return a lazily-consumed generator of the LLM's streamed chunks."""
-    mock_llm_service.generate_response_stream.return_value = iter(["Hello ", "world"])
+    mock_llm_service.stream.return_value = iter([AIMessageChunk(content="Hello "), AIMessageChunk(content="world")])
 
     with mock.patch("app.graph.nodes.load_prompt", return_value="prompt"):
         _route, response_stream, _docs = orchestrator_graph.query_stream("Test query")
@@ -110,7 +115,7 @@ def test_query_falls_back_to_a_generic_error_on_generation_failure(
     orchestrator_graph: TapioOrchestratorGraph, mock_llm_service: mock.Mock
 ) -> None:
     """A node failure must not propagate; query() returns the same generic error as before."""
-    mock_llm_service.generate_response.side_effect = RuntimeError("boom")
+    mock_llm_service.invoke.side_effect = RuntimeError("boom")
 
     with mock.patch("app.graph.nodes.load_prompt", return_value="prompt"):
         route, response, docs = orchestrator_graph.query("Test query", agent_id="sampo")
