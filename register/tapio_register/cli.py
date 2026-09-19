@@ -22,6 +22,20 @@ def _display(path: Path) -> str:
         return str(path)
 
 
+def _unused_candidate_path(vocabulary: str, harvested_on: str) -> Path:
+    """Pick a candidate filename that is not already taken.
+
+    A second harvest on the same day would otherwise overwrite the first, and
+    what it would discard is a queue of candidates nobody has reviewed yet.
+    """
+    base = paths.CANDIDATES_DIR / f"finto-{vocabulary}-{harvested_on}.yaml"
+    candidate, index = base, 1
+    while candidate.exists():
+        candidate = base.with_name(f"{base.stem}-{index}{base.suffix}")
+        index += 1
+    return candidate
+
+
 def _echo_issues(label: str, issues: list[str]) -> None:
     typer.echo(f"{label}: {len(issues)}")
     for issue in issues:
@@ -159,7 +173,7 @@ def seed_finto(
     """
     candidates = finto.harvest(list(queries), vocabulary=vocabulary, language=language)
     payload = finto.as_candidate_file(candidates, list(queries), vocabulary)
-    destination = out or paths.CANDIDATES_DIR / f"finto-{vocabulary}-{payload['harvested_on']}.yaml"
+    destination = out or _unused_candidate_path(vocabulary, str(payload["harvested_on"]))
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(yaml.safe_dump(payload, allow_unicode=True, sort_keys=False), encoding="utf-8")
     typer.echo(f"wrote {len(candidates)} candidate(s) to {destination}")

@@ -116,3 +116,24 @@ def test_seed_finto_writes_a_candidate_file(tmp_path, monkeypatch):
     payload = yaml.safe_load(destination.read_text(encoding="utf-8"))
     assert payload["queries"] == ["oleskelulupa"]
     assert payload["candidates"][0]["reviewed"] is False
+
+
+def test_a_second_harvest_on_the_same_day_does_not_overwrite_the_first(tmp_path, monkeypatch):
+    """What it would discard is a queue of candidates nobody has reviewed yet."""
+    from tapio_register.seeding import finto
+
+    monkeypatch.setattr(paths, "CANDIDATES_DIR", tmp_path)
+    monkeypatch.setattr(
+        finto,
+        "harvest",
+        lambda *_, **__: [finto.Candidate(uri="http://www.yso.fi/onto/yso/p1", vocabulary="yso")],
+    )
+    first = runner.invoke(app, ["seed-finto", "oleskelulupa"])
+    second = runner.invoke(app, ["seed-finto", "viisumi"])
+    assert first.exit_code == 0, first.output
+    assert second.exit_code == 0, second.output
+
+    written = sorted(path.name for path in tmp_path.iterdir())
+    assert len(written) == 2, written
+    queries = [yaml.safe_load((tmp_path / name).read_text(encoding="utf-8"))["queries"] for name in written]
+    assert sorted(queries) == [["oleskelulupa"], ["viisumi"]]
