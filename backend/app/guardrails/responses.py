@@ -40,18 +40,20 @@ from typing import Final
 from starlette.concurrency import run_in_threadpool
 
 from app.config import BackendSettings
+from app.config.config_models import RAGConfig
+from app.config.llm_settings import LLMSettings
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
-from app.services.llm_service import LLMService
+from app.services.chat_model import build_chat_model, build_messages, invoke_text
 
 logger = logging.getLogger(__name__)
 
 _APPROVED_STATUS: Final[str] = "approved"
 
-# A stalled Ollama call must not leave a chat SSE stream open with no terminal event.
-# Local CPU inference in manual testing took up to ~45s for a single call, so this is
-# generous rather than tight; tune per deployment/model if it proves wrong either way.
+# A stalled provider call must not leave a chat SSE stream open with no terminal event.
+# Local Ollama CPU inference in manual testing took up to ~45s for a single call, so this
+# is generous rather than tight; tune per deployment/model if it proves wrong either way.
 _INTRO_TIMEOUT_SECONDS: Final[float] = 60.0
 
 # Used only when a crisis/legal-sensitive match has resources to show but the localized
@@ -99,13 +101,12 @@ _INTENT_DESCRIPTIONS_RESOURCES_WITHHELD: dict[GuardrailCategory, str] = {
 }
 
 
-async def build_guardrail_response(match: GuardrailMatch, message: str, llm_service: LLMService) -> str:
+async def build_guardrail_response(match: GuardrailMatch, message: str) -> str:
     """Compose the user-facing text for a guardrail interception, in the user's own language.
 
     Args:
         match: The classifier's decision for this message.
         message: The user's original message, used only to detect language and tone.
-        llm_service: The LLM service used to generate the localized intro sentence.
 
     Returns:
         Response text to show instead of a RAG answer.
@@ -123,7 +124,7 @@ async def build_guardrail_response(match: GuardrailMatch, message: str, llm_serv
     )
 
     try:
-        intro = await _localized_intro(match.category, message, llm_service, intent_descriptions)
+        intro = await _localized_intro(match.category, message, intent_descriptions)
     except RuntimeError:
         if not is_safety_critical:
             raise
@@ -173,7 +174,6 @@ def _resources_for(match: GuardrailMatch) -> tuple[CrisisResource, ...]:
 async def _localized_intro(
     category: GuardrailCategory,
     message: str,
-    llm_service: LLMService,
     intent_descriptions: dict[GuardrailCategory, str],
 ) -> str:
     """Generate the category's explanatory sentence in the user's own language.
@@ -181,7 +181,6 @@ async def _localized_intro(
     Args:
         category: The matched guardrail category.
         message: The user's original message, used only to detect language and tone.
-        llm_service: The LLM service used for the generation call.
         intent_descriptions: Which intent-description set to draw from — differs depending on
             whether resources will actually follow the generated intro (see ``_resources_for``).
 
@@ -196,15 +195,24 @@ async def _localized_intro(
         intent_description=intent_descriptions[category],
         message=message,
     )
-    # The timeout is enforced by LLMService's own Ollama client, not by wrapping this
-    # (threadpool-dispatched, synchronous) call in asyncio.timeout(): AnyIO's
-    # to_thread.run_sync ignores cancellation by default and waits for the worker thread
-    # to finish regardless, so an outer asyncio-level timeout would not actually bound a
-    # stalled call here. See LLMService.generate_response's `timeout` parameter docstring.
-    raw_response = await run_in_threadpool(llm_service.generate_response, prompt=prompt, timeout=_INTRO_TIMEOUT_SECONDS)
+    messages = build_messages(prompt, system_prompt=None, history=None)
 
-    if not isinstance(raw_response, str) or not raw_response.strip() or raw_response.startswith("Error:"):
-        msg = f"Guardrail response intro generation failed for category {category.value!r}: {raw_response!r}"
+    # A short, bounded timeout, baked into a model built fresh for this call (cheap — no
+    # I/O at construction). LangChain chat models don't support a per-call timeout
+    # override, so the app's shared, unbounded-timeout model can't be reused here, and
+    # wrapping this (threadpool-dispatched, synchronous) call in asyncio.timeout() instead
+    # wouldn't actually bound it: AnyIO's to_thread.run_sync ignores cancellation by
+    # default and waits for the worker thread to finish regardless. The timeout has to be
+    # enforced by the model's own client, which is what build_chat_model's timeout does.
+    model = build_chat_model(RAGConfig(), LLMSettings(), timeout=_INTRO_TIMEOUT_SECONDS)
+    try:
+        raw_response = await run_in_threadpool(invoke_text, model, messages)
+    except Exception as error:
+        msg = f"Guardrail response intro generation failed for category {category.value!r}: {error!r}"
+        raise RuntimeError(msg) from error
+
+    if not raw_response.strip():
+        msg = f"Guardrail response intro generation failed for category {category.value!r}: empty response"
         raise RuntimeError(msg)
 
     return raw_response.strip()

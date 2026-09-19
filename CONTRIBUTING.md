@@ -387,16 +387,18 @@ For full control over component creation:
 
 ```python
 from langchain_huggingface import HuggingFaceEmbeddings
+from app.config.config_models import RAGConfig
+from app.config.llm_settings import LLMSettings
 from app.retrieval import ChromaRetriever
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
+from app.services.chat_model import build_chat_model
 from app.services.rag_orchestrator import RAGOrchestrator
 
 # Create dependencies
 embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
 chroma_store = ChromaRetriever("my_docs", embeddings, "./db")
 doc_service = DocumentRetrievalService(chroma_store, num_results=5)
-llm_service = LLMService(model_name="gemma4:latest", max_tokens=1024)
+llm_service = build_chat_model(RAGConfig(llm_model_name="gemma4:latest", max_tokens=1024), LLMSettings())
 
 # Create orchestrator
 orchestrator = RAGOrchestrator(doc_service, llm_service)
@@ -406,7 +408,7 @@ orchestrator = RAGOrchestrator(doc_service, llm_service)
 
 - **RAGOrchestrator**: Main orchestrator that coordinates document retrieval and LLM generation
 - **DocumentRetrievalService**: Handles vector-based document retrieval
-- **LLMService**: Manages LLM interactions via Ollama
+- **Chat model**: The LLM backend is a plain LangChain `BaseChatModel` — `ChatOllama` (local Ollama), `ChatOpenAI`, or `ChatAnthropic` — built by `build_chat_model` (`app/services/chat_model.py`) via LangChain's own `init_chat_model`, selected at runtime by `TAPIO_LLM_PROVIDER` (see `backend/README.md`). No bespoke provider abstraction: every call site depends on `BaseChatModel` directly.
 - **ChromaRetriever**: Vector database abstraction layer
 - **Factories**: Simplify dependency wiring with sensible defaults
 

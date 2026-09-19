@@ -32,9 +32,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # The chat route talks to the graph directly (see app.graph, OrchestratorGraphDep);
     # app.state.orchestrator itself is kept for /health and for LLMGuardrailClassifier below.
     app.state.orchestrator_graph = orchestrator.graph
-    # Reuses the orchestrator's configured model name so the guardrail's LLM checks
-    # run against the same model as ordinary RAG generation.
-    app.state.guardrail_classifier = LLMGuardrailClassifier(orchestrator.llm_service.model_name)
+    # Reuses the orchestrator's own chat model instance — not just its model name — so the
+    # guardrail's LLM checks run against the same configured provider/credentials as
+    # ordinary RAG generation, not always Ollama (#9).
+    app.state.guardrail_classifier = LLMGuardrailClassifier(orchestrator.llm_service)
     logger.info("Tapio backend started")
     yield
 

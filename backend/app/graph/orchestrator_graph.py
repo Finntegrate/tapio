@@ -4,6 +4,7 @@ import logging
 from collections.abc import Generator
 from typing import Any, cast
 
+from langchain_core.language_models import BaseChatModel
 from langgraph.graph import END, START, StateGraph
 from langgraph.graph.state import CompiledStateGraph
 
@@ -11,8 +12,8 @@ from app.agents import get_agent
 from app.agents.router import AUTO_ROUTE, AgentRoute, AgentRouter
 from app.graph.nodes import make_generate_node, make_retrieve_node, make_route_node
 from app.graph.state import OrchestratorState
+from app.services.chat_model import check_model_availability
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ class TapioOrchestratorGraph:
         self,
         agent_router: AgentRouter,
         doc_retrieval_service: DocumentRetrievalService,
-        llm_service: LLMService,
+        llm_service: BaseChatModel,
     ) -> None:
         """Build the graph and store the dependencies its nodes close over.
 
@@ -153,7 +154,7 @@ class TapioOrchestratorGraph:
         Returns:
             bool: True if the model is available, False otherwise
         """
-        return self.llm_service.check_model_availability()
+        return check_model_availability(self.llm_service)
 
     def format_documents_for_display(self, documents: list[Any]) -> str:
         """Format retrieved documents for display.

@@ -11,12 +11,14 @@ import logging
 from collections.abc import Callable
 from typing import Any
 
+from langchain_core.language_models import BaseChatModel
+
 from app.agents import get_agent
 from app.agents.router import AUTO_ROUTE, AgentRouter
 from app.graph.state import OrchestratorState
 from app.prompts import load_prompt
+from app.services.chat_model import build_messages, invoke_text, stream_text
 from app.services.document_retrieval_service import DocumentRetrievalService
-from app.services.llm_service import LLMService
 
 logger = logging.getLogger(__name__)
 
@@ -92,11 +94,11 @@ def make_retrieve_node(doc_retrieval_service: DocumentRetrievalService) -> NodeF
     return retrieve_node
 
 
-def make_generate_node(llm_service: LLMService) -> NodeFn:
+def make_generate_node(llm_service: BaseChatModel) -> NodeFn:
     """Build the specialist generation node: prompts and calls the LLM.
 
     Args:
-        llm_service: Service used to generate the response, streamed or not.
+        llm_service: Chat model used to generate the response, streamed or not.
 
     Returns:
         A node callable that populates the prompts plus ``response`` or
@@ -120,31 +122,21 @@ def make_generate_node(llm_service: LLMService) -> NodeFn:
             context=state["context_text"],
             question=state["query_text"],
         )
-        history = state.get("history")
+        messages = build_messages(user_prompt, system_prompt, state.get("history"))
 
         if state.get("stream"):
             logger.info("Generating streaming response with LLM")
-            response_stream = llm_service.generate_response_stream(
-                prompt=user_prompt,
-                system_prompt=system_prompt,
-                history=history,
-            )
             return {
                 "system_prompt": system_prompt,
                 "user_prompt": user_prompt,
-                "response_stream": response_stream,
+                "response_stream": stream_text(llm_service, messages),
             }
 
         logger.info("Generating response with LLM")
-        response = llm_service.generate_response(
-            prompt=user_prompt,
-            system_prompt=system_prompt,
-            history=history,
-        )
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "response": str(response),
+            "response": invoke_text(llm_service, messages),
         }
 
     return generate_node

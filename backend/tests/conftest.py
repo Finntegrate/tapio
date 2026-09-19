@@ -6,6 +6,9 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi.testclient import TestClient
+from langchain_core.language_models import BaseChatModel
+from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_ollama import ChatOllama
 
 from app.agents.router import AgentRouter
 from app.dependencies import get_guardrail_classifier, get_orchestrator, get_orchestrator_graph
@@ -51,12 +54,13 @@ def mock_chroma_store():
 
 @pytest.fixture
 def mock_llm_service():
-    """Mock LLMService for unit tests."""
-    service = Mock()
-    service.generate_response.return_value = "Mocked LLM response"
-    service.generate_response_stream.return_value = iter(["Mocked ", "streamed ", "response"])
-    service.check_model_availability.return_value = True
-    return service
+    """Mock BaseChatModel (a LangChain chat model) for unit tests."""
+    model = Mock(spec=BaseChatModel)
+    model.invoke.return_value = AIMessage(content="Mocked LLM response")
+    model.stream.return_value = iter(
+        [AIMessageChunk(content="Mocked "), AIMessageChunk(content="streamed "), AIMessageChunk(content="response")],
+    )
+    return model
 
 
 @pytest.fixture
@@ -86,6 +90,23 @@ def pytest_configure(config):
     config.addinivalue_line("markers", "integration: mark test as integration test (uses real embeddings, slower)")
 
 
+@pytest.fixture(autouse=True)
+def _stub_guardrail_intro_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prevent guardrail intro generation from building a real chat model.
+
+    ``build_guardrail_response`` (see ``app.guardrails.responses``) builds its own
+    short-timeout model per call rather than taking an injected one, so — unlike the RAG
+    generation path, which is always exercised through an injected mock — nothing else
+    stops a test that reaches it (e.g. a ``/chat/stream`` guardrail-interception test)
+    from constructing a real provider client and trying to reach it over the network.
+    Autouse so this is safe by default; ``tests/guardrails/test_responses.py`` overrides
+    it per test to control the generated intro text.
+    """
+    model = Mock(spec=BaseChatModel)
+    model.invoke.return_value = AIMessage(content="Mocked guardrail intro.")
+    monkeypatch.setattr("app.guardrails.responses.build_chat_model", lambda *_args, **_kwargs: model)
+
+
 # ============================================================================
 # Fixtures for the FastAPI API tests
 # ============================================================================
@@ -93,14 +114,7 @@ def pytest_configure(config):
 
 @pytest.fixture
 def mock_rag_orchestrator() -> Mock:
-    """Fake RAGOrchestrator whose query_stream returns a finite token stream.
-
-    Its ``llm_service.generate_response`` is also stubbed: ``build_guardrail_response``
-    (see ``app.guardrails.responses``) calls ``orchestrator.llm_service`` directly to
-    generate a guardrail interception's localized intro text, mirroring how
-    ``app.main``'s production wiring shares the same LLM service between the
-    orchestrator and the guardrail response step.
-    """
+    """Fake RAGOrchestrator whose query_stream returns a finite token stream."""
     orchestrator = Mock()
     mock_doc = Mock()
     mock_doc.page_content = "Test document content"
@@ -108,8 +122,6 @@ def mock_rag_orchestrator() -> Mock:
 
     orchestrator.query_stream.return_value = (iter(["Mocked ", "response"]), [mock_doc])
     orchestrator.check_model_availability.return_value = True
-    orchestrator.llm_service = Mock()
-    orchestrator.llm_service.generate_response.return_value = "Mocked guardrail intro."
     return orchestrator
 
 
@@ -125,10 +137,7 @@ def mock_orchestrator_graph(fake_agent_router: AgentRouter) -> Mock:
 
     Its ``safe_route`` delegates to a real ``AgentRouter`` (pure and
     deterministic, see ``fake_agent_router``) since ``stream_chat_turn`` calls
-    it directly for the turn's routing event. Its ``llm_service.generate_response``
-    is stubbed for ``build_guardrail_response`` (see ``app.guardrails.responses``),
-    mirroring how ``app.main``'s production wiring shares the same LLM service
-    between the orchestrator graph and the guardrail response step.
+    it directly for the turn's routing event.
 
     Args:
         fake_agent_router: Real, deterministic ``AgentRouter`` to back
@@ -136,8 +145,8 @@ def mock_orchestrator_graph(fake_agent_router: AgentRouter) -> Mock:
 
     Returns:
         A ``Mock`` standing in for ``TapioOrchestratorGraph``, with
-        ``agent_router``, ``safe_route``, ``query_stream``,
-        ``check_model_availability``, and ``llm_service`` preconfigured.
+        ``agent_router``, ``safe_route``, ``query_stream``, and
+        ``check_model_availability`` preconfigured.
     """
     graph = Mock()
     graph.agent_router = fake_agent_router
@@ -154,8 +163,6 @@ def mock_orchestrator_graph(fake_agent_router: AgentRouter) -> Mock:
 
     graph.query_stream.return_value = (None, iter(["Mocked ", "response"]), [mock_doc])
     graph.check_model_availability.return_value = True
-    graph.llm_service = Mock()
-    graph.llm_service.generate_response.return_value = "Mocked guardrail intro."
     return graph
 
 
@@ -172,7 +179,7 @@ def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
     ``LLMGuardrailClassifier`` itself is covered more broadly in
     ``tests/guardrails/test_llm_classifier.py``.
     """
-    classifier = LLMGuardrailClassifier(model_name="test-model")
+    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
 
     async def fake_ainvoke(prompt: str) -> GuardrailCheckResult:
         # The few-shot examples baked into every check's own prompt can themselves
