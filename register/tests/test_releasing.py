@@ -41,9 +41,28 @@ def test_manifest_records_the_summary_and_the_caveat(tmp_path, source, register)
     assert all(digest.startswith("sha256:") for digest in manifest["files"].values())
 
 
-def test_releasing_over_an_existing_edition_is_refused(tmp_path, source, register):
-    release(tmp_path, source, register)
+def test_rebuilding_the_same_edition_is_idempotent(tmp_path, source, register):
+    """The payload is not kept in the repository, so rebuilding it is ordinary."""
+    first = release(tmp_path, source, register)
+    digests = json.loads((first.directory / "manifest.json").read_text(encoding="utf-8"))
+    again = release(tmp_path, source, register)
+    assert json.loads((again.directory / "manifest.json").read_text(encoding="utf-8")) == digests
+
+
+def test_releasing_different_content_into_an_existing_edition_is_refused(tmp_path, source, register_dict):
+    """This is what immutability means once the payload is rebuilt rather than stored."""
+    release(tmp_path, source, TermRegister.model_validate(register_dict))
+    register_dict["concepts"][0]["notation"] = "changed without bumping the version"
+    source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
     with pytest.raises(releasing.ReleaseExistsError, match="immutable"):
+        release(tmp_path, source, TermRegister.model_validate(register_dict))
+
+
+def test_a_release_whose_source_is_a_different_register_is_refused(tmp_path, source, register, register_dict):
+    """Every artifact in an edition has to describe the same register."""
+    other = {**register_dict, "title": "A different register"}
+    source.write_text(yaml.safe_dump(other, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(ValueError, match="not the same register"):
         release(tmp_path, source, register)
 
 
@@ -154,6 +173,17 @@ def test_current_edition_check_catches_a_version_with_no_manifest(tmp_path, sour
     source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
     problems = releasing.verify_current_edition(source, tmp_path / "releases")
     assert any("has no manifest" in problem for problem in problems)
+
+
+def test_current_edition_check_catches_a_tampered_coverage_caveat(tmp_path, source, register):
+    """The caveat is a claim the edition makes about itself, so digests alone are not enough."""
+    result = release(tmp_path, source, register)
+    manifest_path = result.directory / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["coverage_caveat"] = "This register is complete and authoritative."
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    problems = releasing.verify_current_edition(source, tmp_path / "releases")
+    assert any("coverage_caveat" in problem for problem in problems)
 
 
 def test_current_edition_check_catches_a_hand_edited_manifest(tmp_path, source, register):

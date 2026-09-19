@@ -13,13 +13,16 @@ A rule enforced here is a rule a reviewer does not have to remember.
 
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
 
 from tapio_register import paths
 from tapio_register.generated.term_register_model import Concept, TermRegister
 from tapio_register.loading import KIND_PREFIXES, enum_value, read_source
+
+#: Longest a label can be before it reads as a definition rather than a term.
+_LABEL_MAX = 120
 
 #: Two concepts sharing a surface form is the collision the ground node cannot resolve.
 _COLLISION = 2
@@ -127,8 +130,15 @@ def _check_references(concepts: list[Concept], known: dict[str, Concept]) -> lis
                     issues.append(Issue(concept.id, f"{slot} points at itself"))
         for target in concept.handled_by or []:
             handler = known.get(target)
-            if handler is not None and enum_value(handler.kind) != "organization":
+            if handler is None:
+                continue
+            if enum_value(handler.kind) != "organization":
                 issues.append(Issue(concept.id, f"handled_by points at '{target}', which is not an organization"))
+            elif not _overlap_in_force(concept, handler):
+                # A service cannot have been handled by a body that had already
+                # lapsed before it existed, or that only came into being after
+                # it ended. Either the dates or the edge is wrong.
+                issues.append(Issue(concept.id, f"handled_by '{target}' was never in force while this concept was"))
     return issues
 
 
@@ -151,42 +161,52 @@ def _check_validity(concepts: list[Concept], known: dict[str, Concept]) -> list[
                 continue
             if successor.valid_until is not None and successor.valid_until < concept.valid_until:
                 issues.append(Issue(concept.id, f"superseded_by '{target}' lapsed before this concept did"))
+            if successor.valid_from > concept.valid_until + timedelta(days=1):
+                # G5 repairs a stale assertion by following this pointer, so a
+                # successor that was not yet in force when its predecessor
+                # lapsed would turn one validation failure into another.
+                issues.append(
+                    Issue(
+                        concept.id,
+                        f"superseded_by '{target}' only came into force on {successor.valid_from}, "
+                        f"leaving a gap after {concept.valid_until}",
+                    ),
+                )
     return issues
 
 
-def _check_supersession_chains(concepts: list[Concept], known: dict[str, Concept]) -> list[Issue]:
-    """Reject cycles, which would make G5's auto-repair loop forever."""
-    issues: list[Issue] = []
-    for concept in concepts:
-        seen = {concept.id}
-        frontier = list(concept.superseded_by or [])
-        while frontier:
-            current = frontier.pop()
-            if current in seen:
-                issues.append(Issue(concept.id, "supersession chain is cyclic"))
-                break
-            seen.add(current)
-            successor = known.get(current)
-            if successor is not None:
-                frontier.extend(successor.superseded_by or [])
-    return issues
+def _reaches_itself(start: Concept, slot: str, known: dict[str, Concept]) -> bool:
+    """Whether following ``slot`` from ``start`` leads back to ``start``.
+
+    Only a path that returns to the starting concept is a cycle. Tracking every
+    node visited instead would report one for a diamond - ``A`` broader ``B``
+    and ``C``, both broader ``D`` - which is an ordinary shape in a hierarchy
+    where a concept can have more than one parent. Every concept is checked, so
+    a cycle anywhere is still found by whichever of its members starts.
+    """
+    expanded: set[str] = set()
+    frontier = list(getattr(start, slot) or [])
+    while frontier:
+        current = frontier.pop()
+        if current == start.id:
+            return True
+        if current in expanded:
+            continue
+        expanded.add(current)
+        node = known.get(current)
+        if node is not None:
+            frontier.extend(getattr(node, slot) or [])
+    return False
 
 
-def _check_broader_chains(concepts: list[Concept], known: dict[str, Concept]) -> list[Issue]:
-    issues: list[Issue] = []
-    for concept in concepts:
-        seen = {concept.id}
-        frontier = list(concept.broader or [])
-        while frontier:
-            current = frontier.pop()
-            if current in seen:
-                issues.append(Issue(concept.id, "broader chain is cyclic"))
-                break
-            seen.add(current)
-            parent = known.get(current)
-            if parent is not None:
-                frontier.extend(parent.broader or [])
-    return issues
+def _check_cycles(concepts: list[Concept], known: dict[str, Concept]) -> list[Issue]:
+    """Reject cycles: in supersession they would make G5's auto-repair loop forever."""
+    return [
+        Issue(concept.id, f"{label} chain is cyclic")
+        for slot, label in (("superseded_by", "supersession"), ("broader", "broader"))
+        for concept in concepts
+        if _reaches_itself(concept, slot, known)
+    ]
 
 
 def _surface_forms(concept: Concept) -> list[tuple[str, str]]:
@@ -231,10 +251,35 @@ def _overlap_in_force(first: Concept, second: Concept) -> bool:
     return first.valid_from <= second_end and second.valid_from <= first_end
 
 
+def _check_label_shape(concepts: list[Concept]) -> list[Issue]:
+    """A label is a term, not a sentence.
+
+    A gloss that lands in a label is published as ``skos:prefLabel`` and becomes
+    a surface form the ``ground`` node can match, so a parser that swept a
+    definition into a label has to fail here rather than reach the graph.
+    """
+    issues: list[Issue] = []
+    for concept in concepts:
+        for language, label in _surface_forms(concept):
+            if len(label) > _LABEL_MAX:
+                issues.append(Issue(concept.id, f"{language} label is {len(label)} characters; it reads as a gloss"))
+            elif ". " in label:
+                issues.append(Issue(concept.id, f"{language} label '{label[:40]}...' contains sentence punctuation"))
+    return issues
+
+
 def _check_observations(concepts: list[Concept], register_version: date) -> list[Issue]:
     issues: list[Issue] = []
     for concept in concepts:
+        if not concept.observations:
+            issues.append(Issue(concept.id, "has no observations, so nothing records where it was seen"))
+        if not concept.in_scope_of:
+            issues.append(Issue(concept.id, "is in no guide's scope"))
         for observation in concept.observations:
+            if enum_value(observation.source) == "other" and not observation.note:
+                # `other` means the publisher has no entry of its own, so the
+                # note is the only place the source is named at all.
+                issues.append(Issue(concept.id, f"observation of {observation.url} uses 'other' without naming it"))
             if observation.observed_on > register_version:
                 issues.append(
                     Issue(concept.id, f"observed_on {observation.observed_on} is after the register version"),
@@ -252,9 +297,9 @@ def check_integrity(register: TermRegister) -> list[Issue]:
         *_check_identifiers(concepts),
         *_check_references(concepts, known),
         *_check_validity(concepts, known),
-        *_check_supersession_chains(concepts, known),
-        *_check_broader_chains(concepts, known),
+        *_check_cycles(concepts, known),
         *_check_label_collisions(concepts),
+        *_check_label_shape(concepts),
         *_check_observations(concepts, register.register_version),
     ]
 

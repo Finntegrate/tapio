@@ -303,12 +303,15 @@ concepts:
   - source: other
     url: https://tem.fi/en/employment-areas
     observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
   - source: other
     url: https://tem.fi/tyollisyysalueet
     observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
   - source: other
     url: https://tem.fi/sv/sysselsattningsomradena
     observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
   alt_labels:
     en:
     - municipal employment area
@@ -350,12 +353,15 @@ concepts:
   - source: other
     url: https://elinvoimakeskus.fi/web/english
     observed_on: '2026-09-19'
+    note: The Economic Development Centres' own site.
   - source: other
     url: https://elinvoimakeskus.fi/etusivu
     observed_on: '2026-09-19'
+    note: The Economic Development Centres' own site.
   - source: other
     url: https://tem.fi/sv/livskraftscentralerna
     observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
 - id: org:municipal-health-and-social-services
   kind: organization
   pref_label:
@@ -388,12 +394,15 @@ concepts:
   - source: other
     url: https://vm.fi/en/wellbeing-services-counties
     observed_on: '2026-09-19'
+    note: Ministry of Finance.
   - source: other
     url: https://vm.fi/hyvinvointialueet
     observed_on: '2026-09-19'
+    note: Ministry of Finance.
   - source: other
     url: https://vm.fi/sv/valfardsomradena
     observed_on: '2026-09-19'
+    note: Ministry of Finance.
 - id: svc:enter-finland
   kind: service
   pref_label:
@@ -1524,9 +1533,7 @@ concepts:
   pref_label:
     en: international protection
     fi: kansainvälinen suojelu
-    sv: internationellt skydd According to EU directives and the Finnish Aliens Act, international protection
-      means refugee status or subsidiary protection status. See also refugee, subsidiary protection, humanitarian
-      protection.
+    sv: internationellt skydd
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
@@ -1534,6 +1541,9 @@ concepts:
   - source: migri
     url: https://migri.fi/en/glossary
     observed_on: '2026-09-19'
+  definition:
+    en: According to EU directives and the Finnish Aliens Act, international protection means refugee
+      status or subsidiary protection status. See also refugee, subsidiary protection, humanitarian protection.
 - id: status:subsidiary-protection
   kind: status
   pref_label:

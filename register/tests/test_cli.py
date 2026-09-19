@@ -68,13 +68,18 @@ def test_release_refuses_an_invalid_register(tmp_path, register_dict, monkeypatc
     assert "Refusing to release" in result.output
 
 
-def test_release_writes_an_edition_then_refuses_to_redo_it(tmp_path, source, monkeypatch):
+def test_release_rebuilds_an_edition_but_refuses_to_change_one(tmp_path, source, register_dict, monkeypatch):
     monkeypatch.setattr(paths, "RELEASES_DIR", tmp_path / "releases")
     first = runner.invoke(app, ["release", "--source", str(source)])
     assert first.exit_code == 0, first.output
     again = runner.invoke(app, ["release", "--source", str(source)])
-    assert again.exit_code == 1
-    assert "immutable" in again.output
+    assert again.exit_code == 0, again.output
+
+    register_dict["concepts"][0]["notation"] = "changed without bumping the version"
+    source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
+    changed = runner.invoke(app, ["release", "--source", str(source)])
+    assert changed.exit_code == 1
+    assert "immutable" in changed.output
 
 
 def test_diff_compares_two_editions(tmp_path, source, register_dict, monkeypatch):

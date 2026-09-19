@@ -36,8 +36,8 @@
     }
   },
   "files": {
-    "register.jsonld": "sha256:1a49ae83dc775671b6b66106b8939cb4fca827a976906f63d08a68be451690c8",
-    "register.ttl": "sha256:424fa3152ae56bcef2fbe1020789aff9a61f9c94800f9d56ac95c054a43a4b0b",
-    "register.yaml": "sha256:1cc6c58cdb9b13fc43c7360dac8a951787810352734f2685bf4782398374045c"
+    "register.jsonld": "sha256:e01d222cdacf43869f332b632554ffe3c4ec747b84f9a43778e2b577693e357c",
+    "register.ttl": "sha256:43cbb11fa8d4cbb70ca0d94a28282e924e12bb6b89b3912d4a44c2fd33600b68",
+    "register.yaml": "sha256:e45f3fd1d77611bbbe4de83b9441f8d32ea7218487e1f2b9047242361439cedc"
   }
 }

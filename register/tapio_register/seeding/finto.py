@@ -53,14 +53,25 @@ def _search(client: httpx.Client, query: str, vocabulary: str, language: str) ->
 
 
 def _labels(client: httpx.Client, uri: str, vocabulary: str) -> tuple[dict[str, str], dict[str, list[str]]]:
+    """Return the preferred and alternative labels a vocabulary holds for a concept."""
     pref: dict[str, str] = {}
     alt: dict[str, list[str]] = {}
     for language in LANGUAGES:
         response = client.get(f"{FINTO_API}/{vocabulary}/label", params={"uri": uri, "lang": language})
-        if response.status_code == httpx.codes.OK:
-            label = response.json().get("prefLabel")
-            if label:
-                pref[language] = label
+        if response.status_code != httpx.codes.OK:
+            continue
+        payload = response.json()
+        label = payload.get("prefLabel")
+        if label:
+            pref[language] = label
+        # Alternative labels are what tell a reviewer whether a candidate is the
+        # right anchor - they are the other surface forms people actually use -
+        # so they are carried through rather than dropped. Finto returns either
+        # a list or, for a single label, a bare string.
+        others = payload.get("altLabel") or []
+        others = [others] if isinstance(others, str) else list(others)
+        if others:
+            alt[language] = others
     return pref, alt
 
 

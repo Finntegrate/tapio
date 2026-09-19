@@ -22,6 +22,7 @@ import tempfile
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import Any
 
 import yaml
 
@@ -50,7 +51,8 @@ class ReleaseResult:
 
     directory: Path
     files: list[Path]
-    summary: dict[str, object]
+    summary: dict[str, Any]
+    manifest: dict[str, Any]
 
 
 def _digest(path: Path) -> str:
@@ -64,20 +66,27 @@ def write_release(
     *,
     overwrite: bool = False,
 ) -> ReleaseResult:
-    """Write the edition named by ``register.register_version``."""
+    """Write the edition named by ``register.register_version``.
+
+    Rebuilding an edition that already exists is ordinary - the payload is not
+    kept in the repository - so this is idempotent while the source still
+    produces the same bytes. What it refuses is rewriting a manifest into
+    something different, because that is how a published edition quietly stops
+    being the thing a provenance record named.
+    """
     root = releases_dir or paths.RELEASES_DIR
     directory = root / register.register_version.isoformat()
-    if directory.exists() and not overwrite:
-        message = (
-            f"{directory} already exists. Editions are immutable: bump register_version "
-            f"in the source, or pass --overwrite to redo an edition that has not been published."
-        )
-        raise ReleaseExistsError(message)
-    directory.mkdir(parents=True, exist_ok=True)
+    manifest_path = directory / MANIFEST_NAME
+    existing = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else None
 
+    source = read_source(source_path)
+    if TermRegister.model_validate(source) != register:
+        message = "the register being released and the source snapshot are not the same register"
+        raise ValueError(message)
+
+    directory.mkdir(parents=True, exist_ok=True)
     # The source snapshot travels with the edition so a reader never has to
     # reconstruct it from repository history.
-    source = read_source(source_path)
     (directory / SOURCE_NAME).write_text(
         yaml.safe_dump(source, allow_unicode=True, sort_keys=False, width=100),
         encoding="utf-8",
@@ -87,8 +96,8 @@ def write_release(
         (directory / name).write_text(skos.serialize(graph, rdf_format), encoding="utf-8")
 
     summary = summarize(register)
-    files = sorted(p for p in directory.iterdir() if p.name != MANIFEST_NAME)
-    manifest = {
+    files = sorted(path for path in directory.iterdir() if path.name != MANIFEST_NAME)
+    manifest: dict[str, Any] = {
         "register_version": register.register_version.isoformat(),
         "title": register.title,
         "license": register.license,
@@ -96,8 +105,15 @@ def write_release(
         "summary": summary,
         "files": {path.name: _digest(path) for path in files},
     }
-    (directory / MANIFEST_NAME).write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return ReleaseResult(directory, [*files, directory / MANIFEST_NAME], summary)
+    if existing is not None and existing != manifest and not overwrite:
+        message = (
+            f"{directory} already holds a different edition. Editions are immutable: bump "
+            f"register_version in the source and release again, or pass --overwrite to redo an "
+            f"edition that has not been published."
+        )
+        raise ReleaseExistsError(message)
+    manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    return ReleaseResult(directory, [*files, manifest_path], summary, manifest)
 
 
 def released_versions(releases_dir: Path | None = None) -> list[str]:
@@ -143,8 +159,10 @@ def verify_current_edition(source_path: Path | None = None, releases_dir: Path |
     This is the check that keeps a manifest-only release honest. It catches a
     register edited without bumping its version, a manifest edited by hand, and
     a change that makes the serializations stop reproducing - each of which
-    would otherwise leave the recorded digests describing something that no
-    longer exists.
+    would otherwise leave the manifest describing something that no longer
+    exists. The published metadata is compared too, not only the digests: the
+    coverage caveat is a claim the edition makes about itself, and a tampered
+    one would otherwise pass.
     """
     source = read_source(source_path)
     version = str(source.get("register_version"))
@@ -153,25 +171,31 @@ def verify_current_edition(source_path: Path | None = None, releases_dir: Path |
     if not manifest_path.exists():
         return [f"the source names version {version}, which has no manifest in {root.name}/"]
 
-    recorded = json.loads(manifest_path.read_text(encoding="utf-8")).get("files", {})
+    recorded = json.loads(manifest_path.read_text(encoding="utf-8"))
     register = TermRegister.model_validate(source)
     with tempfile.TemporaryDirectory() as scratch:
-        rebuilt = write_release(register, source_path=source_path, releases_dir=Path(scratch), overwrite=True)
-        digests = {path.name: _digest(path) for path in rebuilt.directory.iterdir() if path.name != MANIFEST_NAME}
+        rebuilt = write_release(register, source_path=source_path, releases_dir=Path(scratch), overwrite=True).manifest
 
     problems = [
-        f"{name}: the manifest records a file the release no longer produces"
-        for name in sorted(set(recorded) - set(digests))
+        f"manifest {field}: recorded value does not match the source"
+        for field in ("register_version", "title", "license", "coverage_caveat", "summary")
+        if recorded.get(field) != rebuilt[field]
     ]
+    recorded_files: dict[str, str] = recorded.get("files", {})
+    rebuilt_files: dict[str, str] = rebuilt["files"]
+    problems.extend(
+        f"{name}: the manifest records a file the release no longer produces"
+        for name in sorted(set(recorded_files) - set(rebuilt_files))
+    )
     problems.extend(
         f"{name}: the release produces a file the manifest does not record"
-        for name in sorted(set(digests) - set(recorded))
+        for name in sorted(set(rebuilt_files) - set(recorded_files))
     )
     problems.extend(
         f"{name}: rebuilt from the source, it does not match the digest recorded for {version}. "
         f"Editions are immutable: bump register_version and release again."
-        for name in sorted(set(recorded) & set(digests))
-        if recorded[name] != digests[name]
+        for name in sorted(set(recorded_files) & set(rebuilt_files))
+        if recorded_files[name] != rebuilt_files[name]
     )
     return problems
 

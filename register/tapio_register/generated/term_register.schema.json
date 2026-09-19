@@ -120,6 +120,7 @@
           "items": {
             "$ref": "#/$defs/GuideId"
           },
+          "minItems": 1,
           "type": "array"
         },
         "kind": {
@@ -138,6 +139,7 @@
           "items": {
             "$ref": "#/$defs/Observation"
           },
+          "minItems": 1,
           "type": "array"
         },
         "pref_label": {
@@ -170,7 +172,7 @@
           "type": "string"
         },
         "valid_until": {
-          "description": "The date this entity left force, absent while it is still in force. A present-tense claim naming a concept whose ``valid_until`` has passed fails G5.",
+          "description": "The last date on which this entity was in force, inclusive, and absent while it still is. A body dissolved on 1 January 2025 therefore carries 2024-12-31, and its successor's ``valid_from`` is 2025-01-01, so the two intervals meet without a gap or an overlap. A present-tense claim naming a concept whose ``valid_until`` has passed fails G5.",
           "format": "date",
           "type": [
             "string",
@@ -335,6 +337,7 @@
           "items": {
             "$ref": "#/$defs/Concept"
           },
+          "minItems": 1,
           "type": "array"
         },
         "coverage_caveat": {
@@ -381,6 +384,7 @@
       "items": {
         "$ref": "#/$defs/Concept"
       },
+      "minItems": 1,
       "type": "array"
     },
     "coverage_caveat": {

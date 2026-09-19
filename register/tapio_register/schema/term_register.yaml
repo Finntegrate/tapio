@@ -71,6 +71,7 @@ classes:
         multivalued: true
         inlined_as_list: true
         required: true
+        minimum_cardinality: 1
 
   Concept:
     class_uri: skos:Concept
@@ -122,9 +123,11 @@ classes:
         required: true
       valid_until:
         description: >-
-          The date this entity left force, absent while it is still in force. A
-          present-tense claim naming a concept whose ``valid_until`` has passed
-          fails G5.
+          The last date on which this entity was in force, inclusive, and absent
+          while it still is. A body dissolved on 1 January 2025 therefore carries
+          2024-12-31, and its successor's ``valid_from`` is 2025-01-01, so the
+          two intervals meet without a gap or an overlap. A present-tense claim
+          naming a concept whose ``valid_until`` has passed fails G5.
         range: date
         slot_uri: sdo:validThrough
       superseded_by:
@@ -177,6 +180,8 @@ classes:
         range: GuideId
         multivalued: true
         required: true
+        # `required` alone permits an empty list; this is what makes it one or more.
+        minimum_cardinality: 1
       observations:
         description: >-
           Where this entity was seen, and when. At least one per concept: the
@@ -186,6 +191,7 @@ classes:
         multivalued: true
         inlined_as_list: true
         required: true
+        minimum_cardinality: 1
 
   PrefLabels:
     description: The preferred label in each of the three languages the corpus is grounded in.

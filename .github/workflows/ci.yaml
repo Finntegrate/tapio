@@ -66,12 +66,17 @@ jobs:
       # separate type-check or test failure -- the report job surfaces all of
       # them together, and "Fail if any check failed" at the end of this job
       # still turns the job (and its matrix leg) red.
+      # Both the linter and the formatter, because prek runs both and a commit
+      # made without it would otherwise land formatting CI never checked.
       - name: Lint
         id: ruff
         continue-on-error: true
         run: |
           set -o pipefail
-          uv run --no-sync ${{ matrix.sync_args }} ruff check . 2>&1 | tee /tmp/ruff-output.txt
+          status=0
+          uv run --no-sync ${{ matrix.sync_args }} ruff check . 2>&1 | tee /tmp/ruff-output.txt || status=1
+          uv run --no-sync ${{ matrix.sync_args }} ruff format --check . 2>&1 | tee -a /tmp/ruff-output.txt || status=1
+          exit "$status"
 
       - name: Capture lint output
         id: ruff-summary
@@ -167,7 +172,7 @@ jobs:
             '{
               service: $service,
               checks: {
-                "ruff (lint)": {outcome: $ruff_outcome, output: $ruff_output, fix: "uv run --directory \($service) ruff check ."},
+                "ruff (lint)": {outcome: $ruff_outcome, output: $ruff_output, fix: "uv run --directory \($service) ruff check . && uv run --directory \($service) ruff format ."},
                 "mypy": {outcome: $mypy_outcome, output: $mypy_output, fix: "uv run --directory \($service) mypy \($mypy_args)"},
                 "pyrefly": {outcome: $pyrefly_outcome, output: $pyrefly_output, fix: "uv run --directory \($service) pyrefly check"},
                 "pytest + coverage": {outcome: $pytest_outcome, output: $pytest_output, fix: "uv run --directory \($service) pytest --cov=\($package) --cov-fail-under=80"}

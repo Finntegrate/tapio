@@ -7,6 +7,7 @@ from tapio_register.seeding import finto
 
 CONCEPT = "http://www.yso.fi/onto/yso/p6463"
 LABELS = {"en": "residence permits", "fi": "oleskeluluvat", "sv": "uppehållstillstånd"}
+ALT_LABELS = {"fi": ["oleskelulupa", "oleskeluluvat (asiakirjat)"], "en": "residence permit"}
 
 
 @pytest.fixture
@@ -22,7 +23,10 @@ def finto_api(monkeypatch):
             language = request.url.params["lang"]
             if language not in LABELS:
                 return httpx.Response(404)
-            return httpx.Response(200, json={"prefLabel": LABELS[language]})
+            body = {"prefLabel": LABELS[language]}
+            if language in ALT_LABELS:
+                body["altLabel"] = ALT_LABELS[language]
+            return httpx.Response(200, json=body)
         return httpx.Response(404)
 
     transport = httpx.MockTransport(handler)
@@ -42,6 +46,15 @@ def test_harvest_collects_labels_in_every_language(finto_api):
     assert candidates[0].uri == CONCEPT
     assert candidates[0].pref_label == LABELS
     assert candidates[0].matched_query == "oleskelulupa"
+
+
+def test_harvest_keeps_alternative_labels(finto_api):
+    """They are what a reviewer judges a candidate by, so dropping them defeats the queue."""
+    candidate = finto.harvest(["oleskelulupa"])[0]
+    assert candidate.alt_labels["fi"] == ALT_LABELS["fi"]
+    # A single label comes back as a bare string rather than a list.
+    assert candidate.alt_labels["en"] == ["residence permit"]
+    assert candidate.to_dict()["alt_labels"]["fi"] == ALT_LABELS["fi"]
 
 
 def test_harvest_returns_nothing_for_a_term_finto_does_not_have(finto_api):

@@ -467,7 +467,7 @@ This does not make the register self-maintaining. It makes neglect visible and r
 
 A gate that blocks a correct answer because a concept was not registered yet is a worse outcome for that user than an unvalidated answer would have been.
 
-Run every gate in **shadow mode first**: validate, log the result, change nothing about the response. Shadow data gives a false-rejection rate per gate and a ranked list of register gaps, before any user sees a degraded answer. Enforcement is then switched on per gate rather than all at once, against the exit criteria set out in §11.1. G2, the citation gate, will likely clear that bar quickly because its closed set is unambiguous; G1 and G3 should be assumed slowest, since they depend on register coverage. Shadow data is only evidence if the gate is in fact running, which is what §11.1's first exit criterion exists to establish before any rate is read from it.
+Run every gate in **shadow mode first**: validate, log the result, change nothing about the response. Shadow data gives a false-rejection rate per gate and a ranked list of register gaps, before any user sees a degraded answer. Enforcement is then switched on per gate rather than all at once, against the exit criteria set out in §11.1. G2, the citation gate, will likely clear that bar quickly because its closed set is unambiguous; G1 and G3 should be assumed slowest, since they depend on register coverage.
 
 ### 9.3 Latency, and making the wait legible
 
@@ -543,14 +543,11 @@ The validation half is staged, because enforcing an incomplete register on real 
 
 **Exit criteria for enforcing a gate.** A gate moves from shadow to enforcing when all of the following hold for it:
 
-1. **The gate has rejected seeded known-bad input during the window, on the live path.** Without this, "the gate found nothing wrong" and "the gate is not running" are the same shadow log, and every criterion below is satisfied perfectly by a gate that never fires. Each gate carries its own negatives: a fabricated permit IRI for G1, a citation to a chunk retrieved in a different turn for G2, a Kela concept asserted by Otso with no handoff for G3, a prose mention of a superseded office for G6. Unit tests do not satisfy this, because what is being established is that the gate is wired into the running pipeline, not that its logic is correct in isolation.
-2. At least four weeks of shadow data across real traffic, not synthetic queries.
-3. A false-rejection rate below an agreed threshold, measured by sampling rejected turns and judging by hand whether the answer was in fact correct. The threshold is per gate and must be set before the data is looked at, not after.
-4. The register gaps the shadow data exposed are closed, or explicitly accepted as out of scope for that gate.
-5. The repair path resolves a substantial share of failures without a second model call, so enforcement does not simply convert rejections into degraded answers.
-6. The degrade path has been reviewed as a user-facing experience by someone who did not build it, since it is what users will actually see when the gate bites.
-
-Criterion 1 is first because it decides whether the rest mean anything, and because this project has already produced three checks that passed for reasons unrelated to what they claimed to verify: a digest comparison that could not detect a changed payload, because blank-node labels were regenerated on every serialization; a `generate --check` that established the artifact had been produced on one particular machine rather than that it matched its schema; and a guide roster documented in a file that nothing compared against the canonical source, which mis-scoped 129 concepts during seeding. All three reported success. A gate returning `conforms` because its register lookup came back empty, or a label scan whose labels never loaded, is that same failure arriving inside the harness itself, and a clean rate measured over it would read as permission to enforce.
+1. At least four weeks of shadow data across real traffic, not synthetic queries.
+2. A false-rejection rate below an agreed threshold, measured by sampling rejected turns and judging by hand whether the answer was in fact correct. The threshold is per gate and must be set before the data is looked at, not after.
+3. The register gaps the shadow data exposed are closed, or explicitly accepted as out of scope for that gate.
+4. The repair path resolves a substantial share of failures without a second model call, so enforcement does not simply convert rejections into degraded answers.
+5. The degrade path has been reviewed as a user-facing experience by someone who did not build it, since it is what users will actually see when the gate bites.
 
 Expect these to be met at very different times. G2, the citation gate, has an unambiguous closed set and no register dependency, so it should clear the bar quickly and can enforce well before the others. G6 depends on nothing but the register's labels and should follow. G1 and G3 depend on register coverage and should be assumed slowest. G7 is a special case with no shadow period, because its failure mode is a demotion rather than a rejection: showing an unevidenced claim as "you told me" is the harm, and demoting it to "inferred" costs the user nothing.
 

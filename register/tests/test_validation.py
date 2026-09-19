@@ -1,6 +1,7 @@
 """The cross-concept rules are what ADR 0007's posture amounts to in practice."""
 
 import pytest
+from pydantic import ValidationError
 
 from tapio_register.generated.term_register_model import TermRegister
 from tapio_register.validation import check_integrity, normalize_label, summarize
@@ -81,6 +82,78 @@ def test_supersession_cycle_is_rejected(register_dict):
     first["superseded_by"] = [second["id"]]
     second["superseded_by"] = [first["id"]]
     assert any("supersession chain is cyclic" in message for message in messages(register_dict))
+
+
+def test_a_diamond_is_not_a_cycle(register_dict):
+    """Two parents sharing a grandparent is an ordinary hierarchy, not a defect."""
+    register_dict["concepts"].append(
+        concept(
+            "permit:shared-parent",
+            pref_label={"en": "shared parent", "fi": "yhteinen", "sv": "gemensam"},
+        ),
+    )
+    register_dict["concepts"][0]["broader"] = ["permit:residence-permit", "org:migri"]
+    register_dict["concepts"][1]["broader"] = ["permit:shared-parent"]
+    register_dict["concepts"][2]["broader"] = ["permit:shared-parent"]
+    assert not [message for message in messages(register_dict) if "cyclic" in message]
+
+
+def test_a_successor_that_leaves_a_gap_is_rejected(register_dict):
+    """G5 repairs through this pointer, so the successor must already be in force."""
+    register_dict["concepts"][1]["valid_until"] = "2025-01-01"
+    register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit"]
+    register_dict["concepts"][0]["valid_from"] = "2026-01-01"
+    assert any("leaving a gap after" in message for message in messages(register_dict))
+
+
+def test_a_successor_taking_over_the_next_day_is_accepted(register_dict):
+    register_dict["concepts"][1]["valid_until"] = "2024-12-31"
+    register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit"]
+    register_dict["concepts"][0]["valid_from"] = "2025-01-01"
+    assert messages(register_dict) == []
+
+
+def test_an_authority_never_in_force_alongside_the_concept_is_rejected(register_dict):
+    register_dict["concepts"][2]["valid_until"] = "2010-01-01"
+    register_dict["concepts"][2]["change_note"] = "Long gone."
+    register_dict["concepts"][0]["valid_from"] = "2020-01-01"
+    assert any("was never in force while this concept was" in message for message in messages(register_dict))
+
+
+def test_a_label_carrying_a_definition_is_rejected(register_dict):
+    """A gloss swept into a label is published as a prefLabel and matched by ground."""
+    register_dict["concepts"][0]["pref_label"]["sv"] = "internationellt skydd " + "x" * 120
+    assert any("reads as a gloss" in message for message in messages(register_dict))
+
+
+def test_a_label_containing_sentence_punctuation_is_rejected(register_dict):
+    register_dict["concepts"][0]["pref_label"]["en"] = "Residence permit. Issued by Migri"
+    assert any("sentence punctuation" in message for message in messages(register_dict))
+
+
+def test_an_unnamed_other_source_is_rejected(register_dict):
+    """`other` means the publisher has no entry, so the note is the only record of it."""
+    register_dict["concepts"][0]["observations"][0]["source"] = "other"
+    assert any("uses 'other' without naming it" in message for message in messages(register_dict))
+
+
+def test_a_named_other_source_is_accepted(register_dict):
+    register_dict["concepts"][0]["observations"][0]["source"] = "other"
+    register_dict["concepts"][0]["observations"][0]["note"] = "Ministry of Finance."
+    assert messages(register_dict) == []
+
+
+def test_a_concept_with_no_provenance_is_rejected_by_the_schema(register_dict):
+    """`required` alone lets an empty list through; minimum_cardinality is the guard."""
+    register_dict["concepts"][0]["observations"] = []
+    with pytest.raises(ValidationError):
+        TermRegister.model_validate(register_dict)
+
+
+def test_a_concept_in_no_guides_scope_is_rejected_by_the_schema(register_dict):
+    register_dict["concepts"][0]["in_scope_of"] = []
+    with pytest.raises(ValidationError):
+        TermRegister.model_validate(register_dict)
 
 
 def test_broader_cycle_is_rejected(register_dict):
