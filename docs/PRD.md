@@ -140,28 +140,12 @@ A user can let Tapio route automatically, pick a guide explicitly, or reach one 
 
 ## 9. Roadmap
 
-Grouped by theme, referencing the current open backlog (`Finntegrate/tapio`, checked 2026-09-14). This is a shape of the roadmap, not a commitment to order — see the backlog for current prioritization.
+Tracked on GitHub, not duplicated here — this document specifies product requirements, not delivery sequencing. Sequencing, prioritization, and milestone grouping live where they can stay current without a second edit:
 
-| Theme | What it delivers | Backlog |
-| --- | --- | --- |
-| Complete the live guide network | Bring Sampo, Rauni, and Otso to the same RAG-binding, routing, and evaluation depth as Ilmarinen | [#15](https://github.com/Finntegrate/tapio/issues/15) |
-| Expand the guide network | Design and build the 7 guides on the public roster (Pellervo, Agricola, Louhi, Mielikki, Lempi, Ahti, Kokko) not yet implemented — see §6. Scope and build order for all 7 are documented in the [planned guide network expansion spec](specs/planned-guide-network-expansion.md), grounded in [source research](research/guide-network-grounding-sources.md) | [#96](https://github.com/Finntegrate/tapio/issues/96), [#121](https://github.com/Finntegrate/tapio/issues/121) |
-| Name-based routing | Treat each guide's own name as a routing keyword alongside its topical activation terms, and have guides use each other's names in handoffs (§7.1) | *(none — backlog gap; extends the routing work under [#15](https://github.com/Finntegrate/tapio/issues/15))* |
-| Durable conversations | Persist conversations across sessions with contextual memory, user-controlled titling and deletion, with no PII stored beyond what a user explicitly types | [#16](https://github.com/Finntegrate/tapio/issues/16), [#35](https://github.com/Finntegrate/tapio/issues/35) |
-| Accounts and access | Low-friction, minimal-identity authentication and a tenancy model that supports individual and partner-affiliated users without identity verification | [#30](https://github.com/Finntegrate/tapio/issues/30), [#31](https://github.com/Finntegrate/tapio/issues/31) |
-| Safety guardrails | Classifier and escalation policy for sensitive or off-topic queries, ahead of broad release | [#29](https://github.com/Finntegrate/tapio/issues/29) |
-| Answer quality | Deduplicate/rank sources, multi-language retrieval, a standing evaluation framework | [#68](https://github.com/Finntegrate/tapio/issues/68), [#26](https://github.com/Finntegrate/tapio/issues/26), [#27](https://github.com/Finntegrate/tapio/issues/27) |
-| Language in the UI | Let users pick a conversation language in the chat interface | [#34](https://github.com/Finntegrate/tapio/issues/34) |
-| Partner visibility | Partner org/reporting model and a partner-facing dashboard | [#45](https://github.com/Finntegrate/tapio/issues/45), [#46](https://github.com/Finntegrate/tapio/issues/46) |
-| Trust and rate management | Usage quotas and rate limiting to keep the service usable and abuse-resistant | [#32](https://github.com/Finntegrate/tapio/issues/32) |
-| Privacy and compliance | Formalize the no-PII posture as a written data inventory, GDPR checklist, and retention policy, given the sensitivity of immigration-status conversations | [#40](https://github.com/Finntegrate/tapio/issues/40) |
-| In-conversation privacy nudge | Build the gentle, recurring reminder not to share unnecessary personal details (§7.5) into the chat interface | *(none — backlog gap)* |
-| Operability | Structured logging/LLM observability, error tracking, usage metrics, so issues are caught before users report them | [#37](https://github.com/Finntegrate/tapio/issues/37), [#38](https://github.com/Finntegrate/tapio/issues/38), [#39](https://github.com/Finntegrate/tapio/issues/39) |
-| Production readiness | Deployment, secrets management, dependency/container scanning | [#41](https://github.com/Finntegrate/tapio/issues/41), [#42](https://github.com/Finntegrate/tapio/issues/42), [#44](https://github.com/Finntegrate/tapio/issues/44) |
-| UX research | Validate what users actually need against the current guide/routing model | [#33](https://github.com/Finntegrate/tapio/issues/33), [#36](https://github.com/Finntegrate/tapio/issues/36) |
-| Proactive guidance | Surface anticipated next steps and related resources per §7.2; no open issue yet defines this — a candidate for a new backlog item once scoped | *(none — backlog gap)* |
+- **Milestones**: <https://github.com/Finntegrate/tapio/milestones> — release-scale groupings (e.g. `3.0.0`)
+- **Backlog**: `gh issue list --repo Finntegrate/tapio --state open`, or the [Finntegrate Team project board](https://github.com/orgs/Finntegrate/projects/2) — per-issue Priority, Size, and Milestone fields
 
-Before proposing new roadmap items, check this list and the live backlog (`gh issue list --repo Finntegrate/tapio --state open`) for overlap — see `CLAUDE.md`.
+Before proposing new work, check both for overlap — see `CLAUDE.md`'s backlog-awareness guidance.
 
 ## 10. Success metrics
 

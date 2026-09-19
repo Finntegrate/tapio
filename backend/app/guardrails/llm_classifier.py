@@ -51,32 +51,29 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
-import anthropic
 import httpx
-import ollama
-import openai
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.prompts import load_prompt
+from app.services.llm_providers import PROVIDERS
 
 # Each provider's SDK wraps connection failures in its own exception type rather than
-# raising a raw httpx error; openai/anthropic's own *TimeoutError subclasses their
-# *ConnectionError, so catching the connection error covers both for that provider.
-# APIStatusError (an HTTP error response — 401, 429, 5xx, ...) is a separate sibling
-# class, not a subclass of APIConnectionError, so it needs listing explicitly: without
-# it, an auth or rate-limit failure would fall through to _ParseError and, after a
-# retry, the crisis check would escalate to a conservative match for an ordinary
-# request instead of failing open like every other infra failure.
-_INFRA_ERROR_TYPES: Final = (
+# raising a raw httpx error (see app.services.llm_providers.PROVIDERS for the
+# per-provider types, e.g. why openai/anthropic each list an APIStatusError alongside
+# their APIConnectionError). httpx.RequestError and TimeoutError aren't provider-specific
+# — Ollama's client raises them directly for a connection failure or a stalled request,
+# without wrapping. Without these, an infra failure would fall through to _ParseError
+# and, after a retry, the crisis check would escalate to a conservative match for an
+# ordinary request instead of failing open like every other infra failure.
+_PROVIDER_INFRA_ERROR_TYPES: Final[tuple[type[BaseException], ...]] = tuple(
+    error_type for provider in PROVIDERS.values() for error_type in provider.infra_error_types
+)
+_INFRA_ERROR_TYPES: Final[tuple[type[BaseException], ...]] = (
     httpx.RequestError,
-    ollama.ResponseError,
-    openai.APIConnectionError,
-    openai.APIStatusError,
-    anthropic.APIConnectionError,
-    anthropic.APIStatusError,
     TimeoutError,
+    *_PROVIDER_INFRA_ERROR_TYPES,
 )
 
 logger = logging.getLogger(__name__)
