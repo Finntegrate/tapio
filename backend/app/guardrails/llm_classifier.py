@@ -1,19 +1,20 @@
 """LLM-based input classifier for guardrailed queries (#29).
 
 Runs three independent, narrowly-scoped classification checks — crisis,
-legal-sensitive, out-of-scope — concurrently against the same Ollama model
-the RAG pipeline uses. Each check is a focused yes/no question grounded
-with a handful of few-shot examples, rather than a fixed keyword/regex
-list: a hardcoded phrase list is brittle, English-only, and doesn't scale
-to real phrasing, so the same illustrative phrases are given to the model
-as examples instead, which generalizes to wording and languages the
+legal-sensitive, out-of-scope — concurrently against the same configured chat
+model (#9: whichever provider ``TAPIO_LLM_PROVIDER`` selects, not always
+Ollama) the RAG pipeline uses. Each check is a focused yes/no question
+grounded with a handful of few-shot examples, rather than a fixed
+keyword/regex list: a hardcoded phrase list is brittle, English-only, and
+doesn't scale to real phrasing, so the same illustrative phrases are given to
+the model as examples instead, which generalizes to wording and languages the
 examples don't literally contain.
 
-Each check binds a Pydantic schema via LangChain's structured-output
-support (``ChatOllama.with_structured_output``, Ollama's JSON-schema mode)
-rather than asking for free-text JSON and parsing it by hand — the model
-call itself is constrained to the schema, and a failure to produce a valid
-instance raises instead of silently returning malformed text to parse.
+Each check binds a Pydantic schema via LangChain's structured-output support
+(``BaseChatModel.with_structured_output``) rather than asking for free-text
+JSON and parsing it by hand — the model call itself is constrained to the
+schema, and a failure to produce a valid instance raises instead of silently
+returning malformed text to parse.
 
 This is the shape a LangGraph input-classifier node is expected to take
 once the app's graph migration lands: parallel branches feeding one
@@ -50,13 +51,26 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
+import anthropic
 import httpx
 import ollama
-from langchain_ollama import ChatOllama
+import openai
+from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.prompts import load_prompt
+
+# Each provider's SDK wraps connection failures in its own exception type rather than
+# raising a raw httpx error; openai/anthropic's own *TimeoutError subclasses their
+# *ConnectionError, so catching the connection error covers both for that provider.
+_INFRA_ERROR_TYPES: Final = (
+    httpx.RequestError,
+    ollama.ResponseError,
+    openai.APIConnectionError,
+    anthropic.APIConnectionError,
+    TimeoutError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -178,24 +192,25 @@ _CATEGORY_PRIORITY: Final[tuple[GuardrailCategory, ...]] = (
     GuardrailCategory.OUT_OF_SCOPE,
 )
 
-# A stalled Ollama call must not leave a chat SSE stream open with no terminal event.
-# Local CPU inference in manual testing took up to ~45s for a single check, so this is
-# generous rather than tight; tune per deployment/model if it proves wrong either way.
+# A stalled provider call must not leave a chat SSE stream open with no terminal event.
+# Local Ollama CPU inference in manual testing took up to ~45s for a single check, so
+# this is generous rather than tight; tune per deployment/model if it proves wrong either way.
 _CHECK_TIMEOUT_SECONDS: Final[float] = 60.0
 
 
 class LLMGuardrailClassifier:
     """Classify a message with three parallel, example-guided, structured-output LLM checks."""
 
-    def __init__(self, model_name: str) -> None:
-        """Build the structured-output-bound chat model used for classification calls.
+    def __init__(self, model: BaseChatModel) -> None:
+        """Bind the structured-output schema onto the shared, already-configured chat model.
 
         Args:
-            model_name: The Ollama model name — shared with the RAG pipeline's LLM service
-                so classification and answer generation use the same configured model.
+            model: The same ``BaseChatModel`` instance the RAG pipeline generates with (see
+                ``app.services.chat_model.build_chat_model``), so classification and answer
+                generation use the same configured provider/model/credentials (#9) — not
+                always Ollama.
         """
-        self.model_name = model_name
-        self._structured_model = ChatOllama(model=model_name).with_structured_output(GuardrailCheckResult)
+        self._structured_model = model.with_structured_output(GuardrailCheckResult)
 
     async def classify(self, message: str) -> GuardrailMatch | None:
         """Run all three category checks concurrently and return the highest-priority match.
@@ -268,7 +283,7 @@ class LLMGuardrailClassifier:
         try:
             async with asyncio.timeout(_CHECK_TIMEOUT_SECONDS):
                 result = await self._structured_model.ainvoke(prompt)
-        except (httpx.RequestError, ollama.ResponseError, TimeoutError) as error:
+        except _INFRA_ERROR_TYPES as error:
             raise _InfraError from error
         except Exception as error:
             raise _ParseError from error

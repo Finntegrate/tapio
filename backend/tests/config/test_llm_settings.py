@@ -6,8 +6,11 @@ from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
 
 
-def test_llm_settings_defaults() -> None:
+def test_llm_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     """With no env vars set, LLMSettings falls back to the local Ollama default."""
+    for var in ("TAPIO_LLM_PROVIDER", "TAPIO_LLM_MODEL", "TAPIO_LLM_API_BASE", "TAPIO_LLM_API_KEY"):
+        monkeypatch.delenv(var, raising=False)
+
     settings = LLMSettings()
 
     assert settings.provider == "ollama"

@@ -8,6 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk
+from langchain_ollama import ChatOllama
 
 from app.agents.router import AgentRouter
 from app.dependencies import get_guardrail_classifier, get_orchestrator, get_orchestrator_graph
@@ -178,7 +179,7 @@ def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
     ``LLMGuardrailClassifier`` itself is covered more broadly in
     ``tests/guardrails/test_llm_classifier.py``.
     """
-    classifier = LLMGuardrailClassifier(model_name="test-model")
+    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
 
     async def fake_ainvoke(prompt: str) -> GuardrailCheckResult:
         # The few-shot examples baked into every check's own prompt can themselves

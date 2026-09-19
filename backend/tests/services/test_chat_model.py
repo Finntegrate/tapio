@@ -149,6 +149,69 @@ class TestBuildChatModel:
         assert model.request_timeout == 30.0
 
 
+class TestRejectCleartextCredentials:
+    """Tests for the CWE-319 guard against sending credentials over plain HTTP."""
+
+    def test_rejects_non_loopback_http_with_explicit_key(self) -> None:
+        config = RAGConfig(llm_provider="openai", llm_model_name="llama-3.1-8b-instruct")
+        llm_settings = LLMSettings(api_base="http://api.scaleway.ai/v1", api_key="secret-key")
+
+        with pytest.raises(ValueError, match="cleartext"):
+            build_chat_model(config, llm_settings)
+
+    def test_rejects_non_loopback_http_for_a_cloud_provider_even_without_explicit_key(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """A cloud provider always sends some credential (its own env var, if not an explicit one)."""
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        config = RAGConfig(llm_provider="openai", llm_model_name="gpt-4o-mini")
+        llm_settings = LLMSettings(api_base="http://example.com/v1")
+
+        with pytest.raises(ValueError, match="cleartext"):
+            build_chat_model(config, llm_settings)
+
+    def test_rejects_non_loopback_http_for_ollama_with_explicit_key(self) -> None:
+        config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
+        llm_settings = LLMSettings(api_base="http://192.168.1.5:11434", api_key="secret-key")
+
+        with pytest.raises(ValueError, match="cleartext"):
+            build_chat_model(config, llm_settings)
+
+    def test_allows_loopback_http_for_ollama(self) -> None:
+        """The default local Ollama setup (no credentials in play) must keep working."""
+        config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
+        llm_settings = LLMSettings(api_base="http://localhost:11434")
+
+        model = build_chat_model(config, llm_settings)
+
+        assert model.base_url == "http://localhost:11434"
+
+    def test_allows_non_loopback_ollama_without_credentials(self) -> None:
+        """A LAN Ollama server with no api_key configured carries no credential to leak."""
+        config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
+        llm_settings = LLMSettings(api_base="http://192.168.1.5:11434")
+
+        model = build_chat_model(config, llm_settings)
+
+        assert model.base_url == "http://192.168.1.5:11434"
+
+    def test_allows_https_non_loopback_with_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        config = RAGConfig(llm_provider="openai", llm_model_name="gpt-4o-mini")
+        llm_settings = LLMSettings(api_base="https://api.scaleway.ai/v1")
+
+        model = build_chat_model(config, llm_settings)
+
+        assert str(model.openai_api_base) == "https://api.scaleway.ai/v1"
+
+    def test_allows_no_api_base_at_all(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        config = RAGConfig(llm_provider="openai", llm_model_name="gpt-4o-mini")
+
+        build_chat_model(config, LLMSettings())  # must not raise
+
+
 class TestCheckModelAvailability:
     """Tests for the /health-facing availability check."""
 
@@ -193,6 +256,7 @@ class TestCheckModelAvailability:
 
     def test_openai_unavailable_with_no_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.delenv("TAPIO_LLM_API_KEY", raising=False)
         model = ChatOpenAI(model="gpt-4o-mini", api_key="placeholder-not-from-env-or-settings")
 
         assert check_model_availability(model) is False
@@ -205,6 +269,7 @@ class TestCheckModelAvailability:
 
     def test_anthropic_unavailable_with_no_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        monkeypatch.delenv("TAPIO_LLM_API_KEY", raising=False)
         model = ChatAnthropic(model="claude-3-5-haiku-20241022")
 
         assert check_model_availability(model) is False

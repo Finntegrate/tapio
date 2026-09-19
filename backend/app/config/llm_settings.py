@@ -23,10 +23,10 @@ class LLMSettings(BaseSettings):
         model: The model identifier, in whatever form the chosen provider expects
             (e.g. ``"gemma4:latest"`` for Ollama, ``"gpt-4o-mini"`` for OpenAI,
             ``"claude-3-5-haiku-20241022"`` for Anthropic).
-        api_base: Optional custom API base URL. Required for Scaleway's Generative
-            APIs and other self-hosted OpenAI-compatible endpoints (used with
-            ``provider="openai"``); unused by ``"ollama"`` and by OpenAI/Anthropic's
-            own default endpoints.
+        api_base: Optional custom API base URL. For ``"ollama"``, points at a remote or
+            non-default Ollama server. Required for Scaleway's Generative APIs and other
+            self-hosted OpenAI-compatible endpoints (used with ``provider="openai"``);
+            unused by OpenAI/Anthropic's own default endpoints.
         api_key: Optional explicit API key. When unset, each provider's LangChain
             integration falls back to its own standard environment variable (e.g.
             ``OPENAI_API_KEY``, ``ANTHROPIC_API_KEY``).

@@ -387,6 +387,8 @@ For full control over component creation:
 
 ```python
 from langchain_huggingface import HuggingFaceEmbeddings
+from app.config.config_models import RAGConfig
+from app.config.llm_settings import LLMSettings
 from app.retrieval import ChromaRetriever
 from app.services.document_retrieval_service import DocumentRetrievalService
 from app.services.chat_model import build_chat_model

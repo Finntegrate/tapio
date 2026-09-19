@@ -16,7 +16,7 @@ The LLM backend is a plain [LangChain `BaseChatModel`](https://python.langchain.
 | -------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `TAPIO_LLM_PROVIDER` | `ollama`            | `ollama` for the local Ollama runtime, `openai` for OpenAI (or any OpenAI-compatible endpoint, via `TAPIO_LLM_API_BASE` — see Scaleway below), or `anthropic` for Anthropic.             |
 | `TAPIO_LLM_MODEL`    | `gemma4:latest`     | The model identifier, in whatever form the chosen provider expects, e.g. `gemma4:latest` (Ollama), `gpt-4o-mini` (OpenAI), `claude-3-5-haiku-20241022` (Anthropic).                      |
-| `TAPIO_LLM_API_BASE` | unset               | Custom API base URL. Required for Scaleway's Generative APIs and other self-hosted OpenAI-compatible endpoints (used with `TAPIO_LLM_PROVIDER=openai`); unused by Ollama and by OpenAI/Anthropic's own default endpoints. |
+| `TAPIO_LLM_API_BASE` | unset               | Custom API base URL. For Ollama, points at a remote or non-default Ollama server. Required for Scaleway's Generative APIs and other self-hosted OpenAI-compatible endpoints (used with `TAPIO_LLM_PROVIDER=openai`); unused by OpenAI/Anthropic's own default endpoints. |
 | `TAPIO_LLM_API_KEY`  | unset               | Explicit API key. When unset, each provider's LangChain integration falls back to its own standard environment variable (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).                    |
 
 Example for OpenAI:

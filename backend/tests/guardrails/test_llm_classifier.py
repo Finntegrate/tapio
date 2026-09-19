@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import httpx
 import ollama
 import pytest
+from langchain_ollama import ChatOllama
 
 from app.guardrails import GuardrailCategory, LLMGuardrailClassifier
 from app.guardrails.llm_classifier import GuardrailCheckResult, _ParseError
@@ -29,16 +30,18 @@ def _build_classifier(
 ) -> LLMGuardrailClassifier:
     """Build a real LLMGuardrailClassifier with its structured model stubbed per check.
 
-    ``ChatOllama(...).with_structured_output(...)`` is lazily bound (no network call at
-    construction time), so the classifier itself is real; only the structured runnable is
-    replaced, so tests exercise the classifier's own routing/priority/retry logic, not the mock.
+    ``model.with_structured_output(...)`` is lazily bound (no network call at construction
+    time), so the classifier itself is real; only the structured runnable is replaced, so
+    tests exercise the classifier's own routing/priority/retry logic, not the mock. Which
+    concrete ``BaseChatModel`` is passed in doesn't matter here since it's never actually
+    invoked; ``ChatOllama`` is just a cheap, already-a-dependency stand-in.
 
     Each of ``crisis``/``legal_sensitive``/``out_of_scope`` is a ``GuardrailCheckResult`` to
     return, an ``Exception`` instance to raise, or a sequence of either — consumed in order
     across that check's calls (the classifier retries once on a parse-type failure), with the
     last item repeating if the check is called more times than the sequence has entries.
     """
-    classifier = LLMGuardrailClassifier(model_name="test-model")
+    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
 
     def _as_queue(outcome: _CheckOutcome | Sequence[_CheckOutcome]) -> list[_CheckOutcome]:
         if isinstance(outcome, GuardrailCheckResult | Exception):
@@ -249,7 +252,7 @@ async def test_classify_falls_back_to_generated_reason_when_reason_is_blank() ->
 
 async def test_invoke_treats_an_unexpected_result_type_as_a_parse_error() -> None:
     """`with_structured_output` is expected to return a GuardrailCheckResult; anything else is a parse failure."""
-    classifier = LLMGuardrailClassifier(model_name="test-model")
+    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
 
     async def fake_ainvoke(prompt: str) -> dict[str, bool]:
         return {"match": True}
