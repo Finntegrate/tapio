@@ -231,6 +231,16 @@ crawler  ── Markdown + source_url ──>  content/  ── embeddings ─�
 
 ### End-to-End Quick Start
 
+> [!IMPORTANT]
+> `mise run crawl` requires the stable release of [Google Chrome](https://www.google.com/chrome/) to be installed. Crawl4AI drives it directly through Playwright's `chrome` channel (`chrome_channel="chrome"` in `crawler/tapio_crawler/crawler/crawler.py` and `discovery/gap_crawl.py`) and does not fall back to Chromium or another browser. Neither the dev container nor Codespaces currently installs it (see [#8](https://github.com/Finntegrate/tapio/issues/8)) — on a fresh Linux setup, install it yourself first, e.g.:
+>
+> ```bash
+> wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+> sudo apt install /tmp/chrome.deb
+> ```
+>
+> On macOS or Windows, install it the normal way from [google.com/chrome](https://www.google.com/chrome/).
+
 Run these commands from the repository root, in order:
 
 ```bash

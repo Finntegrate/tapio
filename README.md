@@ -55,7 +55,7 @@ A crawler collects official source pages, an ingestion pipeline chunks and embed
 
 ## Try it locally
 
-Tapio runs entirely on your own machine with a local LLM via [Ollama](https://ollama.com/) — no data leaves your computer.
+Tapio runs entirely on your own machine with a local LLM via [Ollama](https://ollama.com/) — no data leaves your computer. You'll also need the stable release of [Google Chrome](https://www.google.com/chrome/) installed: the crawler drives it directly and won't fall back to Chromium or another browser.
 
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
@@ -64,7 +64,7 @@ mise install                        # pinned dev tools
 (cd crawler && uv sync) && (cd ingest && uv sync) && (cd backend && uv sync) && (cd app && npm install)
 ollama pull gemma4:latest
 
-mise run crawl && mise run ingest   # collect and index a source site
+mise run crawl && mise run ingest   # collect and index a source site (needs Chrome installed, see above)
 mise run backend                    # start the API (in one terminal)
 mise run app                        # start the chat client (in another)
 ```
