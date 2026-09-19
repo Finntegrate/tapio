@@ -64,11 +64,18 @@ from app.prompts import load_prompt
 # Each provider's SDK wraps connection failures in its own exception type rather than
 # raising a raw httpx error; openai/anthropic's own *TimeoutError subclasses their
 # *ConnectionError, so catching the connection error covers both for that provider.
+# APIStatusError (an HTTP error response — 401, 429, 5xx, ...) is a separate sibling
+# class, not a subclass of APIConnectionError, so it needs listing explicitly: without
+# it, an auth or rate-limit failure would fall through to _ParseError and, after a
+# retry, the crisis check would escalate to a conservative match for an ordinary
+# request instead of failing open like every other infra failure.
 _INFRA_ERROR_TYPES: Final = (
     httpx.RequestError,
     ollama.ResponseError,
     openai.APIConnectionError,
+    openai.APIStatusError,
     anthropic.APIConnectionError,
+    anthropic.APIStatusError,
     TimeoutError,
 )
 

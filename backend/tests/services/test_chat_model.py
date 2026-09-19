@@ -149,8 +149,8 @@ class TestBuildChatModel:
         assert model.request_timeout == 30.0
 
 
-class TestRejectCleartextCredentials:
-    """Tests for the CWE-319 guard against sending credentials over plain HTTP."""
+class TestRejectCleartextTransport:
+    """Tests for the CWE-319 guard against sending prompts/credentials over plain HTTP."""
 
     def test_rejects_non_loopback_http_with_explicit_key(self) -> None:
         config = RAGConfig(llm_provider="openai", llm_model_name="llama-3.1-8b-instruct")
@@ -178,23 +178,22 @@ class TestRejectCleartextCredentials:
         with pytest.raises(ValueError, match="cleartext"):
             build_chat_model(config, llm_settings)
 
+    def test_rejects_non_loopback_ollama_even_without_credentials(self) -> None:
+        """Prompts and responses are sensitive even when no credential is in play."""
+        config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
+        llm_settings = LLMSettings(api_base="http://192.168.1.5:11434")
+
+        with pytest.raises(ValueError, match="cleartext"):
+            build_chat_model(config, llm_settings)
+
     def test_allows_loopback_http_for_ollama(self) -> None:
-        """The default local Ollama setup (no credentials in play) must keep working."""
+        """The default local Ollama setup must keep working."""
         config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
         llm_settings = LLMSettings(api_base="http://localhost:11434")
 
         model = build_chat_model(config, llm_settings)
 
         assert model.base_url == "http://localhost:11434"
-
-    def test_allows_non_loopback_ollama_without_credentials(self) -> None:
-        """A LAN Ollama server with no api_key configured carries no credential to leak."""
-        config = RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest")
-        llm_settings = LLMSettings(api_base="http://192.168.1.5:11434")
-
-        model = build_chat_model(config, llm_settings)
-
-        assert model.base_url == "http://192.168.1.5:11434"
 
     def test_allows_https_non_loopback_with_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("OPENAI_API_KEY", "test-key")
@@ -215,34 +214,46 @@ class TestRejectCleartextCredentials:
 class TestCheckModelAvailability:
     """Tests for the /health-facing availability check."""
 
-    @patch("app.services.chat_model.ollama.list")
-    def test_ollama_available_on_exact_model_match(self, mock_list) -> None:
+    @patch("app.services.chat_model.ollama.Client")
+    def test_ollama_available_on_exact_model_match(self, mock_client_class) -> None:
         installed = MagicMock()
         installed.model = "gemma4:latest"
-        mock_list.return_value = MagicMock(models=[installed])
+        mock_client_class.return_value.list.return_value = MagicMock(models=[installed])
 
         assert check_model_availability(ChatOllama(model="gemma4:latest")) is True
 
-    @patch("app.services.chat_model.ollama.list")
-    def test_ollama_unavailable_on_tag_mismatch(self, mock_list) -> None:
+    @patch("app.services.chat_model.ollama.Client")
+    def test_ollama_unavailable_on_tag_mismatch(self, mock_client_class) -> None:
         """An installed variant with a different tag must not count as a match."""
         installed = MagicMock()
         installed.model = "gemma4:e4b"
-        mock_list.return_value = MagicMock(models=[installed])
+        mock_client_class.return_value.list.return_value = MagicMock(models=[installed])
 
         assert check_model_availability(ChatOllama(model="gemma4:latest")) is False
 
-    @patch("app.services.chat_model.ollama.list")
-    def test_ollama_unavailable_when_no_models_installed(self, mock_list) -> None:
-        mock_list.return_value = MagicMock(models=[])
+    @patch("app.services.chat_model.ollama.Client")
+    def test_ollama_unavailable_when_no_models_installed(self, mock_client_class) -> None:
+        mock_client_class.return_value.list.return_value = MagicMock(models=[])
 
         assert check_model_availability(ChatOllama(model="gemma4:latest")) is False
 
-    @patch("app.services.chat_model.ollama.list")
-    def test_ollama_unavailable_when_connection_fails(self, mock_list) -> None:
-        mock_list.side_effect = Exception("Connection refused")
+    @patch("app.services.chat_model.ollama.Client")
+    def test_ollama_unavailable_when_connection_fails(self, mock_client_class) -> None:
+        mock_client_class.return_value.list.side_effect = Exception("Connection refused")
 
         assert check_model_availability(ChatOllama(model="gemma4:latest")) is False
+
+    @patch("app.services.chat_model.ollama.Client")
+    def test_ollama_availability_queries_the_configured_remote_server(self, mock_client_class) -> None:
+        """A remote TAPIO_LLM_API_BASE must be checked, not the OLLAMA_HOST/localhost default."""
+        installed = MagicMock()
+        installed.model = "gemma4:latest"
+        mock_client_class.return_value.list.return_value = MagicMock(models=[installed])
+
+        model = ChatOllama(model="gemma4:latest", base_url="http://ollama.internal:11434")
+        assert check_model_availability(model) is True
+
+        mock_client_class.assert_called_once_with(host="http://ollama.internal:11434")
 
     def test_openai_available_via_tapio_llm_api_key_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """TAPIO_LLM_API_KEY counts even though it isn't OPENAI_API_KEY itself — this is the

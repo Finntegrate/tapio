@@ -76,7 +76,7 @@ def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: f
     Returns:
         A configured ``BaseChatModel``, ready for ``.invoke()``/``.stream()``.
     """
-    _reject_cleartext_credentials(config, llm_settings)
+    _reject_cleartext_transport(llm_settings)
 
     max_tokens_kwarg = _MAX_TOKENS_KWARG_BY_PROVIDER.get(config.llm_provider, "max_tokens")
     kwargs: dict[str, Any] = {
@@ -94,23 +94,24 @@ def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: f
     return init_chat_model(config.llm_model_name, **kwargs)
 
 
-def _reject_cleartext_credentials(config: RAGConfig, llm_settings: LLMSettings) -> None:
-    """Refuse a non-loopback ``http://`` API base once a credential would cross it (CWE-319).
+def _reject_cleartext_transport(llm_settings: LLMSettings) -> None:
+    """Refuse a non-loopback ``http://`` API base (CWE-319).
 
     A deployer who mistypes ``https://`` as ``http://`` for a genuinely remote endpoint
     (Scaleway, a self-hosted OpenAI-compatible proxy, a remote Ollama server) would
-    otherwise send the API key and every prompt in cleartext. Loopback HTTP — a local dev
-    proxy, or Ollama on the same host — carries no such risk and is left alone. A cloud
-    provider's own SDK always sends *some* credential, explicit or from its own env var
-    fallback, so this applies to it unconditionally; for Ollama, it only applies once an
-    explicit ``TAPIO_LLM_API_KEY`` puts a credential in play.
+    otherwise send every prompt and response — and, for a cloud provider or an explicit
+    ``TAPIO_LLM_API_KEY``, an API credential too — in cleartext. This is rejected
+    unconditionally, not just when a credential is in play: conversation content itself
+    (which can include crisis-adjacent or legally sensitive messages, see
+    ``app.guardrails``) is sensitive regardless of whether a credential also crosses the
+    wire. Loopback HTTP — a local dev proxy, or Ollama on the same host — carries no such
+    risk and is left alone.
 
     Args:
-        config: Source of the provider selection.
-        llm_settings: Source of ``api_base``/``api_key``.
+        llm_settings: Source of ``api_base``.
 
     Raises:
-        ValueError: If a credential would be sent to a non-loopback endpoint over plain HTTP.
+        ValueError: If a non-loopback endpoint would be used over plain HTTP.
     """
     api_base = llm_settings.api_base
     if api_base is None:
@@ -120,13 +121,10 @@ def _reject_cleartext_credentials(config: RAGConfig, llm_settings: LLMSettings) 
     if parsed.scheme != "http" or parsed.hostname in _LOOPBACK_HOSTS:
         return
 
-    sends_credential = llm_settings.api_key is not None or config.llm_provider != _OLLAMA_PROVIDER
-    if not sends_credential:
-        return
-
     msg = (
         f"TAPIO_LLM_API_BASE={api_base!r} uses http:// against a non-loopback host, which "
-        "would send API credentials in cleartext. Use https://, or point at localhost/127.0.0.1."
+        "would send prompts, responses, and any API credentials in cleartext. Use https://, "
+        "or point at localhost/127.0.0.1."
     )
     raise ValueError(msg)
 
@@ -147,7 +145,7 @@ def check_model_availability(model: BaseChatModel) -> bool:
         bool: True if the provider appears ready to serve requests.
     """
     if isinstance(model, ChatOllama):
-        return _check_ollama_availability(model.model or "")
+        return _check_ollama_availability(model.model or "", model.base_url)
 
     env_var = next(
         (var for model_type, var in _CREDENTIAL_ENV_VAR_BY_MODEL_TYPE.items() if isinstance(model, model_type)),
@@ -162,8 +160,8 @@ def check_model_availability(model: BaseChatModel) -> bool:
     return LLMSettings().api_key is not None
 
 
-def _check_ollama_availability(model_name: str) -> bool:
-    """Check if Ollama is running and has ``model_name`` pulled.
+def _check_ollama_availability(model_name: str, base_url: str | None) -> bool:
+    """Check if Ollama is running at ``base_url`` and has ``model_name`` pulled.
 
     A model name, including its tag, must match exactly. This prevents a configured
     model such as ``gemma4:latest`` from being treated as an installed variant such as
@@ -171,12 +169,18 @@ def _check_ollama_availability(model_name: str) -> bool:
 
     Args:
         model_name: The configured Ollama model name.
+        base_url: The configured Ollama server URL (``ChatOllama.base_url``, from
+            ``TAPIO_LLM_API_BASE``), or ``None`` for the default local server. Checking
+            this instead of the module-level ``ollama.list()`` — which would use
+            ``OLLAMA_HOST`` or localhost regardless — matters once a remote Ollama
+            server is configured: otherwise a reachable remote server would be reported
+            as unavailable because the check itself asked the wrong host.
 
     Returns:
         bool: True if the model is available, False otherwise.
     """
     try:
-        models_response = ollama.list()
+        models_response = ollama.Client(host=base_url).list()
 
         if not hasattr(models_response, "models") or not models_response.models:
             logger.warning("No models found in Ollama")
