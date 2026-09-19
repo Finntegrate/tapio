@@ -68,7 +68,19 @@ def test_a_release_whose_source_is_a_different_register_is_refused(tmp_path, sou
 
 def test_overwrite_is_available_for_an_unpublished_edition(tmp_path, source, register):
     release(tmp_path, source, register)
-    assert release(tmp_path, source, register, overwrite=True).directory.exists()
+    result = release(tmp_path, source, register, overwrite=True)
+    assert result.directory.exists()
+    assert result.replaced == []
+
+
+def test_an_overwrite_reports_what_it_changed(tmp_path, source, register, register_dict):
+    """The one way a released edition changes identity, so it does not do so quietly."""
+    release(tmp_path, source, register)
+    register_dict["title"] = "Renamed edition"
+    source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
+    result = release(tmp_path, source, TermRegister.model_validate(register_dict), overwrite=True)
+    assert "title" in result.replaced
+    assert "register.yaml" in result.replaced
 
 
 def test_verify_passes_on_a_fresh_release(tmp_path, source, register):

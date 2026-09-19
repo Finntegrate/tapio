@@ -53,6 +53,9 @@ class ReleaseResult:
     files: list[Path]
     summary: dict[str, Any]
     manifest: dict[str, Any]
+    #: What ``--overwrite`` changed in an edition that already existed. Empty
+    #: for a new edition, and for a rebuild that reproduced what was there.
+    replaced: list[str]
 
 
 def _digest(path: Path) -> str:
@@ -105,7 +108,8 @@ def write_release(
         "summary": summary,
         "files": {path.name: _digest(path) for path in files},
     }
-    if existing is not None and existing != manifest and not overwrite:
+    replaced = _differences(existing, manifest) if existing is not None else []
+    if replaced and not overwrite:
         message = (
             f"{directory} already holds a different edition. Editions are immutable: bump "
             f"register_version in the source and release again, or pass --overwrite to redo an "
@@ -113,7 +117,20 @@ def write_release(
         )
         raise ReleaseExistsError(message)
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return ReleaseResult(directory, [*files, manifest_path], summary, manifest)
+    return ReleaseResult(directory, [*files, manifest_path], summary, manifest, replaced)
+
+
+def _differences(existing: dict[str, Any], rebuilt: dict[str, Any]) -> list[str]:
+    """Name what changed between two manifests, for a caller about to overwrite one."""
+    fields = [
+        field
+        for field in ("register_version", "title", "license", "coverage_caveat", "summary")
+        if existing.get(field) != rebuilt.get(field)
+    ]
+    existing_files, rebuilt_files = existing.get("files", {}), rebuilt.get("files", {})
+    return sorted(fields) + sorted(
+        name for name in set(existing_files) | set(rebuilt_files) if existing_files.get(name) != rebuilt_files.get(name)
+    )
 
 
 def released_versions(releases_dir: Path | None = None) -> list[str]:

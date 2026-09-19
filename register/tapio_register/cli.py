@@ -85,7 +85,10 @@ def release(
         bool,
         typer.Option(
             "--overwrite",
-            help="Redo an edition that has not been published. Editions are immutable by default.",
+            help=(
+                "Rewrite an edition into different content. Only for one that has not been "
+                "published: rebuilding an unchanged edition needs no flag."
+            ),
         ),
     ] = False,
 ) -> None:
@@ -101,6 +104,10 @@ def release(
     except releasing.ReleaseExistsError as error:
         typer.echo(str(error))
         raise typer.Exit(code=1) from error
+    if result.replaced:
+        # An overwrite is the one way a released edition can change identity, so
+        # it says what it changed rather than doing it quietly.
+        typer.echo(f"overwrote edition {register.register_version}, changing: {', '.join(result.replaced)}")
     for path in result.files:
         typer.echo(f"wrote {_display(path)}")
 
