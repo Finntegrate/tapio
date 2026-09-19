@@ -53,21 +53,23 @@ A crawler collects official source pages, an ingestion pipeline chunks and embed
 | [CONTRIBUTING.md](CONTRIBUTING.md) | Development environment setup, running the pipeline locally, code style, and how to submit changes |
 | [WORKFLOW.md](WORKFLOW.md) | How work is planned and triaged on the project board |
 
-## Try it locally
-
-Tapio runs entirely on your own machine with a local LLM via [Ollama](https://ollama.com/) — no data leaves your computer. You'll also need the stable release of [Google Chrome](https://www.google.com/chrome/) installed: the crawler drives it directly and won't fall back to Chromium or another browser.
+## Quick start
 
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
 mise install                        # pinned dev tools
 (cd crawler && uv sync) && (cd ingest && uv sync) && (cd backend && uv sync) && (cd app && npm install)
-ollama pull gemma4:latest
+ollama pull gemma4:latest           # zero-setup local model — or configure a hosted provider, see below
 
-mise run crawl && mise run ingest   # collect and index a source site (needs Chrome installed, see above)
+mise run crawl && mise run ingest   # collect and index a source site (needs Chrome installed, see below)
 mise run backend                    # start the API (in one terminal)
 mise run app                        # start the chat client (in another)
 ```
+
+You'll need the stable release of [Google Chrome](https://www.google.com/chrome/) installed: the crawler drives it directly and won't fall back to Chromium or another browser. Note that the crawl step fetches real pages from each configured source site (Migri, Kela, etc.) over the network like any web crawler — that traffic isn't privacy-isolated, and those sites see ordinary request metadata (your IP address, user agent).
+
+The chat backend's LLM is provider-configurable, not local-only: the command above uses [Ollama](https://ollama.com/) because it needs no API key, but Tapio is moving toward commodity hosted providers (OpenAI, Anthropic, or any OpenAI-compatible endpoint) as the primary target — a local model is a heavier download and needs a machine capable of running it, which not every contributor has. Local inference stays available as a fallback for anyone who wants it (offline use, no chat traffic sent to a third party), just not the assumed default. See [backend/README.md](backend/README.md#configuration) for `TAPIO_LLM_PROVIDER` setup.
 
 For prerequisites, troubleshooting, dev containers/Codespaces, and everything else needed to develop on Tapio, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
