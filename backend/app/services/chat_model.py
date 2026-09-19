@@ -26,13 +26,12 @@ from urllib.parse import urlparse
 
 import ollama
 from langchain.chat_models import init_chat_model
-from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
-from langchain_openai import ChatOpenAI
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
+from app.services.llm_providers import PROVIDERS
 
 logger = logging.getLogger(__name__)
 
@@ -42,36 +41,10 @@ _LOOPBACK_HOSTS: Final = {"localhost", "127.0.0.1", "::1"}
 # Cap on prior turns included as context, to avoid overflowing the model's context window.
 MAX_HISTORY_MESSAGES = 10
 
-# ChatOllama's max-output-length field is named num_predict, not max_tokens like every
-# other provider — init_chat_model forwards kwargs verbatim, so this has to be mapped.
-_MAX_TOKENS_KWARG_BY_PROVIDER: dict[str, str] = {"ollama": "num_predict"}
-
 # ChatOllama has no top-level `timeout` field — a bare `timeout=` kwarg is silently
 # dropped. Its request timeout instead goes through `client_kwargs`, forwarded verbatim
 # to the underlying httpx client. Every other provider accepts `timeout` directly.
 _OLLAMA_PROVIDER = "ollama"
-
-# Each provider's own SDK falls back to these env vars for its API base URL when
-# neither an explicit kwarg nor TAPIO_LLM_API_BASE is set (confirmed against each
-# package's source: ollama.Client reads OLLAMA_HOST, ChatOpenAI reads OPENAI_API_BASE
-# then OPENAI_BASE_URL, ChatAnthropic reads ANTHROPIC_API_URL then ANTHROPIC_BASE_URL).
-# The cleartext-transport guard has to check the URL that will actually be used, not
-# just TAPIO_LLM_API_BASE, or one of these — already set for an unrelated reason, e.g.
-# a devbox's OLLAMA_HOST — could route prompts and credentials over plain HTTP without
-# Tapio's own config layer ever seeing it.
-_PROVIDER_BASE_URL_ENV_VARS: dict[str, tuple[str, ...]] = {
-    "ollama": ("OLLAMA_HOST",),
-    "openai": ("OPENAI_API_BASE", "OPENAI_BASE_URL"),
-    "anthropic": ("ANTHROPIC_API_URL", "ANTHROPIC_BASE_URL"),
-}
-
-# The env var each provider's own SDK reads credentials from by default — used only to
-# answer "is this provider configured" for /health, since construction alone doesn't
-# reliably tell us: ChatOpenAI raises if the key is missing, ChatAnthropic doesn't.
-_CREDENTIAL_ENV_VAR_BY_MODEL_TYPE: dict[type[BaseChatModel], str] = {
-    ChatOpenAI: "OPENAI_API_KEY",
-    ChatAnthropic: "ANTHROPIC_API_KEY",
-}
 
 
 def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: float | None = None) -> BaseChatModel:
@@ -92,7 +65,8 @@ def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: f
     """
     _reject_cleartext_transport(config, llm_settings)
 
-    max_tokens_kwarg = _MAX_TOKENS_KWARG_BY_PROVIDER.get(config.llm_provider, "max_tokens")
+    provider = PROVIDERS.get(config.llm_provider)
+    max_tokens_kwarg = provider.max_tokens_kwarg if provider else "max_tokens"
     kwargs: dict[str, Any] = {
         "model_provider": config.llm_provider,
         "temperature": 0.7,
@@ -113,7 +87,7 @@ def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | N
 
     Mirrors each provider's own fallback order: an explicit ``TAPIO_LLM_API_BASE`` first,
     then whichever env var that provider's own SDK falls back to when neither an explicit
-    kwarg nor ``TAPIO_LLM_API_BASE`` is set (see ``_PROVIDER_BASE_URL_ENV_VARS``). Exists
+    kwarg nor ``TAPIO_LLM_API_BASE`` is set (see ``app.services.llm_providers``). Exists
     so ``_reject_cleartext_transport`` checks the URL that's actually used, not just the
     one Tapio's own config layer explicitly sets.
 
@@ -127,7 +101,8 @@ def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | N
     if llm_settings.api_base is not None:
         return llm_settings.api_base
 
-    for env_var in _PROVIDER_BASE_URL_ENV_VARS.get(config.llm_provider, ()):
+    provider = PROVIDERS.get(config.llm_provider)
+    for env_var in provider.base_url_env_vars if provider else ():
         value = os.environ.get(env_var)
         if value:
             return value
@@ -191,7 +166,11 @@ def check_model_availability(model: BaseChatModel) -> bool:
         return _check_ollama_availability(model.model or "", model.base_url)
 
     env_var = next(
-        (var for model_type, var in _CREDENTIAL_ENV_VAR_BY_MODEL_TYPE.items() if isinstance(model, model_type)),
+        (
+            provider.credential_env_var
+            for provider in PROVIDERS.values()
+            if provider.credential_env_var and isinstance(model, provider.model_type)
+        ),
         None,
     )
     if env_var is None:
