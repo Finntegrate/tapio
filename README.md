@@ -20,8 +20,8 @@ A generic chatbot doesn't fix this: it hides who's answering, why an answer appl
 
 ## What makes it different
 
-- **A named guide network, not one assistant.** Tapio (the coordinator) and specialists like Ilmarinen, Sampo, Rauni, and Otso — each named for a figure from Finnish cultural heritage — handle distinct domains. You always know which guide answered and why it was brought in, and guides introduce each other by name mid-conversation, so you discover who else can help without reading a directory first.
-- **Every substantive answer is sourced.** Answers cite the official page they came from. If no reliable source exists for a question, Tapio says so instead of guessing.
+- **A named guide network, not one assistant.** Tapio (the coordinator) and specialists like Ilmarinen, Sampo, Rauni, and Otso — each named for a figure from Finnish cultural heritage — handle distinct domains. Every answer is attributed to the guide that gave it, with a plain-language reason for why that guide was chosen.
+- **Every answer is sourced, or says it isn't.** Guide answers cite the official page they're drawn from; if no reliable source is found, Tapio says so rather than guessing. Crisis or legal-sensitive questions skip retrieval entirely and point straight to vetted official resources instead.
 - **Proactive, not just reactive.** Newcomers often don't know what to ask next. Guides surface likely-relevant next steps tied to your situation, grounded in the same official sources as any direct answer.
 - **One conversation, not a maze of tabs.** A permit question that turns into a benefits question stays in the same thread — no repeating your situation to a different tool.
 - **Privacy by design, not by policy.** Tapio doesn't ask for or retain a case number, application status, or family details. Many people who rely on it — asylum seekers, undocumented people, people fleeing abuse — face real physical risk from a data exposure, so the product is built to have as little as possible to expose.
