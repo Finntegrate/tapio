@@ -17,15 +17,22 @@ Tapio is an AI-powered Finnish immigration assistant built by the Finntegrate pr
 
 ## The guide network
 
-The public roster at [finntegrate.org/tapio](https://finntegrate.org/tapio/) is canonical; [PRD §6](docs/PRD.md#6-the-guide-network) mirrors it. The four specialists below are live.
+The public roster at [finntegrate.org/tapio](https://finntegrate.org/tapio/) is canonical and [PRD §6](docs/PRD.md#6-the-guide-network) mirrors it, so this table is a copy and never the place to change a guide's scope. `register/tests/test_guide_scope.py` fails when it drifts from the PRD or from the register's own `in_scope_of` markings.
 
-| Name      | Role                                                      |
-| --------- | --------------------------------------------------------- |
-| Tapio     | Coordinator — routing, handoffs, cross-guide summaries     |
-| Ilmarinen | Residence permits, visas, applications, official paperwork |
-| Sampo     | Job seeking, networking, career pathways, workplace culture |
-| Rauni     | Kela, social security, benefits, family support            |
-| Otso      | Housing, rental agreements, tenant rights, settlement      |
+| Guide | In scope | Status |
+| --- | --- | --- |
+| **Tapio** | Clarification, routing between guides, handoffs, cross-guide summaries | Live |
+| **Ilmarinen** | Residence permits, visas, applications, official paperwork | Live |
+| **Sampo** | Job seeking, networking, career pathways, workplace culture | Live |
+| **Rauni** | Kela, social security, benefits, family support | Live |
+| **Otso** | Housing, rental agreements, tenant rights, settlement | Live |
+| **Pellervo** | Entrepreneurship, business establishment, regulations | Planned |
+| **Agricola** | Language learning, education, qualification recognition | Planned |
+| **Louhi** | Finnish customs, holidays, social norms, etiquette | Planned |
+| **Mielikki** | Healthcare navigation, medical services, insurance | Planned |
+| **Lempi** | Mental health resources, community connections | Planned |
+| **Ahti** | Transportation, utilities, banking, daily logistics | Planned |
+| **Kokko** | Regional information, local resources, community guidance | Planned |
 
 ## Backlog awareness
 

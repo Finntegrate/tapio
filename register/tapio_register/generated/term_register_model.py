@@ -109,7 +109,7 @@ linkml_meta = LinkMLMeta({'default_prefix': 'tapio',
                             'prefix_reference': 'https://tapio.finntegrate.org/schema/'},
                   'term': {'prefix_prefix': 'term',
                            'prefix_reference': 'https://tapio.finntegrate.org/register/term/'}},
-     'source_file': '/Users/brylie/code/Finntegrate/tapio/.claude/worktrees/github-issue-29-f07b55/register/tapio_register/schema/term_register.yaml',
+     'source_file': 'tapio_register/schema/term_register.yaml',
      'title': 'Tapio term register'} )
 
 class ConceptKind(str, Enum):

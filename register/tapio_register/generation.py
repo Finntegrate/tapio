@@ -34,10 +34,26 @@ class GeneratedArtifact:
     content: str
 
 
+def _relative_to_service(content: str, schema: Path) -> str:
+    """Rewrite the generating machine's absolute schema path to a repo-relative one.
+
+    LinkML records the schema's ``source_file`` in the Pydantic module, as the
+    absolute path it was generated from. Left alone, the checked-in artifact
+    encodes one developer's checkout and ``--check`` fails everywhere else,
+    including CI.
+    """
+    absolute = str(schema.resolve())
+    try:
+        relative = str(schema.resolve().relative_to(paths.SERVICE_DIR))
+    except ValueError:
+        return content
+    return content.replace(absolute, relative)
+
+
 def render_artifacts(schema_path: Path | None = None) -> list[GeneratedArtifact]:
     """Render every derived artifact in memory, without writing anything."""
     schema = schema_path or paths.SCHEMA_PATH
-    pydantic_source = PydanticGenerator(str(schema)).serialize()
+    pydantic_source = _relative_to_service(PydanticGenerator(str(schema)).serialize(), schema)
     json_schema = JsonSchemaGenerator(str(schema), top_class="TermRegister", not_closed=False).serialize()
     shapes = ShaclGenerator(str(schema), closed=True).serialize()
     return [

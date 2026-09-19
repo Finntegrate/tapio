@@ -30,10 +30,15 @@ jobs:
           - service: register
             package: tapio_register
             mypy_args: --config-file mypy.ini tapio_register
-            # Empty rather than --no-build, unlike the services above: LinkML
-            # depends on antlr4-python3-runtime, which PyPI carries as an sdist
-            # only, so a build backend has to run for this service's lockfile to
-            # install at all.
+            # Empty rather than --no-build, unlike the services above. This is
+            # a deliberate exception, not an inconsistency to tidy up: --no-build
+            # is a supply-chain control, since allowing an sdist means a build
+            # backend executes at install time. LinkML depends on
+            # antlr4-python3-runtime, which PyPI carries as an sdist only, so
+            # this leg cannot install at all under the flag. The package is the
+            # ANTLR project's own runtime, which is why the exception is
+            # acceptable here and should not be widened without the same
+            # judgement being made again.
             sync_args: ""
     defaults:
       run:
