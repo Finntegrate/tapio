@@ -66,6 +66,7 @@ def test_release_refuses_an_invalid_register(tmp_path, register_dict, monkeypatc
     result = runner.invoke(app, ["release", "--source", str(path)])
     assert result.exit_code == 1
     assert "Refusing to release" in result.output
+    assert "not an organization" in result.output
 
 
 def test_release_rebuilds_an_edition_but_refuses_to_change_one(tmp_path, source, register_dict, monkeypatch):

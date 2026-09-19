@@ -112,19 +112,12 @@ def release(
 ) -> None:
     """Cut the dated edition named by the source's ``register_version``."""
     register = loading.load_register(source)
-    issues = [
-        *(str(issue) for issue in validation.check_integrity(register)),
-        *(str(issue) for issue in validation.check_publication(register)),
-        *releasing.check_continuity(register),
-    ]
-    if issues:
-        _echo_issues("Violations", issues)
-        typer.echo("Refusing to release an invalid register.")
-        raise typer.Exit(code=1)
     try:
+        # Every reason to refuse lives in `write_release`, so this command and a
+        # programmatic caller are held to the same rules.
         result = releasing.write_release(register, source_path=source, overwrite=overwrite)
-    except (releasing.ReleaseExistsError, releasing.InvalidPublicationError, releasing.ContinuityError) as error:
-        typer.echo(str(error))
+    except releasing.ReleaseRefusedError as error:
+        typer.echo(f"Refusing to release: {error}")
         raise typer.Exit(code=1) from error
     if result.replaced:
         # An overwrite is the one way a released edition can change identity, so

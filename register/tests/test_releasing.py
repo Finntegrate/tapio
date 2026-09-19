@@ -275,3 +275,24 @@ def test_a_concept_that_lapses_rather_than_vanishing_is_accepted(tmp_path, sourc
 
 def test_the_first_edition_has_nothing_to_be_continuous_with(tmp_path, register):
     assert releasing.check_continuity(register, tmp_path / "releases") == []
+
+
+def test_a_register_failing_its_own_integrity_rules_is_refused(tmp_path, register_dict):
+    """The guard is at the boundary that writes, not only in the command that calls it."""
+    register_dict["concepts"][0]["related"] = ["permit:does-not-exist"]
+    source = tmp_path / "register.yaml"
+    source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
+    register = TermRegister.model_validate(register_dict)
+    with pytest.raises(releasing.InvalidRegisterError, match="not in the register"):
+        release(tmp_path, source, register)
+    assert not (tmp_path / "releases" / "2026-09-19").exists()
+
+
+def test_every_refusal_shares_one_base_so_a_caller_can_catch_them_together():
+    for error in (
+        releasing.ReleaseExistsError,
+        releasing.ContinuityError,
+        releasing.InvalidPublicationError,
+        releasing.InvalidRegisterError,
+    ):
+        assert issubclass(error, releasing.ReleaseRefusedError)

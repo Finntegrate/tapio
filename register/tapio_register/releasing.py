@@ -31,7 +31,7 @@ import yaml
 from tapio_register import paths, skos
 from tapio_register.generated.term_register_model import TermRegister
 from tapio_register.loading import read_source
-from tapio_register.validation import check_publication, summarize
+from tapio_register.validation import check_integrity, check_publication, summarize
 
 MANIFEST_NAME = "manifest.json"
 SOURCE_NAME = "register.yaml"
@@ -39,7 +39,16 @@ JSONLD_NAME = "register.jsonld"
 TURTLE_NAME = "register.ttl"
 
 
-class ReleaseExistsError(Exception):
+class ReleaseRefusedError(Exception):
+    """Base for every reason an edition must not be written.
+
+    Each of these is checked in :func:`write_release` rather than in the command
+    that calls it, so the guard holds for any caller. A check that lives at one
+    call site protects that call site, not the artifact.
+    """
+
+
+class ReleaseExistsError(ReleaseRefusedError):
     """Raised when a release directory is already present.
 
     Editions are immutable. Re-cutting one would silently invalidate every
@@ -47,7 +56,7 @@ class ReleaseExistsError(Exception):
     """
 
 
-class ContinuityError(Exception):
+class ContinuityError(ReleaseRefusedError):
     """Raised when an edition drops a concept an earlier one published.
 
     ADR 0007's "never delete, always supersede": an entity leaves force, it does
@@ -56,13 +65,12 @@ class ContinuityError(Exception):
     """
 
 
-class InvalidPublicationError(Exception):
-    """Raised when an edition's published SKOS would not be valid.
+class InvalidPublicationError(ReleaseRefusedError):
+    """Raised when an edition's published SKOS would not be valid."""
 
-    Checked here rather than only in ``validate`` because this is the function
-    that writes the artifact: a projection no consumer could rely on must not
-    reach a release directory, whoever called it.
-    """
+
+class InvalidRegisterError(ReleaseRefusedError):
+    """Raised when the register does not pass its own cross-concept rules."""
 
 
 @dataclass(frozen=True)
@@ -106,6 +114,11 @@ def write_release(
     if TermRegister.model_validate(source) != register:
         message = "the register being released and the source snapshot are not the same register"
         raise ValueError(message)
+
+    invalid = [str(issue) for issue in check_integrity(register)]
+    if invalid:
+        message = "this register does not pass its own integrity rules:\n  - " + "\n  - ".join(invalid)
+        raise InvalidRegisterError(message)
 
     problems = [str(issue) for issue in check_publication(register)]
     if problems:
