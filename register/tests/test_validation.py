@@ -279,3 +279,11 @@ def test_a_whitespace_only_change_note_explains_nothing(register_dict):
     register_dict["concepts"][1]["valid_until"] = "2025-01-01"
     register_dict["concepts"][1]["change_note"] = "  "
     assert any("superseded_by or a change_note" in message for message in messages(register_dict))
+
+
+def test_a_concept_in_force_until_the_maximum_date_does_not_overflow(register_dict):
+    """`valid_until + one day` raises OverflowError at date.max; the check subtracts instead."""
+    register_dict["concepts"][1]["valid_until"] = "9999-12-31"
+    register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit"]
+    reported = messages(register_dict)
+    assert not [message for message in reported if "leaving a gap" in message]

@@ -244,3 +244,34 @@ def test_an_edition_whose_published_skos_is_invalid_is_refused(tmp_path, source,
     with pytest.raises(releasing.InvalidPublicationError, match="not valid"):
         release(tmp_path, source, register)
     assert not (tmp_path / "releases" / "2026-09-19").exists()
+
+
+def test_a_concept_dropped_since_the_previous_edition_is_refused(tmp_path, source, register, register_dict):
+    """ADR 0007's never-delete rule, across editions rather than within one."""
+    release(tmp_path, source, register)
+
+    later = {**register_dict, "register_version": "2026-12-01"}
+    later["concepts"] = [concept for concept in register_dict["concepts"] if concept["id"] != "org:migri"]
+    for concept in later["concepts"]:
+        concept.pop("handled_by", None)
+    source.write_text(yaml.safe_dump(later, allow_unicode=True), encoding="utf-8")
+
+    dropped = releasing.check_continuity(TermRegister.model_validate(later), tmp_path / "releases")
+    assert any("org:migri" in problem and "Never delete, always supersede" in problem for problem in dropped)
+    with pytest.raises(releasing.ContinuityError, match="drops concepts"):
+        release(tmp_path, source, TermRegister.model_validate(later))
+
+
+def test_a_concept_that_lapses_rather_than_vanishing_is_accepted(tmp_path, source, register, register_dict):
+    release(tmp_path, source, register)
+
+    later = {**register_dict, "register_version": "2026-12-01"}
+    later["concepts"] = [dict(concept) for concept in register_dict["concepts"]]
+    later["concepts"][1] = {**later["concepts"][1], "valid_until": "2026-11-30", "change_note": "Withdrawn."}
+    source.write_text(yaml.safe_dump(later, allow_unicode=True), encoding="utf-8")
+
+    assert releasing.check_continuity(TermRegister.model_validate(later), tmp_path / "releases") == []
+
+
+def test_the_first_edition_has_nothing_to_be_continuous_with(tmp_path, register):
+    assert releasing.check_continuity(register, tmp_path / "releases") == []

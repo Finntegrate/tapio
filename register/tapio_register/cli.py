@@ -55,11 +55,13 @@ def validate(
     schema_issues = [] if skip_shapes else [str(issue) for issue in validation.check_schema(source)]
     integrity_issues = [str(issue) for issue in validation.check_integrity(register)]
     publication_issues = [str(issue) for issue in validation.check_publication(register)]
+    continuity_issues = releasing.check_continuity(register)
     if not skip_shapes:
         _echo_issues("Schema and shape violations", schema_issues)
     _echo_issues("Integrity violations", integrity_issues)
     _echo_issues("Publication violations", publication_issues)
-    if schema_issues or integrity_issues or publication_issues:
+    _echo_issues("Continuity violations", continuity_issues)
+    if schema_issues or integrity_issues or publication_issues or continuity_issues:
         raise typer.Exit(code=1)
     summary = validation.summarize(register)
     typer.echo(f"OK: {summary['concept_count']} concepts, version {summary['register_version']}")
@@ -110,14 +112,18 @@ def release(
 ) -> None:
     """Cut the dated edition named by the source's ``register_version``."""
     register = loading.load_register(source)
-    issues = [*validation.check_integrity(register), *validation.check_publication(register)]
+    issues = [
+        *(str(issue) for issue in validation.check_integrity(register)),
+        *(str(issue) for issue in validation.check_publication(register)),
+        *releasing.check_continuity(register),
+    ]
     if issues:
-        _echo_issues("Violations", [str(issue) for issue in issues])
+        _echo_issues("Violations", issues)
         typer.echo("Refusing to release an invalid register.")
         raise typer.Exit(code=1)
     try:
         result = releasing.write_release(register, source_path=source, overwrite=overwrite)
-    except (releasing.ReleaseExistsError, releasing.InvalidPublicationError) as error:
+    except (releasing.ReleaseExistsError, releasing.InvalidPublicationError, releasing.ContinuityError) as error:
         typer.echo(str(error))
         raise typer.Exit(code=1) from error
     if result.replaced:

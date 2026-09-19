@@ -179,7 +179,9 @@ def _check_validity(concepts: list[Concept], known: dict[str, Concept]) -> list[
                 issues.append(
                     Issue(concept.id, f"superseded_by '{target}' did not outlast this concept"),
                 )
-            if successor.valid_from > concept.valid_until + timedelta(days=1):
+            # Subtracting rather than incrementing: `valid_until` can be
+            # `date.max`, where adding a day overflows.
+            if successor.valid_from - concept.valid_until > timedelta(days=1):
                 # G5 repairs a stale assertion by following this pointer, so a
                 # successor that was not yet in force when its predecessor
                 # lapsed would turn one validation failure into another.

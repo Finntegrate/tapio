@@ -47,6 +47,15 @@ class ReleaseExistsError(Exception):
     """
 
 
+class ContinuityError(Exception):
+    """Raised when an edition drops a concept an earlier one published.
+
+    ADR 0007's "never delete, always supersede": an entity leaves force, it does
+    not stop having existed. Within one edition that is a rule about
+    ``valid_until``; across editions it is this.
+    """
+
+
 class InvalidPublicationError(Exception):
     """Raised when an edition's published SKOS would not be valid.
 
@@ -103,6 +112,11 @@ def write_release(
         message = "the SKOS this edition would publish is not valid:\n  - " + "\n  - ".join(problems)
         raise InvalidPublicationError(message)
 
+    dropped = check_continuity(register, root)
+    if dropped:
+        message = "this edition drops concepts an earlier one published:\n  - " + "\n  - ".join(dropped)
+        raise ContinuityError(message)
+
     # Built in full before anything in `directory` is touched, so a refused
     # release leaves the edition that is already there exactly as it was, and an
     # interrupted one leaves nothing half-written.
@@ -155,6 +169,30 @@ def _differences(existing: dict[str, Any], rebuilt: dict[str, Any]) -> list[str]
     return sorted(fields) + sorted(
         name for name in set(existing_files) | set(rebuilt_files) if existing_files.get(name) != rebuilt_files.get(name)
     )
+
+
+def check_continuity(register: TermRegister, releases_dir: Path | None = None) -> list[str]:
+    """Report concepts an earlier edition published that this one drops.
+
+    Removal is a lossy edit, and the one kind of damage a dated register cannot
+    repair after the fact: a consumer holding a provenance record that names an
+    older edition has no way to resolve an identifier that simply vanished. A
+    concept that no longer applies lapses with a ``valid_until``; it does not
+    leave the register.
+    """
+    root = releases_dir or paths.RELEASES_DIR
+    version = register.register_version.isoformat()
+    earlier = [released for released in released_versions(root) if released < version]
+    if not earlier:
+        return []
+    previous = earlier[-1]
+    published = {concept["id"] for concept in edition_source(previous, root)["concepts"]}
+    current = {concept.id for concept in register.concepts}
+    return [
+        f"{concept_id}: published in {previous} and absent here. Never delete, always supersede: "
+        f"give it a valid_until and a superseded_by instead."
+        for concept_id in sorted(published - current)
+    ]
 
 
 def released_versions(releases_dir: Path | None = None) -> list[str]:
