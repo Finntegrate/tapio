@@ -13,6 +13,12 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Using GitHub Codespaces (Cloud Alternative)](#using-github-codespaces-cloud-alternative)
     - [Manual Setup (Alternative)](#manual-setup-alternative)
     - [Installing Required Models](#installing-required-models)
+  - [Running the Pipeline](#running-the-pipeline)
+    - [End-to-End Quick Start](#end-to-end-quick-start)
+    - [Shared Runtime Directories](#shared-runtime-directories)
+    - [Mise Task Reference](#mise-task-reference)
+    - [Work with an Individual Site](#work-with-an-individual-site)
+    - [Troubleshooting](#troubleshooting)
   - [Package Management](#package-management)
   - [Code Quality](#code-quality)
     - [Ruff](#ruff)
@@ -36,6 +42,11 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Configuration Structure](#configuration-structure)
     - [Required vs Optional Fields](#required-vs-optional-fields)
     - [Adding New Sites](#adding-new-sites)
+  - [AI-Assisted Development with Claude Code](#ai-assisted-development-with-claude-code)
+    - [Claude Code Prerequisites](#claude-code-prerequisites)
+    - [How Commands Activate](#how-commands-activate)
+    - [Available Commands](#available-commands)
+    - [Planning New Issues in YAML](#planning-new-issues-in-yaml)
   - [Pull Request Process](#pull-request-process)
 
 ## Technical Architecture
@@ -174,10 +185,13 @@ source .venv/bin/activate  # On Unix/macOS
 .\.venv\Scripts\activate   # On Windows
 ```
 
-1. Install dependencies:
+1. Install dependencies. This is a monorepo of independently-managed projects (see [ADR 0002](docs/ADRs/0002-monorepo-service-split.md)), so there's no root `pyproject.toml` — sync each service separately:
 
 ```bash
-uv sync --dev
+(cd crawler && uv sync --dev)
+(cd ingest && uv sync --dev)
+(cd backend && uv sync --dev)
+(cd app && npm install)
 ```
 
 1. Install Ollama for local LLM inference:
@@ -192,31 +206,138 @@ mise install   # installs the tool versions pinned in mise.toml
 
 ### Installing Required Models
 
-Regardless of which setup method you chose, you'll need to install `gemma4:latest`, the default model this project uses for text generation:
+Regardless of which setup method you chose, you'll need to install `gemma4:latest`, the default model this project uses for text generation. `ollama pull` needs a running `ollama serve` to talk to — most installers set this up as a background service automatically, but not on every platform (containers, some Linux installs); if the pull can't connect, start it yourself first:
 
 ```bash
+ollama serve &               # skip if already running as a background service
 ollama pull gemma4:latest
 ollama list  # verify it installed
 ```
+
+Ollama isn't the only option: the backend's LLM is provider-configurable, and can point at a hosted provider (OpenAI, Anthropic, or any OpenAI-compatible endpoint) instead of a local model — see [backend/README.md](backend/README.md#configuration) for `TAPIO_LLM_PROVIDER`.
 
 **Note on Model Sizes**: Some Ollama models are several GB and need significant disk space and compute. If your machine is limited, pull a smaller model and pass its name explicitly to the Tapio CLI.
 
 **Embedding Models**: Vectorization uses HuggingFace sentence-transformers (default: `all-MiniLM-L6-v2`), downloaded automatically on first use — no manual installation needed. Ollama's own embedding models (e.g. `all-minilm`) are not used by the current implementation.
 
-## Package Management
-
-We use the `uv` package manager for this project. To add packages:
+**System requirements**: You need enough available RAM for whichever Ollama model you select; `gemma4:latest` is the default. In low-resource environments such as GitHub Codespaces, pull a smaller model and override the backend's default via `TAPIO_LLM_MODEL`:
 
 ```bash
-uv add <package-name>
+ollama pull <a-smaller-model>
+TAPIO_LLM_MODEL=<a-smaller-model> mise run backend
 ```
 
-Do not use `pip`, `uv pip install`, or `uv pip install -e .` to install packages or this project.
+The crawler doesn't use an LLM at all — it only collects and normalizes page content — so there's no equivalent flag there.
 
-To synchronize dependencies from the lockfile:
+## Running the Pipeline
+
+Once your environment is set up (above), here's how to actually run Tapio's crawl → ingest → serve pipeline.
+
+```text
+crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  backend  ──>  app
+```
+
+`content/` and `vectorstore/` are local runtime data, not source code — they are ignored by Git and are the only handoffs between `crawler`, `ingest`, and `backend`. Those three share files only; they do not import or invoke one another directly. `app/` is different: it depends on `backend/` at runtime over HTTP/SSE (`POST /chat/stream`, see `backend/README.md`), not through a file handoff.
+
+The crawl step fetches real pages from each configured source site (Migri, Kela, etc.) over the network like any web crawler — that traffic isn't privacy-isolated, and those sites see ordinary request metadata (your IP address, user agent).
+
+### End-to-End Quick Start
+
+> [!IMPORTANT]
+> `mise run crawl` requires the stable release of [Google Chrome](https://www.google.com/chrome/) to be installed. Crawl4AI drives it directly through Playwright's `chrome` channel (`chrome_channel="chrome"` in `crawler/tapio_crawler/crawler/crawler.py` and `discovery/gap_crawl.py`) and does not fall back to Chromium or another browser. Neither the dev container nor Codespaces currently installs it (see [#8](https://github.com/Finntegrate/tapio/issues/8)) — on a fresh Linux setup, install it yourself first, e.g.:
+>
+> ```bash
+> wget -O /tmp/chrome.deb https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb
+> sudo apt install /tmp/chrome.deb
+> ```
+>
+> On macOS or Windows, install it the normal way from [google.com/chrome](https://www.google.com/chrome/).
+
+Run these commands from the repository root, in order:
 
 ```bash
-uv sync
+# 1. Discover each site's URL inventory, then render what's due into content/.
+mise run crawl
+
+# 2. Chunk and embed the Markdown written to content/.
+mise run ingest
+
+# 3. Start the backend API, which reads vectorstore/.
+mise run backend
+
+# 4. In a second terminal, start the SvelteKit chat client.
+mise run app
+```
+
+For each configured site, `mise run crawl` runs `discover` (populating its URL manifest) and then `crawl` (rendering only manifest records that are due — see `crawler/README.md`). It attempts every configured site even if an earlier one fails, then returns a non-zero status if any site failed. When new pages are crawled, rerun `mise run ingest`, then restart the backend (`backend/` is what reads `vectorstore/`; the SvelteKit `app/` only calls the backend's API) so it opens the refreshed vector collection.
+
+### Shared Runtime Directories
+
+| Directory | Written by | Read by | Local default | Deployment setting |
+| --- | --- | --- | --- | --- |
+| `content/` | `crawler` | `ingest` | repository root | `TAPIO_CONTENT_DIR` |
+| `vectorstore/` | `ingest` | `backend` | repository root | `TAPIO_VECTORSTORE_DIR` |
+
+For deployment, mount the same content volume in `crawler` and `ingest`, and the same vector-store volume in `ingest` and `backend`. Set the corresponding environment variable to the mount path in each service.
+
+### Mise Task Reference
+
+| Command | Purpose |
+| --- | --- |
+| `mise run crawl` | Discover, then render, every configured site; attempt all sites before reporting failures. |
+| `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
+| `mise run backend` | Start the FastAPI backend, which reads `vectorstore/`. |
+| `mise run app` | Start the SvelteKit chat client's dev server. |
+| `mise run test:crawl` | Run the crawler test suite. |
+| `mise run test:ingest` | Run the ingestion test suite. |
+| `mise run test:backend` | Run the backend test suite. |
+
+Pass ingestion options after `--`:
+
+```bash
+# Re-ingest one site's Markdown only.
+mise run ingest -- --site migri
+```
+
+### Work with an Individual Site
+
+The root crawl task intentionally collects every configured source. For a single-site crawl or a shallow smoke test, use the crawler CLI directly:
+
+```bash
+cd crawler
+uv run tapio-crawler list-sites
+uv run tapio-crawler discover migri
+uv run tapio-crawler crawl migri --max-urls 5
+```
+
+Then return to the repository root and run `mise run ingest -- --site migri`.
+
+`discover` builds a site's URL inventory (sitemap or bounded gap-crawl) into a separate manifest database; it doesn't write Markdown, so it isn't part of the ingest pipeline above. See [crawler/README.md](crawler/README.md#url-discovery-and-the-manifest).
+
+### Troubleshooting
+
+- **"No relevant documents found"** — Run `mise run ingest` after a crawl and restart the backend. The backend must be started after the shared vector collection has been written.
+- **Crawl4AI cannot start a browser** — Install the stable Google Chrome release through your operating system. Crawl4AI launches it through Playwright's `chrome` channel.
+- **The app cannot generate an answer, or `ollama pull` can't connect** — The `ollama` CLI is a client to a separate `ollama serve` process; installers set this up as a background service on most platforms, but not always (containers, some Linux installs). Run `ollama serve` in its own terminal (or confirm it's already running, e.g. `systemctl status ollama` on Linux) before pulling a model or starting the backend.
+- **A mounted directory is not used** — Set `TAPIO_CONTENT_DIR` and/or `TAPIO_VECTORSTORE_DIR` to the absolute mount path before running the relevant service.
+
+## Package Management
+
+`crawler/`, `ingest/`, and `backend/` each have their own `pyproject.toml` and are managed independently with [`uv`](https://docs.astral.sh/uv/) — there's no root Python project, so run these from within the relevant service directory:
+
+```bash
+cd backend            # or crawler, or ingest
+uv add <package-name>
+uv sync                # synchronize that service's dependencies from its lockfile
+```
+
+Do not use `pip`, `uv pip install`, or `uv pip install -e .` to install packages in this project.
+
+`app/` is a separate npm project:
+
+```bash
+npm install <package-name> --prefix app   # add a dependency
+npm install --prefix app                  # synchronize from package-lock.json
 ```
 
 ## Code Quality
