@@ -116,7 +116,7 @@ def _judge_prompt(case: GoldenCase, answer: str, context: str) -> str:
     facts = "\n".join(f"{index}. {fact}" for index, fact in enumerate(case.key_facts, start=1)) or "(none)"
     return (
         f"Question:\n{case.question}\n\nAnswer:\n{answer}\n\n"
-        f"Source context:\n{context[:MAX_CONTEXT_CHARS]}\n\nKey facts:\n{facts}"
+        f"Source context:\n{context}\n\nKey facts:\n{facts}"
     )
 
 
