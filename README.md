@@ -1,13 +1,13 @@
 <!-- markdownlint-disable -->
 <h1 align="center">Tapio</h1>
 
-<p align="center">
+<div align="center">
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 [![Service CI](https://github.com/Finntegrate/tapio/actions/workflows/ci.yaml/badge.svg)](https://github.com/Finntegrate/tapio/actions/workflows/ci.yaml)
 [![License: EUPL-1.2](https://img.shields.io/badge/license-EUPL--1.2-blue.svg)](LICENSE)
-</p>
+</div>
 <!-- markdownlint-restore -->
 
 **Tapio is a guide network that helps people navigate Finnish immigration — residence permits, employment, benefits, and housing — through one coordinated conversation grounded in official sources.**
