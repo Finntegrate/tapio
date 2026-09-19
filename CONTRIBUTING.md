@@ -306,7 +306,7 @@ Then return to the repository root and run `mise run ingest -- --site migri`.
 
 - **"No relevant documents found"** — Run `mise run ingest` after a crawl and restart the backend. The backend must be started after the shared vector collection has been written.
 - **Crawl4AI cannot start a browser** — Install the stable Google Chrome release through your operating system. Crawl4AI launches it through Playwright's `chrome` channel.
-- **The app cannot generate an answer** — Ensure the Ollama service is running and the selected model has been pulled, for example `ollama pull gemma4:latest`.
+- **The app cannot generate an answer, or `ollama pull` can't connect** — The `ollama` CLI is a client to a separate `ollama serve` process; installers set this up as a background service on most platforms, but not always (containers, some Linux installs). Run `ollama serve` in its own terminal (or confirm it's already running, e.g. `systemctl status ollama` on Linux) before pulling a model or starting the backend.
 - **A mounted directory is not used** — Set `TAPIO_CONTENT_DIR` and/or `TAPIO_VECTORSTORE_DIR` to the absolute mount path before running the relevant service.
 
 ## Package Management

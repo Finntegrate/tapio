@@ -21,7 +21,7 @@ A generic chatbot doesn't fix this: it hides who's answering, why an answer appl
 ## What makes it different
 
 - **A named guide network, not one assistant.** Tapio (the coordinator) and specialists like Ilmarinen, Sampo, Rauni, and Otso — each named for a figure from Finnish cultural heritage — handle distinct domains. Every answer is attributed to the guide that gave it, with a plain-language reason for why that guide was chosen.
-- **Every answer is sourced, or says it isn't.** Guide answers cite the official page they're drawn from; if no reliable source is found, Tapio says so rather than guessing. Crisis or legal-sensitive questions skip retrieval entirely and point straight to vetted official resources instead.
+- **Every answer is sourced, or says it isn't.** Guide answers cite the official page they're drawn from; if no reliable source is found, Tapio says so rather than guessing. Crisis or legal-sensitive questions are normally intercepted before retrieval and pointed straight to vetted official resources instead — crisis detection additionally fails toward caution if its own classifier misfires twice in a row, while a legal-sensitive check that fails the same way falls through to an ordinary sourced answer rather than blocking the turn.
 - **Proactive, not just reactive.** Newcomers often don't know what to ask next. Guides surface likely-relevant next steps tied to your situation, grounded in the same official sources as any direct answer.
 - **One conversation, not a maze of tabs.** A permit question that turns into a benefits question stays in the same thread — no repeating your situation to a different tool.
 - **Privacy by design, not by policy.** Tapio doesn't ask for or retain a case number, application status, or family details. Many people who rely on it — asylum seekers, undocumented people, people fleeing abuse — face real physical risk from a data exposure, so the product is built to have as little as possible to expose.
@@ -60,6 +60,7 @@ git clone https://github.com/Finntegrate/tapio.git
 cd tapio
 mise install                        # pinned dev tools
 (cd crawler && uv sync) && (cd ingest && uv sync) && (cd backend && uv sync) && (cd app && npm install)
+ollama serve &                      # skip if Ollama is already running as a background service
 ollama pull gemma4:latest           # zero-setup local model — or configure a hosted provider, see below
 
 mise run crawl && mise run ingest   # collect and index a source site (needs Chrome installed, see below)
