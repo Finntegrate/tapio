@@ -220,7 +220,14 @@ Ollama isn't the only option: the backend's LLM is provider-configurable, and ca
 
 **Embedding Models**: Vectorization uses HuggingFace sentence-transformers (default: `all-MiniLM-L6-v2`), downloaded automatically on first use — no manual installation needed. Ollama's own embedding models (e.g. `all-minilm`) are not used by the current implementation.
 
-**System requirements**: You need enough available RAM for whichever Ollama model you select; `gemma4:latest` is the default. In low-resource environments such as GitHub Codespaces, pull a smaller model and pass its name explicitly to the crawler/backend CLIs with `--model-name`.
+**System requirements**: You need enough available RAM for whichever Ollama model you select; `gemma4:latest` is the default. In low-resource environments such as GitHub Codespaces, pull a smaller model and override the backend's default via `TAPIO_LLM_MODEL`:
+
+```bash
+ollama pull <a-smaller-model>
+TAPIO_LLM_MODEL=<a-smaller-model> mise run backend
+```
+
+The crawler doesn't use an LLM at all — it only collects and normalizes page content — so there's no equivalent flag there.
 
 ## Running the Pipeline
 
@@ -230,7 +237,7 @@ Once your environment is set up (above), here's how to actually run Tapio's craw
 crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  backend  ──>  app
 ```
 
-`content/` and `vectorstore/` are local runtime data, not source code — they are ignored by Git and are the only handoffs between services. The services share files only; they do not import, invoke, or otherwise depend on one another.
+`content/` and `vectorstore/` are local runtime data, not source code — they are ignored by Git and are the only handoffs between `crawler`, `ingest`, and `backend`. Those three share files only; they do not import or invoke one another directly. `app/` is different: it depends on `backend/` at runtime over HTTP/SSE (`POST /chat/stream`, see `backend/README.md`), not through a file handoff.
 
 The crawl step fetches real pages from each configured source site (Migri, Kela, etc.) over the network like any web crawler — that traffic isn't privacy-isolated, and those sites see ordinary request metadata (your IP address, user agent).
 
@@ -316,18 +323,21 @@ Then return to the repository root and run `mise run ingest -- --site migri`.
 
 ## Package Management
 
-We use the `uv` package manager for this project. To add packages:
+`crawler/`, `ingest/`, and `backend/` each have their own `pyproject.toml` and are managed independently with [`uv`](https://docs.astral.sh/uv/) — there's no root Python project, so run these from within the relevant service directory:
 
 ```bash
+cd backend            # or crawler, or ingest
 uv add <package-name>
+uv sync                # synchronize that service's dependencies from its lockfile
 ```
 
-Do not use `pip`, `uv pip install`, or `uv pip install -e .` to install packages or this project.
+Do not use `pip`, `uv pip install`, or `uv pip install -e .` to install packages in this project.
 
-To synchronize dependencies from the lockfile:
+`app/` is a separate npm project:
 
 ```bash
-uv sync
+npm install <package-name> --prefix app   # add a dependency
+npm install --prefix app                  # synchronize from package-lock.json
 ```
 
 ## Code Quality
