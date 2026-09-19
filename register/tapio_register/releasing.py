@@ -31,7 +31,7 @@ import yaml
 from tapio_register import paths, skos
 from tapio_register.generated.term_register_model import TermRegister
 from tapio_register.loading import read_source
-from tapio_register.validation import summarize
+from tapio_register.validation import check_publication, summarize
 
 MANIFEST_NAME = "manifest.json"
 SOURCE_NAME = "register.yaml"
@@ -44,6 +44,15 @@ class ReleaseExistsError(Exception):
 
     Editions are immutable. Re-cutting one would silently invalidate every
     provenance record that names it.
+    """
+
+
+class InvalidPublicationError(Exception):
+    """Raised when an edition's published SKOS would not be valid.
+
+    Checked here rather than only in ``validate`` because this is the function
+    that writes the artifact: a projection no consumer could rely on must not
+    reach a release directory, whoever called it.
     """
 
 
@@ -88,6 +97,11 @@ def write_release(
     if TermRegister.model_validate(source) != register:
         message = "the register being released and the source snapshot are not the same register"
         raise ValueError(message)
+
+    problems = [str(issue) for issue in check_publication(register)]
+    if problems:
+        message = "the SKOS this edition would publish is not valid:\n  - " + "\n  - ".join(problems)
+        raise InvalidPublicationError(message)
 
     # Built in full before anything in `directory` is touched, so a refused
     # release leaves the edition that is already there exactly as it was, and an

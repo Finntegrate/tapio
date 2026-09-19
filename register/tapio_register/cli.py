@@ -110,14 +110,14 @@ def release(
 ) -> None:
     """Cut the dated edition named by the source's ``register_version``."""
     register = loading.load_register(source)
-    issues = validation.check_integrity(register)
+    issues = [*validation.check_integrity(register), *validation.check_publication(register)]
     if issues:
-        _echo_issues("Integrity violations", [str(issue) for issue in issues])
+        _echo_issues("Violations", [str(issue) for issue in issues])
         typer.echo("Refusing to release an invalid register.")
         raise typer.Exit(code=1)
     try:
         result = releasing.write_release(register, source_path=source, overwrite=overwrite)
-    except releasing.ReleaseExistsError as error:
+    except (releasing.ReleaseExistsError, releasing.InvalidPublicationError) as error:
         typer.echo(str(error))
         raise typer.Exit(code=1) from error
     if result.replaced:

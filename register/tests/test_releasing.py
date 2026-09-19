@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 import yaml
 
-from tapio_register import paths, releasing
+from tapio_register import paths, releasing, validation
 from tapio_register.generated.term_register_model import TermRegister
 
 
@@ -232,3 +232,15 @@ def test_an_edition_whose_payload_is_not_built_is_recovered_from_git():
 def test_an_unknown_edition_says_how_to_build_it(tmp_path):
     with pytest.raises(FileNotFoundError, match="tapio-register release"):
         releasing.edition_source("2099-01-01", tmp_path / "releases")
+
+
+def test_an_edition_whose_published_skos_is_invalid_is_refused(tmp_path, source, register, monkeypatch):
+    """Checked where the artifact is written, not only where it is validated."""
+    monkeypatch.setattr(
+        releasing,
+        "check_publication",
+        lambda _register: [validation.Issue(None, "a concept has no skos:prefLabel in sv")],
+    )
+    with pytest.raises(releasing.InvalidPublicationError, match="not valid"):
+        release(tmp_path, source, register)
+    assert not (tmp_path / "releases" / "2026-09-19").exists()
