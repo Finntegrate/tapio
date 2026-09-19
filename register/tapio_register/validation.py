@@ -164,7 +164,7 @@ def _check_validity(concepts: list[Concept], known: dict[str, Concept]) -> list[
             continue
         if concept.valid_until < concept.valid_from:
             issues.append(Issue(concept.id, "valid_until precedes valid_from"))
-        if not concept.superseded_by and not concept.change_note:
+        if not concept.superseded_by and not (concept.change_note or "").strip():
             # Never delete, always supersede: an entity that left force either
             # points at what replaced it or says in writing that nothing did.
             issues.append(Issue(concept.id, "lapsed concept needs either superseded_by or a change_note"))
@@ -289,7 +289,7 @@ def _check_observations(concepts: list[Concept], register_version: date) -> list
         if not concept.in_scope_of:
             issues.append(Issue(concept.id, "is in no guide's scope"))
         for observation in concept.observations:
-            if enum_value(observation.source) == "other" and not observation.note:
+            if enum_value(observation.source) == "other" and not (observation.note or "").strip():
                 # `other` means the publisher has no entry of its own, so the
                 # note is the only place the source is named at all.
                 issues.append(Issue(concept.id, f"observation of {observation.url} uses 'other' without naming it"))

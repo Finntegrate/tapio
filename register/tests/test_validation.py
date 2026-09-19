@@ -251,3 +251,16 @@ def test_shipped_schema_and_shapes_reject_an_unknown_kind(tmp_path, register_dic
     issues = [str(issue) for issue in check_schema(path)]
     assert any("is not one of" in issue for issue in issues)
     assert any("could not be converted to RDF" in issue for issue in issues)
+
+
+def test_a_whitespace_only_note_names_no_publisher(register_dict):
+    """Blank is as absent as missing, for a field whose whole job is to name a source."""
+    register_dict["concepts"][0]["observations"][0]["source"] = "other"
+    register_dict["concepts"][0]["observations"][0]["note"] = "   "
+    assert any("uses 'other' without naming it" in message for message in messages(register_dict))
+
+
+def test_a_whitespace_only_change_note_explains_nothing(register_dict):
+    register_dict["concepts"][1]["valid_until"] = "2025-01-01"
+    register_dict["concepts"][1]["change_note"] = "  "
+    assert any("superseded_by or a change_note" in message for message in messages(register_dict))
