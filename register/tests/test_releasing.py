@@ -1,6 +1,7 @@
 """Editions are immutable, and the manifest is what makes that checkable."""
 
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
@@ -63,10 +64,11 @@ def test_verify_catches_an_edited_edition(tmp_path, source, register):
     assert any("checksum does not match" in problem for problem in problems)
 
 
-def test_verify_catches_a_missing_file(tmp_path, source, register):
+def test_verify_ignores_a_payload_file_that_was_not_built(tmp_path, source, register):
+    """The repository keeps manifests; the files they describe are built on demand."""
     result = release(tmp_path, source, register)
     (result.directory / "register.jsonld").unlink()
-    assert any("missing" in problem for problem in releasing.verify_releases(tmp_path / "releases"))
+    assert releasing.verify_releases(tmp_path / "releases") == []
 
 
 def test_verify_catches_a_file_the_manifest_does_not_know_about(tmp_path, source, register):
@@ -119,25 +121,46 @@ def test_diff_reports_additions_lapses_and_edits(tmp_path, source, register, reg
     assert diff["withdrawn"] == []
 
 
-def test_today_is_a_calendar_day(tmp_path):
-    assert releasing.today().isoformat() == releasing.today().isoformat()
+def test_today_is_the_current_calendar_day():
+    # Through an aware datetime rather than date.today(), which the linter
+    # rejects; astimezone() brings it back to the same local calendar day.
+    assert releasing.today() == datetime.now(UTC).astimezone().date()
 
 
-def test_source_edition_check_passes_right_after_a_release(tmp_path, source, register):
+def test_current_edition_rebuilds_and_matches_right_after_a_release(tmp_path, source, register):
     release(tmp_path, source, register)
-    assert releasing.verify_source_edition(source, tmp_path / "releases") == []
+    assert releasing.verify_current_edition(source, tmp_path / "releases") == []
 
 
-def test_source_edition_check_catches_an_unreleased_edit(tmp_path, source, register, register_dict):
+def test_current_edition_check_passes_without_the_payload_on_disk(tmp_path, source, register):
+    """The point of manifest-only releases: the payload is rebuilt, not stored."""
+    result = release(tmp_path, source, register)
+    for path in result.directory.iterdir():
+        if path.name != "manifest.json":
+            path.unlink()
+    assert releasing.verify_current_edition(source, tmp_path / "releases") == []
+
+
+def test_current_edition_check_catches_an_unreleased_edit(tmp_path, source, register, register_dict):
     release(tmp_path, source, register)
     register_dict["concepts"][0]["notation"] = "edited after release"
     source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
-    problems = releasing.verify_source_edition(source, tmp_path / "releases")
+    problems = releasing.verify_current_edition(source, tmp_path / "releases")
     assert any("bump register_version" in problem for problem in problems)
 
 
-def test_source_edition_check_catches_a_version_with_no_release(tmp_path, source, register_dict):
+def test_current_edition_check_catches_a_version_with_no_manifest(tmp_path, source, register_dict):
     register_dict["register_version"] = "2027-01-01"
     source.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
-    problems = releasing.verify_source_edition(source, tmp_path / "releases")
-    assert any("has not been released" in problem for problem in problems)
+    problems = releasing.verify_current_edition(source, tmp_path / "releases")
+    assert any("has no manifest" in problem for problem in problems)
+
+
+def test_current_edition_check_catches_a_hand_edited_manifest(tmp_path, source, register):
+    result = release(tmp_path, source, register)
+    manifest_path = result.directory / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["files"]["register.ttl"] = "sha256:" + "0" * 64
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    problems = releasing.verify_current_edition(source, tmp_path / "releases")
+    assert any("does not match the digest recorded" in problem for problem in problems)

@@ -109,8 +109,8 @@ def release(
 def verify_releases(
     source: Annotated[Path | None, typer.Option("--source", help="Register source to check against.")] = None,
 ) -> None:
-    """Check the released editions, and that the source matches the one it names."""
-    problems = releasing.verify_releases() + releasing.verify_source_edition(source)
+    """Check the released editions, and rebuild the one the source names."""
+    problems = releasing.verify_releases() + releasing.verify_current_edition(source)
     if problems:
         _echo_issues("Release problems", problems)
         raise typer.Exit(code=1)

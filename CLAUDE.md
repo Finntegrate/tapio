@@ -15,15 +15,17 @@ Tapio is an AI-powered Finnish immigration assistant built by the Finntegrate pr
 - **Package manager**: uv
 - **CI target**: GitHub Actions + Codespaces
 
-## Agents (planned)
+## The guide network
 
-| Name      | Role                                               |
-| --------- | -------------------------------------------------- |
-| Tapio     | Orchestrator — routes queries, synthesises answers |
-| Ilmarinen | Immigration documents and forms                    |
-| Sampo     | Financial requirements and costs                   |
-| Rauni     | Work permits and employment                        |
-| Otso      | Settlement and daily life                          |
+The public roster at [finntegrate.org/tapio](https://finntegrate.org/tapio/) is canonical; [PRD §6](docs/PRD.md#6-the-guide-network) mirrors it. The four specialists below are live.
+
+| Name      | Role                                                      |
+| --------- | --------------------------------------------------------- |
+| Tapio     | Coordinator — routing, handoffs, cross-guide summaries     |
+| Ilmarinen | Residence permits, visas, applications, official paperwork |
+| Sampo     | Job seeking, networking, career pathways, workplace culture |
+| Rauni     | Kela, social security, benefits, family support            |
+| Otso      | Housing, rental agreements, tenant rights, settlement      |
 
 ## Backlog awareness
 

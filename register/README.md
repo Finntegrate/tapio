@@ -23,16 +23,32 @@ register rather than starting new ones.
 | `tapio_register/data/register.yaml` | The curated register source, reviewed by a person. |
 | `tapio_register/generated/` | Pydantic classes, JSON Schema, and SHACL shapes, all derived from the schema. Never hand-edited. |
 | `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into `register.yaml`. |
-| `releases/<date>/` | One dated, immutable edition: SKOS in JSON-LD and Turtle, the source snapshot, and a manifest of checksums. |
+| `releases/<date>/manifest.json` | One dated, immutable edition: its coverage summary and a SHA-256 digest per payload file. |
 
 ## Working with it
 
 ```bash
 mise run register:validate      # schema, SHACL, and integrity checks
 mise run register:generate      # regenerate the derived artifacts after a schema change
-mise run register:release       # cut today's edition
+mise run register:release       # build the edition named by the source's register_version
 mise run test:register          # unit tests
 ```
+
+## How an edition is stored
+
+Only `manifest.json` is committed. The payload it describes — `register.ttl`,
+`register.jsonld`, and the `register.yaml` snapshot — is built by
+`register:release` and is git-ignored, because committing it would bury a
+three-line concept change in a fourteen-thousand-line diff, and a register that
+is hard to review is a register that stops being maintained.
+
+Nothing is lost by this. The serializations are byte-reproducible from the
+source (observations carry IRIs rather than blank nodes, and the JSON-LD is
+re-emitted in canonical order), so `tapio-register verify-releases` rebuilds the
+edition the source names and checks it against the recorded digests. That one
+check catches a register edited without a version bump, a hand-edited manifest,
+and any change that breaks reproducibility. To reconstruct an older edition,
+read its `register.yaml` from the commit that added its manifest.
 
 Seeding candidates from Finto reaches the network and is run by hand, not in
 CI:

@@ -87,7 +87,7 @@ def test_shipped_register_publishes_as_skos(shipped):
     assert len(graph) > len(shipped.concepts)
 
 
-def test_the_released_edition_matches_its_manifest():
+def test_the_released_editions_match_their_manifests():
     assert releasing.verify_releases() == []
 
 
@@ -95,5 +95,6 @@ def test_an_edition_exists_for_the_source_version(shipped):
     assert shipped.register_version.isoformat() in releasing.released_versions()
 
 
-def test_the_source_still_matches_the_edition_it_names():
-    assert releasing.verify_source_edition() == []
+def test_the_shipped_edition_rebuilds_to_its_recorded_digests():
+    """Manifest-only releases are only honest if the payload reproduces exactly."""
+    assert releasing.verify_current_edition() == []

@@ -33,7 +33,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: finlex
     url: https://www.finlex.fi/fi/lainsaadanto/2004/301
@@ -86,8 +86,8 @@ concepts:
   valid_from: '2008-01-01'
   in_scope_of:
   - ilmarinen
-  - rauni
   - sampo
+  - rauni
   - otso
   observations:
   - source: migri
@@ -179,7 +179,7 @@ concepts:
     sv: Folkpensionsanstalten
   valid_from: '2004-05-01'
   in_scope_of:
-  - sampo
+  - rauni
   - otso
   observations:
   - source: kela
@@ -270,8 +270,8 @@ concepts:
     sv: arbets- och näringsbyrån
   valid_from: '2004-05-01'
   in_scope_of:
-  - rauni
   - ilmarinen
+  - sampo
   observations:
   - source: other
     url: https://tem.fi/en/employment-areas
@@ -297,8 +297,8 @@ concepts:
     sv: sysselsättningsområde
   valid_from: '2025-01-01'
   in_scope_of:
-  - rauni
   - ilmarinen
+  - sampo
   observations:
   - source: other
     url: https://tem.fi/en/employment-areas
@@ -320,7 +320,6 @@ concepts:
     sv: närings-, trafik- och miljöcentralen
   valid_from: '2004-05-01'
   in_scope_of:
-  - rauni
   - ilmarinen
   observations:
   - source: other
@@ -346,7 +345,6 @@ concepts:
     sv: livskraftscentral
   valid_from: '2026-01-01'
   in_scope_of:
-  - rauni
   - ilmarinen
   observations:
   - source: other
@@ -366,7 +364,6 @@ concepts:
     sv: kommunens social- och hälsovårdstjänster
   valid_from: '2004-05-01'
   in_scope_of:
-  - otso
   - ilmarinen
   observations:
   - source: other
@@ -386,7 +383,6 @@ concepts:
     sv: välfärdsområde
   valid_from: '2023-01-01'
   in_scope_of:
-  - otso
   - ilmarinen
   observations:
   - source: other
@@ -881,7 +877,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/residence-permit-for-an-employed-person
@@ -916,7 +912,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/specialist
@@ -940,7 +936,7 @@ concepts:
   valid_from: '2012-01-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/eu-blue-card
@@ -967,7 +963,7 @@ concepts:
   valid_from: '2018-04-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/start-up-entrepreneur
@@ -991,7 +987,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/entrepreneur
@@ -1015,7 +1011,7 @@ concepts:
   valid_from: '2018-01-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/residence-permit-for-seasonal-work
@@ -1039,7 +1035,7 @@ concepts:
   valid_from: '2018-01-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/seasonal-work-certificate
@@ -1063,7 +1059,7 @@ concepts:
   valid_from: '2018-01-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/intra-corporate-transfer-mobile-ict-
@@ -1133,7 +1129,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/residence-permit-to-look-for-work
@@ -1157,7 +1153,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/internship
@@ -1910,7 +1906,6 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/processing-fees-and-payment-methods
@@ -2535,7 +2530,6 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/income-requirement
@@ -2555,7 +2549,6 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/insurance
@@ -2576,7 +2569,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/labour-market-test
@@ -2598,7 +2591,7 @@ concepts:
   valid_from: '2004-05-01'
   in_scope_of:
   - ilmarinen
-  - rauni
+  - sampo
   observations:
   - source: migri
     url: https://migri.fi/en/work-in-finland

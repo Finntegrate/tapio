@@ -20,9 +20,9 @@
     },
     "by_guide": {
       "ilmarinen": 128,
-      "otso": 8,
-      "rauni": 18,
-      "sampo": 5
+      "otso": 6,
+      "rauni": 2,
+      "sampo": 16
     },
     "observations_by_source": {
       "dvv": 3,
@@ -36,8 +36,8 @@
     }
   },
   "files": {
-    "register.jsonld": "sha256:7a21a418648ec2c3faf46f6eabb0968e0bbe4c12c03a115298833142f6311fa1",
-    "register.ttl": "sha256:ed50d246d9a2306606eac57f16df242e38a1350852bcf87588fd8313e0bd7cf7",
-    "register.yaml": "sha256:3bee91ab29d2db247d3f65172c237aec9abb460cf8b3cc970a0bc866092038f4"
+    "register.jsonld": "sha256:1a49ae83dc775671b6b66106b8939cb4fca827a976906f63d08a68be451690c8",
+    "register.ttl": "sha256:424fa3152ae56bcef2fbe1020789aff9a61f9c94800f9d56ac95c054a43a4b0b",
+    "register.yaml": "sha256:1cc6c58cdb9b13fc43c7360dac8a951787810352734f2685bf4782398374045c"
   }
 }

@@ -5,9 +5,11 @@ with the Finnish vocabulary infrastructure it aligns to (Finto, JUPO, PTV)
 instead of sitting beside it.
 """
 
+import json
 from datetime import date
+from typing import Any
 
-from rdflib import BNode, Graph, Literal, Namespace, URIRef
+from rdflib import Graph, Literal, Namespace, URIRef
 from rdflib.namespace import DCTERMS, RDF, RDFS, SKOS, XSD
 
 from tapio_register.generated.term_register_model import Concept, TermRegister
@@ -102,8 +104,12 @@ def _add_relations(graph: Graph, subject: URIRef, concept: Concept) -> None:
 
 
 def _add_observations(graph: Graph, subject: URIRef, concept: Concept) -> None:
-    for observation in concept.observations:
-        node = BNode()
+    for index, observation in enumerate(concept.observations, start=1):
+        # An IRI rather than a blank node, for two reasons: an observation is
+        # something a reader may want to cite ("where did you see that, and
+        # when"), and blank node labels are regenerated on every serialization,
+        # which would make a released edition's bytes unreproducible.
+        node = URIRef(f"{subject}#observation-{index}")
         graph.add((subject, TAPIO.observation, node))
         graph.add((node, RDF.type, TAPIO.Observation))
         graph.add((node, DCTERMS.publisher, Literal(enum_value(observation.source))))
@@ -145,6 +151,30 @@ def to_graph(register: TermRegister) -> Graph:
         _add_observations(graph, subject, concept)
     _add_guide_collections(graph, register)
     return graph
+
+
+def _canonical(node: Any) -> Any:
+    """Order a parsed JSON-LD document so equal graphs render identically."""
+    if isinstance(node, list):
+        items = [_canonical(item) for item in node]
+        return sorted(items, key=lambda item: json.dumps(item, sort_keys=True, ensure_ascii=False))
+    if isinstance(node, dict):
+        return {key: _canonical(value) for key, value in sorted(node.items())}
+    return node
+
+
+def serialize(graph: Graph, rdf_format: str) -> str:
+    """Serialize a register graph reproducibly.
+
+    A dated edition's digest is only meaningful if the same register always
+    produces the same bytes. rdflib orders Turtle deterministically once blank
+    nodes are out of the way, but its JSON-LD writer does not, so that one is
+    re-emitted in a canonical order.
+    """
+    text = graph.serialize(format=rdf_format, auto_compact=True)
+    if rdf_format == "json-ld":
+        text = json.dumps(_canonical(json.loads(text)), indent=2, ensure_ascii=False, sort_keys=True)
+    return text if text.endswith("\n") else text + "\n"
 
 
 def in_force_on(register: TermRegister, reference: date) -> list[Concept]:

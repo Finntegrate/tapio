@@ -1,0 +1,6 @@
+# Generated and locked files. Marking them keeps them collapsed in GitHub's
+# diff view and skipped by review tooling, so a pull request shows the change a
+# person made rather than the build output that followed from it.
+*.lock linguist-generated=true
+register/tapio_register/generated/** linguist-generated=true
+register/releases/** linguist-generated=true
