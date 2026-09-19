@@ -50,14 +50,16 @@ def validate(
         typer.Option("--skip-shapes", help="Skip the JSON Schema and SHACL pass, which is the slow one."),
     ] = False,
 ) -> None:
-    """Check the register against the schema, the shapes, and the integrity rules."""
+    """Check the register against the schema, the shapes, the integrity rules, and the published SKOS."""
     register = loading.load_register(source)
     schema_issues = [] if skip_shapes else [str(issue) for issue in validation.check_schema(source)]
     integrity_issues = [str(issue) for issue in validation.check_integrity(register)]
+    publication_issues = [str(issue) for issue in validation.check_publication(register)]
     if not skip_shapes:
         _echo_issues("Schema and shape violations", schema_issues)
     _echo_issues("Integrity violations", integrity_issues)
-    if schema_issues or integrity_issues:
+    _echo_issues("Publication violations", publication_issues)
+    if schema_issues or integrity_issues or publication_issues:
         raise typer.Exit(code=1)
     summary = validation.summarize(register)
     typer.echo(f"OK: {summary['concept_count']} concepts, version {summary['register_version']}")

@@ -233,27 +233,31 @@ def _surface_forms(concept: Concept) -> list[tuple[str, str]]:
 def _check_label_collisions(concepts: list[Concept]) -> list[Issue]:
     """A surface form must not resolve to two concepts that are in force together.
 
-    The ``ground`` node maps spans of a user's message to IRIs by label alone.
-    Two live concepts sharing a label would make that mapping arbitrary, which
-    is a register defect rather than a runtime one.
+    The ``ground`` node maps spans of a user's message to IRIs by label alone,
+    across every language the register carries, because a question can be asked
+    in any of them and often mixes them. So the clash that matters is between
+    surface forms, not between surface forms within one language: an English
+    label on one concept and a Swedish label on another are just as ambiguous
+    to a span matcher as two English ones.
     """
-    by_form: dict[tuple[str, str], list[Concept]] = defaultdict(list)
+    by_form: dict[str, list[tuple[Concept, str]]] = defaultdict(list)
     for concept in concepts:
         for language, label in _surface_forms(concept):
-            by_form[(language, normalize_label(label))].append(concept)
+            by_form[normalize_label(label)].append((concept, language))
 
     issues: list[Issue] = []
-    for (language, form), sharing in sorted(by_form.items()):
+    for form, sharing in sorted(by_form.items()):
         if len(sharing) < _COLLISION:
             continue
-        for index, first in enumerate(sharing):
+        for index, (first, first_language) in enumerate(sharing):
             issues.extend(
                 Issue(
                     first.id,
-                    f"shares the {language} surface form '{form}' with '{second.id}' while both are in force",
+                    f"its {first_language} surface form '{form}' is also '{second.id}''s "
+                    f"{second_language} label, while both are in force",
                 )
-                for second in sharing[index + 1 :]
-                if _overlap_in_force(first, second)
+                for second, second_language in sharing[index + 1 :]
+                if second.id != first.id and _overlap_in_force(first, second)
             )
     return issues
 
@@ -300,6 +304,18 @@ def _check_observations(concepts: list[Concept], register_version: date) -> list
             if not str(observation.url).startswith(("http://", "https://")):
                 issues.append(Issue(concept.id, f"observation url '{observation.url}' is not an absolute URL"))
     return issues
+
+
+def check_publication(register: TermRegister) -> list[Issue]:
+    """Check the SKOS an edition would publish, as a consumer would read it.
+
+    The generated shapes validate the register in its own shape; this validates
+    the projection of it that a consumer actually gets, which the shapes are not
+    able to describe.
+    """
+    from tapio_register import skos
+
+    return [Issue(None, problem) for problem in skos.check_graph(skos.to_graph(register))]
 
 
 def check_integrity(register: TermRegister) -> list[Issue]:

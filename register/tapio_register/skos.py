@@ -153,6 +153,46 @@ def to_graph(register: TermRegister) -> Graph:
     return graph
 
 
+def check_graph(graph: Graph) -> list[str]:
+    """Check the published graph on SKOS's terms rather than the register's.
+
+    The generated SHACL shapes describe the register in its *own* shape, where a
+    concept's labels are one ``PrefLabels`` object. The published graph is a
+    projection of that into SKOS, where they are three language-tagged literals,
+    so the shapes cannot judge it and something has to. These are the invariants
+    a consumer of the SKOS is entitled to rely on.
+    """
+    problems: list[str] = []
+    concepts = set(graph.subjects(RDF.type, SKOS.Concept))
+    for concept in sorted(concepts, key=str):
+        # A label with no language tag is as much a defect as a missing one, so
+        # it is counted under "" rather than dropped.
+        languages = [
+            literal.language or "" for literal in graph.objects(concept, SKOS.prefLabel) if isinstance(literal, Literal)
+        ]
+        missing = sorted(set(_LANGUAGES) - set(languages))
+        if missing:
+            problems.append(f"{concept}: no skos:prefLabel in {', '.join(missing)}")
+        duplicated = sorted({language for language in languages if languages.count(language) > 1})
+        if duplicated:
+            # More than one prefLabel per language is a SKOS violation, not a
+            # matter of taste: it leaves no single preferred form to render.
+            problems.append(f"{concept}: more than one skos:prefLabel in {', '.join(duplicated)}")
+
+    for predicate, label in ((SKOS.broader, "skos:broader"), (DCTERMS.isReplacedBy, "dcterms:isReplacedBy")):
+        problems.extend(
+            f"{subject}: {label} points outside the published graph, at {target}"
+            for subject, target in graph.subject_objects(predicate)
+            if target not in concepts
+        )
+    problems.extend(
+        f"{collection}: skos:member points outside the published graph, at {member}"
+        for collection, member in graph.subject_objects(SKOS.member)
+        if member not in concepts
+    )
+    return sorted(problems)
+
+
 def _canonical(node: Any) -> Any:
     """Order a parsed JSON-LD document so equal graphs render identically."""
     if isinstance(node, list):

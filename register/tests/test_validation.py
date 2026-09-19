@@ -163,12 +163,18 @@ def test_broader_cycle_is_rejected(register_dict):
 
 def test_label_shared_by_two_live_concepts_is_rejected(register_dict):
     register_dict["concepts"][1]["pref_label"]["fi"] = register_dict["concepts"][0]["pref_label"]["fi"]
-    assert any("shares the fi surface form" in message for message in messages(register_dict))
+    assert any("while both are in force" in message for message in messages(register_dict))
 
 
 def test_alt_label_colliding_with_a_pref_label_is_rejected(register_dict):
     register_dict["concepts"][1]["alt_labels"] = {"en": ["permit:first-residence-permit"]}
-    assert any("shares the en surface form" in message for message in messages(register_dict))
+    assert any("while both are in force" in message for message in messages(register_dict))
+
+
+def test_a_collision_across_two_languages_is_rejected(register_dict):
+    """`ground` matches a span against every language, so the clash is between forms."""
+    register_dict["concepts"][1]["pref_label"]["sv"] = register_dict["concepts"][0]["pref_label"]["en"]
+    assert any("is also" in message and "while both are in force" in message for message in messages(register_dict))
 
 
 def test_label_reuse_is_allowed_once_the_earlier_concept_has_lapsed(register_dict):
