@@ -232,9 +232,10 @@ class TestRejectCleartextTransport:
         monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
         monkeypatch.setenv(env_var, "http://example.com")
         config = RAGConfig(llm_provider=provider, llm_model_name="some-model")
+        llm_settings = LLMSettings()
 
         with pytest.raises(ValueError, match="cleartext"):
-            build_chat_model(config, LLMSettings())
+            build_chat_model(config, llm_settings)
 
     def test_explicit_api_base_wins_over_a_provider_fallback_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """An explicit TAPIO_LLM_API_BASE is what's actually used, so it's what gets checked,
