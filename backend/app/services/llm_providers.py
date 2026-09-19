@@ -21,7 +21,18 @@ from langchain_openai import ChatOpenAI
 
 @dataclass(frozen=True, slots=True)
 class ProviderConfig:
-    """Everything that varies by LLM provider (``config.llm_provider``)."""
+    """Everything that varies by LLM provider (``config.llm_provider``).
+
+    Args:
+        model_type: The LangChain ``BaseChatModel`` subclass this provider constructs.
+        max_tokens_kwarg: The constructor kwarg name for the output-length cap.
+        base_url_env_vars: Env vars this provider's own SDK falls back to for its API
+            base URL, in fallback order.
+        credential_env_var: The env var this provider's own SDK reads its credential
+            from, or ``None`` for a provider with no such notion.
+        infra_error_types: Exception types this provider's SDK raises for
+            connection/timeout/server-level failures.
+    """
 
     model_type: type[BaseChatModel]
 
