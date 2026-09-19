@@ -12,6 +12,9 @@ Moving to a new country means learning an unfamiliar bureaucracy in a language y
 
 🔗 **Live roster and product overview:** [finntegrate.org/tapio](https://finntegrate.org/tapio/)
 
+> [!NOTE]
+> **Project status:** Tapio is in active development. The coordinator plus four specialists (Ilmarinen, Sampo, Rauni, Otso) are live today; seven more guides on the public roster are planned but not yet built (see [the guide network](#the-guide-network) below). Conversation history, accounts, and proactive guidance are also still on the roadmap — see the [PRD](docs/PRD.md) for what's shipped versus planned.
+
 ## Why Tapio
 
 Finnish immigration information is scattered across Migri, Kela, TE-palvelut, municipal services, and more — written in dense administrative language, often only in Finnish and Swedish. People navigating this system are frequently non-native speakers under time pressure who don't yet know which authority to ask, or what to even call the thing they need.
@@ -26,6 +29,25 @@ A generic chatbot doesn't fix this: it hides who's answering, why an answer appl
 - **One conversation, not a maze of tabs.** A permit question that turns into a benefits question stays in the same thread — no repeating your situation to a different tool.
 - **Privacy by design, not by policy.** Tapio doesn't ask for or retain a case number, application status, or family details. Many people who rely on it — asylum seekers, undocumented people, people fleeing abuse — face real physical risk from a data exposure, so the product is built to have as little as possible to expose.
 - **Knows its own boundary.** Tapio is explicit that it isn't a caseworker, legal representative, or official authority, and hands off to human or official support when a question needs one.
+
+## The guide network
+
+| Guide | Role | Status |
+| --- | --- | --- |
+| **Tapio** | Coordinator — routing, handoffs, cross-guide summaries | Live |
+| **Ilmarinen** | Residence permits, visas, applications | Live |
+| **Sampo** | Job seeking, career pathways, workplace culture | Live |
+| **Rauni** | Kela, social security, benefits, family support | Live |
+| **Otso** | Housing, tenant rights, settlement | Live |
+| **Pellervo** | Entrepreneurship, business establishment | Planned |
+| **Agricola** | Language learning, education, qualification recognition | Planned |
+| **Louhi** | Finnish customs and etiquette | Planned |
+| **Mielikki** | Healthcare navigation | Planned |
+| **Lempi** | Mental health, community connections | Planned |
+| **Ahti** | Transportation, utilities, banking | Planned |
+| **Kokko** | Regional and municipal services | Planned |
+
+Each name comes from Finnish cultural heritage, paired with a specific area of expertise. Full scope per guide is in [PRD §6](docs/PRD.md#6-the-guide-network); the canonical public roster is [finntegrate.org/tapio](https://finntegrate.org/tapio/).
 
 ## Who it's for
 
