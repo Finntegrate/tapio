@@ -94,22 +94,33 @@ def parse_verdict(raw: str, fact_count: int) -> Verdict | None:
 
     Returns:
         The verdict, or None when no valid JSON object with the expected fields is found.
+        Rejects malformed JSON where facts_covered is not a list of booleans, or
+        grounded/safe are not booleans.
     """
     match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
     if not match:
         return None
     try:
         data = json.loads(match.group(0))
-        facts = [bool(item) for item in data["facts_covered"]]
-        verdict = Verdict(
-            facts_covered=facts,
-            grounded=bool(data["grounded"]),
-            safe=bool(data["safe"]),
-            reason=str(data.get("reason", "")),
-        )
-    except json.JSONDecodeError, KeyError, TypeError:
+        facts_covered = data["facts_covered"]
+        grounded = data["grounded"]
+        safe = data["safe"]
+    except (json.JSONDecodeError, KeyError, TypeError):
         return None
-    return verdict if len(facts) == fact_count else None
+    # Validate types: facts_covered must be a list of JSON booleans, grounded/safe must be booleans.
+    # Use `type(x) is bool` to reject integer 0/1 (isinstance(True, int) is True in Python).
+    if not isinstance(facts_covered, list) or not all(type(item) is bool for item in facts_covered):
+        return None
+    if type(grounded) is not bool or type(safe) is not bool:
+        return None
+    if len(facts_covered) != fact_count:
+        return None
+    return Verdict(
+        facts_covered=facts_covered,
+        grounded=grounded,
+        safe=safe,
+        reason=str(data.get("reason", "")),
+    )
 
 
 def _judge_prompt(case: GoldenCase, answer: str, context: str) -> str:

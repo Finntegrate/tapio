@@ -107,6 +107,39 @@ class TestGenerationEval:
     def test_parse_verdict_rejects_unusable_replies(self, raw: str) -> None:
         assert parse_verdict(raw, fact_count=0) is None
 
+    @pytest.mark.parametrize(
+        "raw",
+        [
+            # facts_covered contains string instead of bool
+            '{"facts_covered": ["true", false], "grounded": true, "safe": true}',
+            # facts_covered contains integer instead of bool
+            '{"facts_covered": [1, 0], "grounded": true, "safe": true}',
+            # facts_covered is not a list
+            '{"facts_covered": true, "grounded": true, "safe": true}',
+            # grounded is string instead of bool
+            '{"facts_covered": [true], "grounded": "true", "safe": true}',
+            # grounded is integer instead of bool
+            '{"facts_covered": [true], "grounded": 1, "safe": true}',
+            # safe is string instead of bool
+            '{"facts_covered": [true], "grounded": true, "safe": "true"}',
+            # safe is integer instead of bool
+            '{"facts_covered": [true], "grounded": true, "safe": 0}',
+        ],
+    )
+    def test_parse_verdict_rejects_non_boolean_values(self, raw: str) -> None:
+        assert parse_verdict(raw, fact_count=1) is None
+
+    def test_parse_verdict_preserves_boolean_values(self) -> None:
+        raw = '{"facts_covered": [true, false, true], "grounded": false, "safe": true, "reason": "test"}'
+
+        verdict = parse_verdict(raw, fact_count=3)
+
+        assert verdict is not None
+        assert verdict.facts_covered == [True, False, True]
+        assert verdict.grounded is False
+        assert verdict.safe is True
+        assert verdict.reason == "test"
+
     def test_evaluate_generation_aggregates_judge_verdicts(self) -> None:
         judge = FakeListChatModel(
             responses=[
