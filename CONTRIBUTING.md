@@ -13,6 +13,12 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Using GitHub Codespaces (Cloud Alternative)](#using-github-codespaces-cloud-alternative)
     - [Manual Setup (Alternative)](#manual-setup-alternative)
     - [Installing Required Models](#installing-required-models)
+  - [Running the Pipeline](#running-the-pipeline)
+    - [End-to-End Quick Start](#end-to-end-quick-start)
+    - [Shared Runtime Directories](#shared-runtime-directories)
+    - [Mise Task Reference](#mise-task-reference)
+    - [Work with an Individual Site](#work-with-an-individual-site)
+    - [Troubleshooting](#troubleshooting)
   - [Package Management](#package-management)
   - [Code Quality](#code-quality)
     - [Ruff](#ruff)
@@ -36,6 +42,11 @@ Thank you for considering contributing to Tapio Assistant! This document provide
     - [Configuration Structure](#configuration-structure)
     - [Required vs Optional Fields](#required-vs-optional-fields)
     - [Adding New Sites](#adding-new-sites)
+  - [AI-Assisted Development with Claude Code](#ai-assisted-development-with-claude-code)
+    - [Claude Code Prerequisites](#claude-code-prerequisites)
+    - [How Commands Activate](#how-commands-activate)
+    - [Available Commands](#available-commands)
+    - [Planning New Issues in YAML](#planning-new-issues-in-yaml)
   - [Pull Request Process](#pull-request-process)
 
 ## Technical Architecture
@@ -174,10 +185,13 @@ source .venv/bin/activate  # On Unix/macOS
 .\.venv\Scripts\activate   # On Windows
 ```
 
-1. Install dependencies:
+1. Install dependencies. This is a monorepo of independently-managed projects (see [ADR 0002](docs/ADRs/0002-monorepo-service-split.md)), so there's no root `pyproject.toml` — sync each service separately:
 
 ```bash
-uv sync --dev
+(cd crawler && uv sync --dev)
+(cd ingest && uv sync --dev)
+(cd backend && uv sync --dev)
+(cd app && npm install)
 ```
 
 1. Install Ollama for local LLM inference:
@@ -202,6 +216,88 @@ ollama list  # verify it installed
 **Note on Model Sizes**: Some Ollama models are several GB and need significant disk space and compute. If your machine is limited, pull a smaller model and pass its name explicitly to the Tapio CLI.
 
 **Embedding Models**: Vectorization uses HuggingFace sentence-transformers (default: `all-MiniLM-L6-v2`), downloaded automatically on first use — no manual installation needed. Ollama's own embedding models (e.g. `all-minilm`) are not used by the current implementation.
+
+**System requirements**: You need enough available RAM for whichever Ollama model you select; `gemma4:latest` is the default. In low-resource environments such as GitHub Codespaces, pull a smaller model and pass its name explicitly to the crawler/backend CLIs with `--model-name`.
+
+## Running the Pipeline
+
+Once your environment is set up (above), here's how to actually run Tapio's crawl → ingest → serve pipeline.
+
+```text
+crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  backend  ──>  app
+```
+
+`content/` and `vectorstore/` are local runtime data, not source code — they are ignored by Git and are the only handoffs between services. The services share files only; they do not import, invoke, or otherwise depend on one another.
+
+### End-to-End Quick Start
+
+Run these commands from the repository root, in order:
+
+```bash
+# 1. Discover each site's URL inventory, then render what's due into content/.
+mise run crawl
+
+# 2. Chunk and embed the Markdown written to content/.
+mise run ingest
+
+# 3. Start the backend API, which reads vectorstore/.
+mise run backend
+
+# 4. In a second terminal, start the SvelteKit chat client.
+mise run app
+```
+
+For each configured site, `mise run crawl` runs `discover` (populating its URL manifest) and then `crawl` (rendering only manifest records that are due — see `crawler/README.md`). It attempts every configured site even if an earlier one fails, then returns a non-zero status if any site failed. When new pages are crawled, rerun `mise run ingest`, then restart the backend (`backend/` is what reads `vectorstore/`; the SvelteKit `app/` only calls the backend's API) so it opens the refreshed vector collection.
+
+### Shared Runtime Directories
+
+| Directory | Written by | Read by | Local default | Deployment setting |
+| --- | --- | --- | --- | --- |
+| `content/` | `crawler` | `ingest` | repository root | `TAPIO_CONTENT_DIR` |
+| `vectorstore/` | `ingest` | `backend` | repository root | `TAPIO_VECTORSTORE_DIR` |
+
+For deployment, mount the same content volume in `crawler` and `ingest`, and the same vector-store volume in `ingest` and `backend`. Set the corresponding environment variable to the mount path in each service.
+
+### Mise Task Reference
+
+| Command | Purpose |
+| --- | --- |
+| `mise run crawl` | Discover, then render, every configured site; attempt all sites before reporting failures. |
+| `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
+| `mise run backend` | Start the FastAPI backend, which reads `vectorstore/`. |
+| `mise run app` | Start the SvelteKit chat client's dev server. |
+| `mise run test:crawl` | Run the crawler test suite. |
+| `mise run test:ingest` | Run the ingestion test suite. |
+| `mise run test:backend` | Run the backend test suite. |
+
+Pass ingestion options after `--`:
+
+```bash
+# Re-ingest one site's Markdown only.
+mise run ingest -- --site migri
+```
+
+### Work with an Individual Site
+
+The root crawl task intentionally collects every configured source. For a single-site crawl or a shallow smoke test, use the crawler CLI directly:
+
+```bash
+cd crawler
+uv run tapio-crawler list-sites
+uv run tapio-crawler discover migri
+uv run tapio-crawler crawl migri --max-urls 5
+```
+
+Then return to the repository root and run `mise run ingest -- --site migri`.
+
+`discover` builds a site's URL inventory (sitemap or bounded gap-crawl) into a separate manifest database; it doesn't write Markdown, so it isn't part of the ingest pipeline above. See [crawler/README.md](crawler/README.md#url-discovery-and-the-manifest).
+
+### Troubleshooting
+
+- **"No relevant documents found"** — Run `mise run ingest` after a crawl and restart the backend. The backend must be started after the shared vector collection has been written.
+- **Crawl4AI cannot start a browser** — Install the stable Google Chrome release through your operating system. Crawl4AI launches it through Playwright's `chrome` channel.
+- **The app cannot generate an answer** — Ensure the Ollama service is running and the selected model has been pulled, for example `ollama pull gemma4:latest`.
+- **A mounted directory is not used** — Set `TAPIO_CONTENT_DIR` and/or `TAPIO_VECTORSTORE_DIR` to the absolute mount path before running the relevant service.
 
 ## Package Management
 
