@@ -51,6 +51,20 @@ _MAX_TOKENS_KWARG_BY_PROVIDER: dict[str, str] = {"ollama": "num_predict"}
 # to the underlying httpx client. Every other provider accepts `timeout` directly.
 _OLLAMA_PROVIDER = "ollama"
 
+# Each provider's own SDK falls back to these env vars for its API base URL when
+# neither an explicit kwarg nor TAPIO_LLM_API_BASE is set (confirmed against each
+# package's source: ollama.Client reads OLLAMA_HOST, ChatOpenAI reads OPENAI_API_BASE
+# then OPENAI_BASE_URL, ChatAnthropic reads ANTHROPIC_API_URL then ANTHROPIC_BASE_URL).
+# The cleartext-transport guard has to check the URL that will actually be used, not
+# just TAPIO_LLM_API_BASE, or one of these — already set for an unrelated reason, e.g.
+# a devbox's OLLAMA_HOST — could route prompts and credentials over plain HTTP without
+# Tapio's own config layer ever seeing it.
+_PROVIDER_BASE_URL_ENV_VARS: dict[str, tuple[str, ...]] = {
+    "ollama": ("OLLAMA_HOST",),
+    "openai": ("OPENAI_API_BASE", "OPENAI_BASE_URL"),
+    "anthropic": ("ANTHROPIC_API_URL", "ANTHROPIC_BASE_URL"),
+}
+
 # The env var each provider's own SDK reads credentials from by default — used only to
 # answer "is this provider configured" for /health, since construction alone doesn't
 # reliably tell us: ChatOpenAI raises if the key is missing, ChatAnthropic doesn't.
@@ -76,7 +90,7 @@ def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: f
     Returns:
         A configured ``BaseChatModel``, ready for ``.invoke()``/``.stream()``.
     """
-    _reject_cleartext_transport(llm_settings)
+    _reject_cleartext_transport(config, llm_settings)
 
     max_tokens_kwarg = _MAX_TOKENS_KWARG_BY_PROVIDER.get(config.llm_provider, "max_tokens")
     kwargs: dict[str, Any] = {
@@ -94,7 +108,34 @@ def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: f
     return init_chat_model(config.llm_model_name, **kwargs)
 
 
-def _reject_cleartext_transport(llm_settings: LLMSettings) -> None:
+def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | None:
+    """Resolve the API base URL that will actually reach the provider client.
+
+    Mirrors each provider's own fallback order: an explicit ``TAPIO_LLM_API_BASE`` first,
+    then whichever env var that provider's own SDK falls back to when neither an explicit
+    kwarg nor ``TAPIO_LLM_API_BASE`` is set (see ``_PROVIDER_BASE_URL_ENV_VARS``). Exists
+    so ``_reject_cleartext_transport`` checks the URL that's actually used, not just the
+    one Tapio's own config layer explicitly sets.
+
+    Args:
+        config: Source of the provider selection.
+        llm_settings: Source of ``api_base``.
+
+    Returns:
+        The API base URL that will be used, or ``None`` if none is configured anywhere.
+    """
+    if llm_settings.api_base is not None:
+        return llm_settings.api_base
+
+    for env_var in _PROVIDER_BASE_URL_ENV_VARS.get(config.llm_provider, ()):
+        value = os.environ.get(env_var)
+        if value:
+            return value
+
+    return None
+
+
+def _reject_cleartext_transport(config: RAGConfig, llm_settings: LLMSettings) -> None:
     """Refuse a non-loopback ``http://`` API base (CWE-319).
 
     A deployer who mistypes ``https://`` as ``http://`` for a genuinely remote endpoint
@@ -108,12 +149,13 @@ def _reject_cleartext_transport(llm_settings: LLMSettings) -> None:
     risk and is left alone.
 
     Args:
+        config: Source of the provider selection.
         llm_settings: Source of ``api_base``.
 
     Raises:
         ValueError: If a non-loopback endpoint would be used over plain HTTP.
     """
-    api_base = llm_settings.api_base
+    api_base = _effective_api_base(config, llm_settings)
     if api_base is None:
         return
 
@@ -122,9 +164,10 @@ def _reject_cleartext_transport(llm_settings: LLMSettings) -> None:
         return
 
     msg = (
-        f"TAPIO_LLM_API_BASE={api_base!r} uses http:// against a non-loopback host, which "
-        "would send prompts, responses, and any API credentials in cleartext. Use https://, "
-        "or point at localhost/127.0.0.1."
+        f"The effective API base {api_base!r} (from TAPIO_LLM_API_BASE or the provider's own "
+        "fallback env var) uses http:// against a non-loopback host, which would send prompts, "
+        "responses, and any API credentials in cleartext. Use https://, or point at "
+        "localhost/127.0.0.1."
     )
     raise ValueError(msg)
 

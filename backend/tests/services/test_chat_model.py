@@ -210,6 +210,43 @@ class TestRejectCleartextTransport:
 
         build_chat_model(config, LLMSettings())  # must not raise
 
+    @pytest.mark.parametrize(
+        ("provider", "env_var"),
+        [
+            ("openai", "OPENAI_API_BASE"),
+            ("openai", "OPENAI_BASE_URL"),
+            ("anthropic", "ANTHROPIC_API_URL"),
+            ("anthropic", "ANTHROPIC_BASE_URL"),
+            ("ollama", "OLLAMA_HOST"),
+        ],
+    )
+    def test_rejects_a_non_loopback_http_provider_fallback_env_var(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        provider: str,
+        env_var: str,
+    ) -> None:
+        """TAPIO_LLM_API_BASE unset is not enough — each provider's own SDK falls back to
+        its own env var, which must be checked too or the guard is trivially bypassable."""
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+        monkeypatch.setenv(env_var, "http://example.com")
+        config = RAGConfig(llm_provider=provider, llm_model_name="some-model")
+
+        with pytest.raises(ValueError, match="cleartext"):
+            build_chat_model(config, LLMSettings())
+
+    def test_explicit_api_base_wins_over_a_provider_fallback_env_var(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """An explicit TAPIO_LLM_API_BASE is what's actually used, so it's what gets checked,
+        even if a provider-native env var (here, an unrelated https:// one) is also set."""
+        monkeypatch.setenv("OPENAI_API_KEY", "test-key")
+        monkeypatch.setenv("OPENAI_API_BASE", "https://irrelevant.example.com")
+        config = RAGConfig(llm_provider="openai", llm_model_name="gpt-4o-mini")
+        llm_settings = LLMSettings(api_base="http://192.0.2.1/v1")
+
+        with pytest.raises(ValueError, match="cleartext"):
+            build_chat_model(config, llm_settings)
+
 
 class TestCheckModelAvailability:
     """Tests for the /health-facing availability check."""
