@@ -18,6 +18,8 @@ them.
 
 import hashlib
 import json
+import shutil
+import subprocess
 import tempfile
 from dataclasses import dataclass
 from datetime import date
@@ -87,37 +89,45 @@ def write_release(
         message = "the register being released and the source snapshot are not the same register"
         raise ValueError(message)
 
-    directory.mkdir(parents=True, exist_ok=True)
-    # The source snapshot travels with the edition so a reader never has to
-    # reconstruct it from repository history.
-    (directory / SOURCE_NAME).write_text(
-        yaml.safe_dump(source, allow_unicode=True, sort_keys=False, width=100),
-        encoding="utf-8",
-    )
-    graph = skos.to_graph(register)
-    for name, rdf_format in ((TURTLE_NAME, "turtle"), (JSONLD_NAME, "json-ld")):
-        (directory / name).write_text(skos.serialize(graph, rdf_format), encoding="utf-8")
-
-    summary = summarize(register)
-    files = sorted(path for path in directory.iterdir() if path.name != MANIFEST_NAME)
-    manifest: dict[str, Any] = {
-        "register_version": register.register_version.isoformat(),
-        "title": register.title,
-        "license": register.license,
-        "coverage_caveat": register.coverage_caveat,
-        "summary": summary,
-        "files": {path.name: _digest(path) for path in files},
-    }
-    replaced = _differences(existing, manifest) if existing is not None else []
-    if replaced and not overwrite:
-        message = (
-            f"{directory} already holds a different edition. Editions are immutable: bump "
-            f"register_version in the source and release again, or pass --overwrite to redo an "
-            f"edition that has not been published."
+    # Built in full before anything in `directory` is touched, so a refused
+    # release leaves the edition that is already there exactly as it was, and an
+    # interrupted one leaves nothing half-written.
+    with tempfile.TemporaryDirectory() as scratch:
+        staged = Path(scratch)
+        # The source snapshot travels with the edition so a reader never has to
+        # reconstruct it from repository history.
+        (staged / SOURCE_NAME).write_text(
+            yaml.safe_dump(source, allow_unicode=True, sort_keys=False, width=100),
+            encoding="utf-8",
         )
-        raise ReleaseExistsError(message)
+        graph = skos.to_graph(register)
+        for name, rdf_format in ((TURTLE_NAME, "turtle"), (JSONLD_NAME, "json-ld")):
+            (staged / name).write_text(skos.serialize(graph, rdf_format), encoding="utf-8")
+
+        summary = summarize(register)
+        built = sorted(staged.iterdir())
+        manifest: dict[str, Any] = {
+            "register_version": register.register_version.isoformat(),
+            "title": register.title,
+            "license": register.license,
+            "coverage_caveat": register.coverage_caveat,
+            "summary": summary,
+            "files": {path.name: _digest(path) for path in built},
+        }
+        replaced = _differences(existing, manifest) if existing is not None else []
+        if replaced and not overwrite:
+            message = (
+                f"{directory} already holds a different edition. Editions are immutable: bump "
+                f"register_version in the source and release again, or pass --overwrite to redo an "
+                f"edition that has not been published."
+            )
+            raise ReleaseExistsError(message)
+
+        directory.mkdir(parents=True, exist_ok=True)
+        files = [shutil.copy2(path, directory / path.name) for path in built]
+
     manifest_path.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    return ReleaseResult(directory, [*files, manifest_path], summary, manifest, replaced)
+    return ReleaseResult(directory, [*(Path(f) for f in files), manifest_path], summary, manifest, replaced)
 
 
 def _differences(existing: dict[str, Any], rebuilt: dict[str, Any]) -> list[str]:
@@ -217,20 +227,70 @@ def verify_current_edition(source_path: Path | None = None, releases_dir: Path |
     return problems
 
 
+def _source_from_git(manifest_path: Path) -> str | None:
+    """Read an edition's source snapshot out of the commit that last wrote its manifest.
+
+    Only the manifest is committed, so an older edition's payload is usually not
+    on disk. It is still recoverable: the commit that wrote the manifest is the
+    commit that released the edition, and the source at that commit is what it
+    was cut from. The *last* such commit rather than the first, so an edition
+    amended before it was published resolves to what its manifest now records.
+
+    What is read is the curated source, ``data/register.yaml``, not the
+    edition's own snapshot: the snapshot is a copy of that file and is not
+    committed, whereas the source always is.
+    """
+    try:
+        commit = subprocess.run(  # noqa: S603 - fixed argv, no shell
+            ["git", "log", "--format=%H", "-1", "--", str(manifest_path)],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=paths.SERVICE_DIR,
+        ).stdout.strip()
+        if not commit:
+            return None
+        relative = paths.SOURCE_PATH.relative_to(paths.SERVICE_DIR.parent)
+        return subprocess.run(  # noqa: S603
+            ["git", "show", f"{commit}:{relative}"],  # noqa: S607
+            capture_output=True,
+            text=True,
+            check=True,
+            cwd=paths.SERVICE_DIR,
+        ).stdout
+    except subprocess.CalledProcessError, OSError, ValueError:
+        return None
+
+
+def edition_source(version: str, releases_dir: Path | None = None) -> dict:
+    """Return the register source an edition was cut from.
+
+    From the built payload when it is present, and otherwise from the commit
+    that released the edition.
+    """
+    root = releases_dir or paths.RELEASES_DIR
+    snapshot = root / version / SOURCE_NAME
+    if snapshot.exists():
+        return yaml.safe_load(snapshot.read_text(encoding="utf-8"))
+    from_git = _source_from_git(root / version / MANIFEST_NAME)
+    if from_git is None:
+        message = (
+            f"{snapshot} is not built and could not be recovered from git. "
+            f"Run `tapio-register release` while the source names {version}."
+        )
+        raise FileNotFoundError(message)
+    return yaml.safe_load(from_git)
+
+
 def diff_releases(earlier: str, later: str, releases_dir: Path | None = None) -> dict[str, list[str]]:
     """Compare two editions: what was added, what lapsed, what was re-scoped.
 
     This is the operation the register exists to make cheap - "how many of the
     steps in that process changed between these dates, and which ones".
     """
-    root = releases_dir or paths.RELEASES_DIR
 
     def load(version: str) -> dict[str, dict]:
-        snapshot = root / version / SOURCE_NAME
-        if not snapshot.exists():
-            message = f"{snapshot} is not built. Run `tapio-register release` for {version} first."
-            raise FileNotFoundError(message)
-        source = yaml.safe_load(snapshot.read_text(encoding="utf-8"))
+        source = edition_source(version, releases_dir)
         return {concept["id"]: concept for concept in source["concepts"]}
 
     before, after = load(earlier), load(later)

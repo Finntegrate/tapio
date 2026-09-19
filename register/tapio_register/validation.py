@@ -11,6 +11,7 @@ Three layers, cheapest first:
 A rule enforced here is a rule a reviewer does not have to remember.
 """
 
+import json
 from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, timedelta
@@ -57,21 +58,33 @@ def check_schema(source_path: Path | None = None, schema_path: Path | None = Non
     """Validate the source against the generated JSON Schema and SHACL shapes.
 
     Running both is what proves the generated artifacts are usable rather than
-    merely present: the shapes checked here are the checked-in copies the
-    harness's own gates G3 to G5 will load.
+    merely present: the JSON Schema and the shapes checked here are the
+    checked-in copies, the same files a consumer and the harness's own gates G3
+    to G5 will load, rather than ones generated for the occasion.
     """
     schema = str(schema_path or paths.SCHEMA_PATH)
     source = read_source(source_path)
-    return [*_jsonschema_issues(schema, source), *_shacl_issues(schema, source)]
+    return [*_jsonschema_issues(source), *_shacl_issues(schema, source)]
 
 
-def _jsonschema_issues(schema: str, source: dict[str, Any]) -> list[Issue]:
-    from linkml.validator import Validator
-    from linkml.validator.plugins import JsonschemaValidationPlugin
+def _jsonschema_issues(source: dict[str, Any]) -> list[Issue]:
+    """Validate against the checked-in JSON Schema, not one generated on the fly.
 
-    validator = Validator(schema=schema, validation_plugins=[JsonschemaValidationPlugin(closed=True)])
-    report = validator.validate(source, target_class="TermRegister")
-    return [Issue(None, result.message) for result in report.results]
+    Generating it here would only prove the LinkML source is self-consistent.
+    Loading the committed artifact is what proves the file consumers actually
+    read is the one the register satisfies.
+    """
+    import jsonschema
+
+    schema = json.loads(paths.JSON_SCHEMA_PATH.read_text(encoding="utf-8"))
+    # Dates arrive from YAML as `date` objects, which JSON Schema cannot see; a
+    # round trip renders them the way a consumer reading the published JSON would.
+    instance = json.loads(json.dumps(source, default=str))
+    validator = jsonschema.Draft202012Validator(schema)
+    return [
+        Issue(None, f"{error.message} in /{'/'.join(str(part) for part in error.absolute_path)}")
+        for error in sorted(validator.iter_errors(instance), key=lambda error: list(error.absolute_path))
+    ]
 
 
 def _shacl_issues(schema: str, source: dict[str, Any]) -> list[Issue]:

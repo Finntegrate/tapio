@@ -290,13 +290,52 @@ class Concept(ConfiguredBaseModel):
 
 class PrefLabels(ConfiguredBaseModel):
     """
-    The preferred label in each of the three languages the corpus is grounded in.
+    The preferred label in each of the three languages the corpus is grounded in. The pattern rejects an empty or whitespace-only label, which ``required`` alone permits and which would publish a concept with no surface form for the ``ground`` node to match.
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://tapio.finntegrate.org/schema/term-register'})
 
     en: str = Field(default=..., description="""English preferred label.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PrefLabels', 'AltLabels', 'Definitions']} })
     fi: str = Field(default=..., description="""Finnish preferred label.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PrefLabels', 'AltLabels', 'Definitions']} })
     sv: str = Field(default=..., description="""Swedish preferred label.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PrefLabels', 'AltLabels', 'Definitions']} })
+
+    @field_validator('en')
+    def pattern_en(cls, v):
+        pattern=re.compile(r"^\S(.*\S)?$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid en format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid en format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('fi')
+    def pattern_fi(cls, v):
+        pattern=re.compile(r"^\S(.*\S)?$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid fi format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid fi format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('sv')
+    def pattern_sv(cls, v):
+        pattern=re.compile(r"^\S(.*\S)?$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid sv format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid sv format: {v}"
+            raise ValueError(err_msg)
+        return v
 
 
 class AltLabels(ConfiguredBaseModel):
@@ -308,6 +347,45 @@ class AltLabels(ConfiguredBaseModel):
     en: Optional[list[str]] = Field(default=None, description="""English alternative labels.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PrefLabels', 'AltLabels', 'Definitions']} })
     fi: Optional[list[str]] = Field(default=None, description="""Finnish alternative labels.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PrefLabels', 'AltLabels', 'Definitions']} })
     sv: Optional[list[str]] = Field(default=None, description="""Swedish alternative labels.""", json_schema_extra = { "linkml_meta": {'domain_of': ['PrefLabels', 'AltLabels', 'Definitions']} })
+
+    @field_validator('en')
+    def pattern_en(cls, v):
+        pattern=re.compile(r"^\S(.*\S)?$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid en format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid en format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('fi')
+    def pattern_fi(cls, v):
+        pattern=re.compile(r"^\S(.*\S)?$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid fi format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid fi format: {v}"
+            raise ValueError(err_msg)
+        return v
+
+    @field_validator('sv')
+    def pattern_sv(cls, v):
+        pattern=re.compile(r"^\S(.*\S)?$")
+        if isinstance(v, list):
+            for element in v:
+                if isinstance(element, str) and not pattern.match(element):
+                    err_msg = f"Invalid sv format: {element}"
+                    raise ValueError(err_msg)
+        elif isinstance(v, str) and not pattern.match(v):
+            err_msg = f"Invalid sv format: {v}"
+            raise ValueError(err_msg)
+        return v
 
 
 class Definitions(ConfiguredBaseModel):

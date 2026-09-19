@@ -217,6 +217,29 @@ def test_shipped_schema_and_shapes_accept_a_well_formed_register(tmp_path, regis
     assert check_schema(path) == []
 
 
+def test_shipped_schema_rejects_an_empty_label(tmp_path, register_dict):
+    """An empty label satisfies `required` but gives ground no surface form to match."""
+    import yaml
+
+    from tapio_register.validation import check_schema
+
+    register_dict["concepts"][0]["pref_label"]["sv"] = "   "
+    path = tmp_path / "register.yaml"
+    path.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
+    assert any("pref_label/sv" in str(issue) for issue in check_schema(path))
+
+
+def test_shipped_schema_rejects_a_concept_with_no_provenance(tmp_path, register_dict):
+    import yaml
+
+    from tapio_register.validation import check_schema
+
+    register_dict["concepts"][0]["observations"] = []
+    path = tmp_path / "register.yaml"
+    path.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
+    assert any("observations" in str(issue) for issue in check_schema(path))
+
+
 def test_shipped_schema_and_shapes_reject_an_unknown_kind(tmp_path, register_dict):
     import yaml
 

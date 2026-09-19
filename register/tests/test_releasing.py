@@ -206,3 +206,22 @@ def test_current_edition_check_catches_a_hand_edited_manifest(tmp_path, source, 
     manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
     problems = releasing.verify_current_edition(source, tmp_path / "releases")
     assert any("does not match the digest recorded" in problem for problem in problems)
+
+
+def test_an_edition_whose_payload_is_not_built_is_recovered_from_git():
+    """Only manifests are committed, so an edition's source comes out of history."""
+    version = releasing.latest_version()
+    built = releasing.paths.release_dir(version) / releasing.SOURCE_NAME
+    set_aside = built.with_suffix(".yaml.set-aside")
+    built.rename(set_aside)
+    try:
+        source = releasing.edition_source(version)
+    finally:
+        set_aside.rename(built)
+    assert source["register_version"] == version
+    assert len(source["concepts"]) > 100
+
+
+def test_an_unknown_edition_says_how_to_build_it(tmp_path):
+    with pytest.raises(FileNotFoundError, match="tapio-register release"):
+        releasing.edition_source("2099-01-01", tmp_path / "releases")

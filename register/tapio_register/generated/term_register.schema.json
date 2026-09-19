@@ -7,6 +7,7 @@
         "en": {
           "description": "English alternative labels.",
           "items": {
+            "pattern": "^\\S(.*\\S)?$",
             "type": "string"
           },
           "type": [
@@ -17,6 +18,7 @@
         "fi": {
           "description": "Finnish alternative labels.",
           "items": {
+            "pattern": "^\\S(.*\\S)?$",
             "type": "string"
           },
           "type": [
@@ -27,6 +29,7 @@
         "sv": {
           "description": "Swedish alternative labels.",
           "items": {
+            "pattern": "^\\S(.*\\S)?$",
             "type": "string"
           },
           "type": [
@@ -283,18 +286,21 @@
     },
     "PrefLabels": {
       "additionalProperties": false,
-      "description": "The preferred label in each of the three languages the corpus is grounded in.",
+      "description": "The preferred label in each of the three languages the corpus is grounded in. The pattern rejects an empty or whitespace-only label, which ``required`` alone permits and which would publish a concept with no surface form for the ``ground`` node to match.",
       "properties": {
         "en": {
           "description": "English preferred label.",
+          "pattern": "^\\S(.*\\S)?$",
           "type": "string"
         },
         "fi": {
           "description": "Finnish preferred label.",
+          "pattern": "^\\S(.*\\S)?$",
           "type": "string"
         },
         "sv": {
           "description": "Swedish preferred label.",
+          "pattern": "^\\S(.*\\S)?$",
           "type": "string"
         }
       },

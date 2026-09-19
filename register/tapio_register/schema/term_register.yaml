@@ -194,18 +194,22 @@ classes:
         minimum_cardinality: 1
 
   PrefLabels:
-    description: The preferred label in each of the three languages the corpus is grounded in.
+    description: >-
+      The preferred label in each of the three languages the corpus is grounded
+      in. The pattern rejects an empty or whitespace-only label, which
+      ``required`` alone permits and which would publish a concept with no
+      surface form for the ``ground`` node to match.
     attributes:
-      en: {description: English preferred label., required: true}
-      fi: {description: Finnish preferred label., required: true}
-      sv: {description: Swedish preferred label., required: true}
+      en: {description: English preferred label., required: true, pattern: '^\S(.*\S)?$'}
+      fi: {description: Finnish preferred label., required: true, pattern: '^\S(.*\S)?$'}
+      sv: {description: Swedish preferred label., required: true, pattern: '^\S(.*\S)?$'}
 
   AltLabels:
     description: Additional surface forms, per language.
     attributes:
-      en: {description: English alternative labels., multivalued: true}
-      fi: {description: Finnish alternative labels., multivalued: true}
-      sv: {description: Swedish alternative labels., multivalued: true}
+      en: {description: English alternative labels., multivalued: true, pattern: '^\S(.*\S)?$'}
+      fi: {description: Finnish alternative labels., multivalued: true, pattern: '^\S(.*\S)?$'}
+      sv: {description: Swedish alternative labels., multivalued: true, pattern: '^\S(.*\S)?$'}
 
   Definitions:
     description: A short gloss, per language. Languages are filled in as they are reviewed.
