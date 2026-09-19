@@ -76,9 +76,13 @@ START -> route -> retrieve -> generate -> END
 
 ### 3.2 Proposed flow
 
-Two new nodes, one new edge type. Nothing existing is replaced.
+`route` and `retrieve` are unchanged. One node is added ahead of them, and the existing `generate` node splits: the commitments it used to make implicitly in prose become `plan`, the prose itself becomes `render`, and `validate` sits between the two with `repair` and `degrade` on the failure edge.
 
 ```
+(guardrail classification, existing, in streaming.py)
+  `-- matches --> guardrail response, no retrieval --> END
+  `-- no match --> the graph below
+
 START
   -> ground        (deterministic: surface forms in the query -> concept IRIs)
   -> route         (existing keyword scorer, plus concept-set scoring)
@@ -90,11 +94,15 @@ START
                             `-- still violates --> degrade --> END
 ```
 
+The guardrail layer keeps its current behavior exactly: it runs before the graph, and a crisis, legal-sensitive, or out-of-scope match short-circuits the turn so nothing is retrieved and none of the nodes below execute. The harness wraps the whole ground-through-degrade flow and does not move, weaken, or depend on that check. If the guardrail checks are later folded into the graph as an input-classifier node, as the guardrails policy anticipates, they belong ahead of `ground`.
+
 **ground** runs before routing and uses no model. It normalizes the query and matches spans against the register's labels across every language the register carries. A Finnish user typing `toimeentulotuki` and an English user typing `social assistance` resolve to the same IRI, which is what makes concept-based routing and concept-expanded retrieval work without a translation step. Unmatched spans are left alone rather than guessed at.
 
 This is the query-side half of the SPIRES pattern with the expensive half removed. SPIRES uses a model to extract surface forms because it is reading arbitrary documents. We are reading one short user message and we already have the labels, so string matching is sufficient and costs nothing. That matters given the latency budget (§9.3).
 
-**plan** replaces the free-prose generation call with a schema-constrained one. Critically, this needs no new dependency: `guardrails/llm_classifier.py` already binds Pydantic schemas through `ChatOllama.with_structured_output` using Ollama's JSON-schema mode, which is grammar-constrained decoding underneath. That rung of the ladder is already in the codebase and already load-bearing for safety. We are extending an established pattern, not introducing one.
+**plan** replaces the free-prose generation call with a schema-constrained one. Critically, this needs no new dependency: `guardrails/llm_classifier.py` already binds Pydantic schemas through `BaseChatModel.with_structured_output` on the shared model that `app.services.chat_model.build_chat_model` constructs. That rung of the ladder is already in the codebase and already load-bearing for safety. We are extending an established pattern, not introducing one.
+
+The provider abstraction added in #143 helps here rather than complicating it. Because the pipeline depends on `BaseChatModel` rather than a specific client, `with_structured_output` is available uniformly across the configured providers, so the plan node does not become provider-specific. What does differ is the mechanism underneath: Ollama constrains generation with a JSON-schema grammar, while the hosted providers use their own structured-output paths. The guarantee is comparable, the failure behavior on an awkward schema is not, which is one more reason to keep the plan schema flat (§9.3) and to validate it against whichever provider a deployment actually uses rather than only against the default.
 
 **validate** is pure Python plus pySHACL, no model call, and therefore deterministic and fast.
 
@@ -138,11 +146,24 @@ classes:
         range: SituationRole
         required: true
       basis:   { range: Basis, required: true }
+      evidence:
+        description: Required when basis is stated. Identifies the span of the
+          person's own message this was taken from, as a turn index plus
+          character offsets. Absent for inferred and default, which have no
+          span to point at. Checked by G7.
+        range: MessageSpan
+
+  MessageSpan:
+    attributes:
+      turn:  { range: integer, required: true }
+      start: { range: integer, required: true }
+      end:   { range: integer, required: true }
 
   Claim:
     attributes:
       text:
-        description: Prose in the user's language. Never validated, never rewritten.
+        description: Prose in the user's language. Carries no commitment the
+          structured slots below do not also carry. See G6.
         range: string
         required: true
       about:
@@ -158,6 +179,16 @@ classes:
         range: string
         multivalued: true
         required: true
+      as_of:
+        description: The date this claim describes. Defaults to the turn date
+          when absent. Set to a past date for a claim about how things were.
+        range: date
+      historical:
+        description: True when the claim deliberately describes a superseded
+          state of affairs, e.g. answering "what applied when I arrived in
+          2023". Requires as_of. Changes how G5 reads validity.
+        range: boolean
+        ifabsent: 'false'
 
   NextStep:
     attributes:
@@ -188,21 +219,29 @@ Note also `situation`. It is the state §8 surfaces, it is what the process grap
 
 ### 3.4 The gates
 
-Five checks, ordered cheapest first, all deterministic.
+Seven checks, ordered cheapest first, all deterministic.
 
 | Gate | Checks | Mechanism | Failure is |
 | --- | --- | --- | --- |
 | G1 Vocabulary | Every IRI in `about`, `authority`, `step`, `because`, `concept` exists in the register | Set membership against the loaded register | Repairable |
 | G2 Citation | Every `cites` value is a chunk id from this turn's retrieval set; every `Claim` has at least one | Set membership against graph state | Repairable |
-| G3 Scope | Every concept asserted is within the answering guide's scope set, or a `handoff` is present | SHACL, one shape per guide, generated from the register | Repairable |
+| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | SHACL, one shape per guide, generated from the register | Repairable |
 | G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | SHACL `sh:class` and path constraints | Repairable |
-| G5 Currency | No concept whose `validUntil` has passed, unless the claim is explicitly marked historical | Date comparison plus `supersededBy` lookup | Repairable, often auto-repairable |
+| G5 Currency | Every concept is in force at the claim's reference date, per the rules below | Date comparison plus `supersededBy` lookup | Repairable, often auto-repairable |
+| G6 Prose binding | `Claim.text` names no entity or URL absent from that claim's validated slots | Label and URL scan against the claim's allowed set | Repairable |
+| G7 Stated evidence | Every `SituationItem` with `basis: stated` carries an `evidence` span resolving to text the person actually wrote | Offset lookup against conversation history | Not repairable by the model; demote to `inferred` |
 
-G1 and G2 are plain Python set operations and belong in Python, not SHACL. G2 in particular is parameterized by the turn, so expressing it as SHACL would mean generating a shape per request for no benefit. G3, G4, and G5 are static per guide and per register version, so they compile once at startup and belong in SHACL where they are declarative and reviewable.
+G1, G2, G6, and G7 are plain Python operations and belong in Python, not SHACL. G2 and G6 in particular are parameterized by the turn, so expressing them as SHACL would mean generating a shape per request for no benefit. G3, G4, and G5 are static per guide and per register version, so they compile once at startup and belong in SHACL where they are declarative and reviewable.
 
-G5 is the one that earns its keep in this domain specifically. When a claim asserts `org:te-office`, the register knows that entity has a `validUntil` of 2025-01-01 and a `supersededBy` pointing at `org:municipal-employment-area`. That is enough to rewrite the assertion deterministically and tell the model what changed, without another generation round.
+**G3 and handoffs.** A `handoff` is a narrow licence, not a blanket one. A concept outside the answering guide's scope is permitted only when a handoff is present *and* that concept falls within `handoff.to_guide`'s own scope set. Otherwise emitting a handoff would let a guide assert anything at all, which is the opposite of what the gate is for: Otso handing off to Rauni may say that housing benefit is Kela's, not that a residence permit works a particular way. The handoff's `reason` and target guide are unaffected and still shown to the user; only what may be asserted alongside it is bounded.
 
-A sixth check applies only to `situation`: a `SituationItem` with `basis: stated` must be traceable to something the person actually wrote this conversation. A model that promotes its own guess to "you told me" is making the panel in §8 lie, which is worse than having no panel.
+**G5 and reference dates.** A claim's reference date is `as_of` when present and the turn date otherwise. An ordinary claim (`historical: false`) must name only concepts in force at that date, so an entity whose `validUntil` has passed fails and is auto-repaired through `supersededBy`. A claim marked `historical: true` must carry an `as_of`, and its concepts are checked for being in force *at that date* rather than today, which is what lets a guide correctly answer "what applied when I arrived in 2023" without the gate rewriting the answer into the present. A `historical` claim with no `as_of`, or one whose concepts were not yet in force at its `as_of`, fails. This is why the register's `validFrom` matters operationally and not only as an archival nicety (§7.4).
+
+G5 is the one that earns its keep in this domain specifically. When a present-tense claim asserts `org:te-office`, the register knows that entity has a `validUntil` of 2025-01-01 and a `supersededBy` pointing at `org:municipal-employment-area`. That is enough to rewrite the assertion deterministically and tell the model what changed, without another generation round.
+
+**G6 and why prose needs a gate at all.** The premise of this design is that the model keeps the words while the harness owns the commitments, but prose can smuggle a commitment past every structural check: a claim whose slots are impeccable can still contain a sentence naming a permit that does not exist, or an invented URL. The primary defense is rendering rather than checking. Names of concepts, authorities, and sources are emitted into the prose from the validated slots, through the register's labels in the user's language, rather than written freehand by the model. G6 is the backstop for what slips through: a scan of `Claim.text` for register labels and for URLs, rejecting any that do not appear in that claim's own `about`, `authority`, or `cites`. It is deliberately narrow. It matches known labels and URL shapes, not meaning, and it will not catch a wrong statement built entirely from correct names. That is §9.5's limit, restated: the harness bounds what an answer can refer to, not whether what it says about those things is true.
+
+**G7 and the panel's honesty.** A `SituationItem` with `basis: stated` asserts that the person said something, and §8.2 displays it differently on that basis. The claim is only as good as its evidence, so `stated` requires an `evidence` span that resolves to text in the conversation history. A model that promotes its own guess to "you told me" makes the panel in §8 lie, which is worse than having no panel. Failure here is not sent back for repair, because a model that has already fabricated an attribution is the wrong party to ask for a better one: the item is silently demoted to `inferred`, where the interface presents it as an assumption open to correction, and the demotion is logged.
 
 ## 4. What we are leaving out, and why
 
@@ -246,12 +285,15 @@ What is not needed is binding that record to a person. So: a content-addressed p
   "chunk_ids": ["...", "..."],
   "plan_hash": "sha256:...",
   "validation_report_hash": "sha256:...",
-  "model_id": "gemma4:latest",
+  "llm_provider": "ollama",
+  "model_id": "gemma4@sha256:...",
   "prompt_template_hash": "sha256:..."
 }
 ```
 
 No user identifier, no conversation id, no query text, no signature. Two identical questions produce the same record, which is the point: it describes a *system state*, not an *event*. It can be logged, aggregated, and retained without creating anything a subpoena would want. This is the adaptation of the evidence bundle that fits a product whose users include people for whom a data exposure means exposure to a persecutor.
+
+Every field has to identify something immutable, or the record does not reproduce anything. `model_id` is the field where this is easy to get wrong: `gemma4:latest` is a moving tag, not a version, and a record naming it says only which tag was configured, not which weights answered. Record the resolved digest the provider reports (Ollama exposes one per model; the hosted providers expose dated model identifiers), and resolve it at call time rather than reading it back from configuration. The same rule applies to `register_version`, which is why §7.4 requires dated immutable releases rather than a rolling file. A provenance record that cannot be resolved back to exact inputs is worse than none, because it looks like an audit trail while being a description of intent.
 
 ## 7. The register as a longitudinal record
 
@@ -416,11 +458,13 @@ This does not make the register self-maintaining. It makes neglect visible and r
 
 A gate that blocks a correct answer because a concept was not registered yet is a worse outcome for that user than an unvalidated answer would have been.
 
-Run every gate in **shadow mode first**: validate, log the result, change nothing about the response. Two to four weeks of that gives a false-rejection rate per gate and a ranked list of register gaps, before any user sees a degraded answer. G2, the citation gate, will likely be safe to enforce almost immediately because its closed set is unambiguous. G1 and G3 should not be enforced until the shadow data says the register has adequate coverage.
+Run every gate in **shadow mode first**: validate, log the result, change nothing about the response. Shadow data gives a false-rejection rate per gate and a ranked list of register gaps, before any user sees a degraded answer. Enforcement is then switched on per gate rather than all at once, against the exit criteria set out in §11.1. G2, the citation gate, will likely clear that bar quickly because its closed set is unambiguous; G1 and G3 should be assumed slowest, since they depend on register coverage.
 
 ### 9.3 Latency, and making the wait legible
 
 The guardrails policy records that each classification call took roughly 15 to 45 seconds against local CPU inference, and lists per-turn latency as an unbenchmarked open follow-up. Three of those already run per turn. Adding an unbounded planning call on top could make turns unusable.
+
+Those figures are the local-CPU Ollama case. Since #143 the provider is configuration, so the latency picture is now a deployment property rather than a fixed constraint, and a hosted provider changes it substantially. That widens the range of acceptable designs but does not remove the problem: the local path has to stay usable, because it is the one that keeps a privacy-sensitive deployment possible without sending every question about someone's asylum process to a third party. Treat the local case as the budget to design against, and the hosted case as headroom.
 
 Two responses, and they work on different parts of the problem.
 
@@ -482,13 +526,29 @@ Rather than a phase count, 2.1.0 is best defined by the invariant it makes true,
 
 > **No guide ships without a register-backed scope, and no answer ships without register-validated commitments.**
 
-Everything needed to make that statement true belongs in 2.1.0. Everything that improves answers without being a precondition for the next guide can follow.
+The two halves of that sentence land at different times, and conflating them would contradict the shadow-mode rule in §9.2.
+
+The scope half is immediate and unconditional. A guide's scope is a register concept set from the moment the register exists, and a guide without one does not ship. Nothing is staged about this, because it constrains what the team writes rather than what a user sees.
+
+The validation half is staged, because enforcing an incomplete register on real users is the failure mode §9.2 exists to prevent. 2.1.0 delivers the mechanism in shadow mode: every gate runs on every turn, every result is logged, and no response changes. Enforcement is a later switch, thrown per gate rather than all at once, and only against measured evidence.
+
+**Exit criteria for enforcing a gate.** A gate moves from shadow to enforcing when all of the following hold for it:
+
+1. At least four weeks of shadow data across real traffic, not synthetic queries.
+2. A false-rejection rate below an agreed threshold, measured by sampling rejected turns and judging by hand whether the answer was in fact correct. The threshold is per gate and must be set before the data is looked at, not after.
+3. The register gaps the shadow data exposed are closed, or explicitly accepted as out of scope for that gate.
+4. The repair path resolves a substantial share of failures without a second model call, so enforcement does not simply convert rejections into degraded answers.
+5. The degrade path has been reviewed as a user-facing experience by someone who did not build it, since it is what users will actually see when the gate bites.
+
+Expect these to be met at very different times. G2, the citation gate, has an unambiguous closed set and no register dependency, so it should clear the bar quickly and can enforce well before the others. G6 depends on nothing but the register's labels and should follow. G1 and G3 depend on register coverage and should be assumed slowest. G7 is a special case with no shadow period, because its failure mode is a demotion rather than a rejection: showing an unevidenced claim as "you told me" is the harm, and demoting it to "inferred" costs the user nothing.
+
+Everything needed to make the scope half true, and to run the validation half in shadow, belongs in 2.1.0. Enforcement itself does not, and neither does anything that improves answers without being a precondition for the next guide.
 
 | In 2.1.0 | Why it has to be here |
 | --- | --- |
 | **Citation gate** (no ontology needed) | Independent, cheap, and makes a PRD-committed property true by construction. Land it first. |
 | **Term register**, Ilmarinen's domain, roughly 100 to 150 concepts, en/fi/sv, with the §7.4 time fields from day one | The artifact everything else reads. The time fields are cheap now and expensive later. |
-| **Answer plan and gates** G1, G3, G4, G5, plus the repair and degrade paths, in shadow mode | The validation layer itself. Shadow mode means it can ship without user-visible risk. |
+| **Answer plan and gates** G1 and G3 through G7, plus the repair and degrade paths, in shadow mode | The validation layer itself. Shadow mode means it can ship without user-visible risk; enforcement follows the §11.1 exit criteria, per gate. G7 is the exception and enforces on arrival, since its failure demotes a label rather than rejecting an answer. |
 | **Guide scope as concept sets** | This is the actual reason to do the milestone before more guides. Scope stops being a hand-written English sentence and becomes the thing G3 checks. |
 | **Progress events** (§9.3) | The latency mitigation. Shipping the gates without it means shipping a slower product with nothing to show for the wait. |
 | **Situation panel, read-only** (§8.1 to §8.6) | Buildable as soon as `ground` populates `situation`, and it is the milestone's only surface an ordinary user can see. Read-only first keeps the scope small and the §8.5 question testable. |
@@ -517,7 +577,7 @@ Per `CLAUDE.md`, scan the open backlog before creating anything: several of thes
 | Role | Choice | Note |
 | --- | --- | --- |
 | Schema source of truth | **LinkML** | One YAML generates Pydantic, JSON Schema, SHACL, and OWL. Python-native, fits the existing uv and Pydantic setup. |
-| Constrained generation | **Ollama JSON-schema mode** via `with_structured_output` | Already in `guardrails/llm_classifier.py`. No new dependency. |
+| Constrained generation | **`BaseChatModel.with_structured_output`** | Already in `guardrails/llm_classifier.py`, and provider-independent since #143. No new dependency. |
 | Graph handling | **rdflib** | In-memory is fine at this size. Do not reach for a triplestore before the register outgrows a dict. |
 | Shape validation | **pySHACL** | Compile shapes once at startup, not per request. |
 | Entity resolution | Normalized label index, plain Python | An `sqlite` FTS table if fuzzy matching is ever needed. |
