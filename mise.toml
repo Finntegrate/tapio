@@ -55,6 +55,28 @@ run = "uv run pytest --cov=tapio_ingest --cov-fail-under=80"
 dir = "ingest"
 run = "uv run tapio-ingest"
 
+[tasks."test:register"]
+dir = "register"
+run = "uv run pytest --cov=tapio_register --cov-fail-under=80"
+
+# Schema, SHACL shapes, and the cross-concept rules. Also run by the test suite,
+# so CI catches a broken register without a dedicated job.
+[tasks."register:validate"]
+dir = "register"
+run = "uv run tapio-register validate"
+
+# Regenerate the Pydantic classes, JSON Schema, and SHACL shapes after a change
+# to tapio_register/schema/term_register.yaml, then commit the result.
+[tasks."register:generate"]
+dir = "register"
+run = "uv run tapio-register generate"
+
+# Cut the dated edition named by the source's register_version. Editions are
+# immutable: bump the version rather than re-cutting one.
+[tasks."register:release"]
+dir = "register"
+run = "uv run tapio-register release"
+
 [tasks."test:backend"]
 dir = "backend"
 run = "uv run pytest --cov=app --cov-fail-under=80"

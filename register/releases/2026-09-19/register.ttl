@@ -1,0 +1,2526 @@
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix doc: <https://tapio.finntegrate.org/register/document/> .
+@prefix law: <https://tapio.finntegrate.org/register/legal-act/> .
+@prefix org: <https://tapio.finntegrate.org/register/organization/> .
+@prefix permit: <https://tapio.finntegrate.org/register/permit/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix sdo: <https://schema.org/> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix status: <https://tapio.finntegrate.org/register/status/> .
+@prefix step: <https://tapio.finntegrate.org/register/step/> .
+@prefix svc: <https://tapio.finntegrate.org/register/service/> .
+@prefix tapio: <https://tapio.finntegrate.org/schema/> .
+@prefix term: <https://tapio.finntegrate.org/register/term/> .
+@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
+
+<https://tapio.finntegrate.org/register/guide/ilmarinen> a skos:Collection ;
+    skos:member doc:aliens-passport,
+        doc:passport,
+        doc:refugee-travel-document,
+        doc:residence-permit-card,
+        doc:seasonal-work-certificate,
+        law:aliens-act,
+        law:citizenship-act,
+        org:administrative-court,
+        org:dvv,
+        org:economic-development-centre,
+        org:ely-centre,
+        org:finnish-mission,
+        org:migri,
+        org:ministry-for-foreign-affairs,
+        org:municipal-employment-area,
+        org:municipal-health-and-social-services,
+        org:police,
+        org:supreme-administrative-court,
+        org:te-office,
+        org:unhcr,
+        org:wellbeing-services-county,
+        permit:continuous-residence-permit,
+        permit:d-visa,
+        permit:employed-person-residence-permit,
+        permit:entrepreneur-residence-permit,
+        permit:eu-blue-card,
+        permit:extended-permit,
+        permit:family-ties-residence-permit,
+        permit:first-residence-permit,
+        permit:fixed-term-residence-permit,
+        permit:human-trafficking-victim-residence-permit,
+        permit:ict-residence-permit,
+        permit:internship-residence-permit,
+        permit:job-seeking-residence-permit,
+        permit:other-grounds-residence-permit,
+        permit:p-eu-residence-permit,
+        permit:permanent-residence-permit,
+        permit:researcher-residence-permit,
+        permit:residence-card,
+        permit:residence-permit,
+        permit:right-of-permanent-residence,
+        permit:seasonal-work-residence-permit,
+        permit:specialist-residence-permit,
+        permit:startup-entrepreneur-residence-permit,
+        permit:student-residence-permit,
+        permit:temporary-residence-permit,
+        permit:visa,
+        svc:enter-finland,
+        svc:incomes-register,
+        svc:migri-service-point,
+        svc:reception-centre,
+        svc:reception-unit,
+        svc:registration-centre,
+        status:asylum,
+        status:asylum-seeker,
+        status:dual-citizenship,
+        status:emigrant,
+        status:eu-citizen,
+        status:expatriate-finn,
+        status:finnish-citizen,
+        status:finnish-citizen-by-birth,
+        status:finnish-citizenship,
+        status:foreign-national,
+        status:humanitarian-protection,
+        status:immigrant,
+        status:international-protection,
+        status:quota-refugee,
+        status:refugee,
+        status:refugee-sur-place,
+        status:returnee,
+        status:sponsor,
+        status:subsidiary-protection,
+        status:temporary-protection,
+        status:third-country-national,
+        step:answer-supplement-request,
+        step:appeal-decision,
+        step:application-processing,
+        step:apply-for-asylum,
+        step:assisted-voluntary-return,
+        step:asylum-examination,
+        step:asylum-interview,
+        step:book-appointment,
+        step:citizenship-application,
+        step:citizenship-declaration,
+        step:consider-application-inadmissible,
+        step:decision-notification,
+        step:denial-of-admittance-or-stay,
+        step:deportation,
+        step:detention,
+        step:determine-citizenship-status,
+        step:dublin-procedure,
+        step:establish-identity,
+        step:identification,
+        step:labour-market-test,
+        step:mobility-notification,
+        step:register-right-of-residence,
+        step:renew-residence-permit-card,
+        step:tracing,
+        step:visit-finnish-mission,
+        step:voluntary-return,
+        step:withdraw-permit,
+        term:birthplace-principle,
+        term:citizenship,
+        term:country-of-nationality,
+        term:customer-number,
+        term:diary-number,
+        term:emergency-cases,
+        term:entry-ban,
+        term:ethnic-nationality,
+        term:european-economic-area,
+        term:european-union,
+        term:finnish-origin,
+        term:immigration-legislation,
+        term:income-requirement,
+        term:legal-residence,
+        term:manifestly-unfounded-application,
+        term:municipality-of-residence,
+        term:non-refoulement,
+        term:parentage-principle,
+        term:personal-identity-code,
+        term:processing-fee,
+        term:processing-time,
+        term:registered-partnership,
+        term:removal-from-the-country,
+        term:residence-permit-types,
+        term:right-to-work,
+        term:schengen-area,
+        term:student-insurance-requirement ;
+    skos:prefLabel "Ilmarinen scope"@en .
+
+<https://tapio.finntegrate.org/register/guide/otso> a skos:Collection ;
+    skos:member org:dvv,
+        org:kela,
+        org:migri,
+        org:municipal-health-and-social-services,
+        org:police,
+        org:wellbeing-services-county,
+        term:municipality-of-residence,
+        term:personal-identity-code ;
+    skos:prefLabel "Otso scope"@en .
+
+<https://tapio.finntegrate.org/register/guide/rauni> a skos:Collection ;
+    skos:member doc:seasonal-work-certificate,
+        law:aliens-act,
+        org:economic-development-centre,
+        org:ely-centre,
+        org:migri,
+        org:municipal-employment-area,
+        org:te-office,
+        permit:employed-person-residence-permit,
+        permit:entrepreneur-residence-permit,
+        permit:eu-blue-card,
+        permit:ict-residence-permit,
+        permit:internship-residence-permit,
+        permit:job-seeking-residence-permit,
+        permit:seasonal-work-residence-permit,
+        permit:specialist-residence-permit,
+        permit:startup-entrepreneur-residence-permit,
+        step:labour-market-test,
+        term:right-to-work ;
+    skos:prefLabel "Rauni scope"@en .
+
+<https://tapio.finntegrate.org/register/guide/sampo> a skos:Collection ;
+    skos:member org:kela,
+        org:migri,
+        term:income-requirement,
+        term:processing-fee,
+        term:student-insurance-requirement ;
+    skos:prefLabel "Sampo scope"@en .
+
+doc:aliens-passport a skos:Concept,
+        tapio:Document ;
+    skos:definition "A travel document that can be issued to a foreign national if he or she cannot obtain a passport from the authorities of his or her home country, or if he or she is stateless, or if there are other special reasons for issuing an alien’s passport to him or her. Foreign nationals who have been granted a residence permit on the basis of subsidiary protection are issued with an alien’s passport. An alien’s passport is not an official identity document. See subsidiary protection. Cf. refugee travel document."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Alien's passport"@en,
+        "Muukalaispassi"@fi,
+        "Främlingspass"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/alien-s-passport> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/framlingspass> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/muukalaispassi> ] .
+
+doc:passport a skos:Concept,
+        tapio:Document ;
+    skos:definition "A travel document issued by the authorities of a person's home country or country of residence, which a foreign national must hold when entering Finland and while residing in Finland (excluding citizens of the Nordic countries, among others)."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "passport"@en,
+        "passi"@fi,
+        "pass"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+doc:refugee-travel-document a skos:Concept,
+        tapio:Document ;
+    skos:definition "A travel document issued to a foreign national who has been granted refugee status. A refugee travel document is not an official identity document. See refugee. Cf. alien’s passport."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Refugee travel document"@en,
+        "Pakolaisen matkustusasiakirja"@fi,
+        "Resedokument för flykting"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/refugee-travel-document> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/resedokument-for-flykting> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/pakolaisen-matkustusasiakirja> ] .
+
+org:ministry-for-foreign-affairs a skos:Concept,
+        tapio:Organization ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Ministry for Foreign Affairs"@en,
+        "Ulkoministeriö"@fi,
+        "Utrikesministeriet"@sv ;
+    skos:related org:finnish-mission ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://um.fi/frontpage> ;
+            rdfs:comment "Ministry that runs the Finnish missions and decides on visas."@en ] .
+
+org:supreme-administrative-court a skos:Concept,
+        tapio:Organization ;
+    skos:broader org:administrative-court ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Supreme Administrative Court"@en,
+        "korkein hallinto-oikeus"@fi,
+        "högsta förvaltningsdomstolen"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/muutoksenhaku> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/andringssokande-och-overklagande> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/appealing-a-decision> ] .
+
+org:unhcr a skos:Concept,
+        tapio:Organization ;
+    skos:definition "United Nations High Commissioner for Refugees. The UN refugee agency."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "UNHCR"@en,
+        "UNHCR"@fi,
+        "UNHCR"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+permit:continuous-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:definition "A fixed-term residence permit. The permit is issued to a foreign national who has arrived in Finland with the intention of permanent immigration. The permit must be renewed before the permit expires. A continuous residence permit bears the letter A. Cf. temporary residence permit."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:notation "A" ;
+    skos:prefLabel "continuous residence permit"@en,
+        "jatkuva oleskelulupa"@fi,
+        "kontinuerligt uppehållstillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+permit:d-visa a skos:Concept,
+        tapio:Permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "D visa"@en,
+        "D-viisumi"@fi,
+        "D-visum"@sv ;
+    sdo:validFrom "2022-06-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/d-visa> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/d-viisumi> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/d-visum> ] .
+
+permit:extended-permit a skos:Concept,
+        tapio:Permit ;
+    skos:altLabel "new fixed-term residence permit"@en ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Extended permit"@en,
+        "Jatkolupa"@fi,
+        "Fortsatt tillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/fortsatt-tillstand> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/jatkolupa> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/extended-permit> ] .
+
+permit:first-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "First residence permit"@en,
+        "Ensimmäinen oleskelulupa"@fi,
+        "Första uppehållstillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/first-residence-permit> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/forsta-uppehallstillstand> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/ensimmainen-oleskelulupa> ] .
+
+permit:fixed-term-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:definition "A residence permit that is valid for a certain time period. Fixed-term residence permits are issued for a continuous or temporary residence. See continuous residence permit, temporary residence permit. Cf. permanent residence permit."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "fixed-term residence permit"@en,
+        "määräaikainen oleskelulupa"@fi,
+        "tidsbegränsat uppehållstillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+permit:human-trafficking-victim-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for a victim of human trafficking"@en,
+        "Oleskelulupa ihmiskaupan uhrille"@fi,
+        "Uppehållstillstånd för offer för människohandel"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallstillstand-for-offer-for-manniskohandel> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupa-ihmiskaupan-uhrille> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-for-a-victim-of-human-trafficking> ] .
+
+permit:other-grounds-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit on other grounds"@en,
+        "Oleskelulupa muulla perusteella"@fi,
+        "Ansökan om uppehållstillstånd på andra grunder"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-on-other-grounds> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/ansokan-om-uppehallstillstand-pa-andra-grunder> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupa-muulla-perusteella> ] .
+
+permit:p-eu-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:altLabel "EU residence permit"@en,
+        "long-term resident's EU residence permit"@en ;
+    skos:broader permit:residence-permit ;
+    skos:definition "A long-term resident’s EU residence permit that can be issued to a third-country national after he or she has resided within the territory of the European Union for a continuous period of five years. The permit is valid until further notice. An EU residence permit bears the letters P-EU. See third-country national."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "P-EU permit"@en,
+        "P-EU-oleskelulupa"@fi,
+        "P-EU-uppehållstillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/p-eu-uppehallstillstand> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/p-eu-residence-permit> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/p-eu-oleskelulupa> ] .
+
+permit:permanent-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Permanent residence permit"@en,
+        "Pysyvä oleskelulupa"@fi,
+        "Permanent uppehållstillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/permanent-residence-permit> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/permanent-uppehallstillstand> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/pysyva-oleskelulupa> ] .
+
+permit:researcher-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for a researcher"@en,
+        "Tutkijan oleskelulupa"@fi,
+        "Uppehållstillstånd för forskare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tutkija> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/researcher> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/forskare> ] .
+
+permit:residence-card a skos:Concept,
+        tapio:Permit ;
+    skos:definition "A card issued by the Finnish Immigration Service, with which non-EU citizens who are family members of EU citizens can prove their right of residence in Finland. Biometric identifiers stored on the card’s chip include a facial image and two fingerprints. The residence card is not an official identity document. Cf. residence permit card. See EU citizen."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence card of a family member of an EU citizen"@en,
+        "Perheenjäsenen oleskelukortti"@fi,
+        "Uppehållskort för familjemedlem"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-card-for-family-members> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/perheenjasenen-oleskelukortti> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallskort-for-familjemedlem> ] .
+
+permit:right-of-permanent-residence a skos:Concept,
+        tapio:Permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Right of permanent residence of an EU citizen"@en,
+        "EU-kansalaisen pysyvä oleskeluoikeus"@fi,
+        "Permanent uppehållsrätt"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/pysyva-oleskeluoikeus> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/permanent-uppehallsratt> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/right-of-permanent-residence> ] .
+
+permit:student-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for studies"@en,
+        "Opiskelijan oleskelulupahakemus"@fi,
+        "Ansökan om uppehållstillstånd för studier"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-application-for-studies> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/opiskelijan-oleskelulupahakemus> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/ansokan-om-uppehallstillstand-for-studier> ] .
+
+permit:temporary-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:definition "A fixed-term residence permit. The permit is issued to a foreign national who does not intend to stay in Finland permanently. The permit must be renewed before it expires. A temporary residence permit bears the letter B. Cf. continuous residence permit."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:notation "B" ;
+    skos:prefLabel "temporary residence permit"@en,
+        "tilapäinen oleskelulupa"@fi,
+        "tillfälligt uppehållstillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+permit:visa a skos:Concept,
+        tapio:Permit ;
+    skos:closeMatch <yso:p16593> ;
+    skos:definition "A permit to enter the country, which is issued for a short and temporary stay of up to 90 days. The Finnish missions make decisions on issuing visas. See mission."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "visa"@en,
+        "viisumi"@fi,
+        "visum, visering"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:finnish-mission ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p16593> ;
+            rdfs:comment "YSO: visas / viisumit / visum"@en ] .
+
+svc:incomes-register a skos:Concept,
+        tapio:Service ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Incomes Register"@en,
+        "Tulorekisteri"@fi,
+        "Inkomstregistret"@sv ;
+    sdo:validFrom "2019-01-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/incomes-register> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/inkomstregistret> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tulorekisteri> ] .
+
+svc:migri-service-point a skos:Concept,
+        tapio:Service ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Service point"@en,
+        "Palvelupisteet"@fi,
+        "Serviceställen"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/palvelupisteet> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/service-points> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/servicestallen> ] .
+
+svc:reception-centre a skos:Concept,
+        tapio:Service ;
+    skos:definition "A facility where persons applying for international protection and beneficiaries of temporary protection are accommodated and that provides the reception services for them. Group homes and supported housing units intended for children are reception centres, too. See also international protection, temporary protection."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "reception centre"@en,
+        "vastaanottokeskus"@fi,
+        "förläggning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+svc:reception-unit a skos:Concept,
+        tapio:Service ;
+    skos:definition "Reception unit is a generic concept that covers all premises where asylum seekers are accommodated. A reception unit can refer to, for example, reception centres and temporary accommodation units. See also reception centre."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "reception unit"@en,
+        "vastaanottoyksikkö"@fi,
+        "mottagningsenhet"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+svc:registration-centre a skos:Concept,
+        tapio:Service ;
+    skos:definition "A registration centre is a unit for the reception and registration of newly arrived asylum seekers. After being registered, the asylum seekers move to reception centres. See also reception centre."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "registration centre"@en,
+        "järjestelykeskus"@fi,
+        "flyktingsluss"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:asylum a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A residence permit issued to a foreign national under the asylum procedure on the basis of his or her refugee status. See refugee."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "asylum"@en,
+        "turvapaikka"@fi,
+        "asyl"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:asylum-seeker a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person who seeks protection and right of residence in a foreign state. An asylum seeker is granted refugee status if he or she is granted asylum. See asylum, refugee."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "asylum seeker"@en,
+        "turvapaikanhakija"@fi,
+        "asylsökande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:dual-citizenship a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person may be a citizen of two or several countries."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "dual or multiple citizenship"@en,
+        "kaksoiskansalaisuus/monikansalaisuus"@fi,
+        "dubbelt/flerfaldigt medborgarskap"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:emigrant a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person who moves from a country (Finland). Cf. immigrant; migrant."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "emigrant"@en,
+        "maastamuuttaja"@fi,
+        "utvandrare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:eu-citizen a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A citizen of a member state in the European Union (EU) or in Iceland, Liechtenstein, Norway or Switzerland. EU citizens have the right to move freely within the territory of the Union. The provisions on free movement also apply to citizens of Iceland, Liechtenstein and Norway based on the EEA Agreement, as well as to citizens of Switzerland based on a separate agreement with the EU. See European Union (EU), European Economic Area (EAA)."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "EU citizen or a comparable person"@en,
+        "EU-kansalainen ja häneen rinnastettava"@fi,
+        "EU-medborgare och en därmed jämförbar person"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:expatriate-finn a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "An expatriate Finn is a Finnish citizen or a person of Finnish origin who lives permanently outside Finland. See Finnish citizen, Finnish origin."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "expatriate Finn"@en,
+        "ulkosuomalainen"@fi,
+        "utlandsfinländare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:finnish-citizen-by-birth a skos:Concept,
+        tapio:LegalStatus ;
+    skos:broader status:finnish-citizen ;
+    skos:definition "A person who has acquired Finnish citizenship by birth. See citizenship."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish citizen by birth"@en,
+        "syntyperäinen Suomen kansalainen"@fi,
+        "infödd finsk medborgare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:finnish-citizenship a skos:Concept,
+        tapio:LegalStatus ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish citizenship"@en,
+        "Suomen kansalaisuus"@fi,
+        "Finskt medborgarskap"@sv ;
+    skos:related law:citizenship-act ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/finnish-citizenship> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/suomen-kansalaisuus> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/finskt-medborgarskap> ] .
+
+status:foreign-national a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person who is not a Finnish citizen. In legal language, also the word ‘alien’ is used. See Finnish citizen."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "foreign national"@en,
+        "ulkomaalainen"@fi,
+        "utlänning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:humanitarian-protection a skos:Concept,
+        tapio:LegalStatus ;
+    skos:changeNote "Ceased to be a ground for granting a residence permit on 16 May 2016; nothing replaced it directly. Applicants are assessed for asylum and subsidiary protection instead."@en ;
+    skos:definition "Reason for granting a residence permit until 16 May 2016. It was possible to grant a residence permit on the basis of humanitarian protection when the requirements for granting asylum or providing subsidiary protection were not met, but the applicant could not return to his or her home country or country of former habitual residence because of an environmental catastrophe. Another possible reason was a poor security situation which might have been due to an armed conflict or a poor human rights situation. See also asylum, subsidiary protection."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "humanitarian protection"@en,
+        "humanitaarinen suojelu"@fi,
+        "humanitärt skydd"@sv ;
+    skos:related status:subsidiary-protection ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    sdo:validThrough "2016-05-16"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:immigrant a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person who moves into a country (Finland). Cf. emigrant; migrant."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "immigrant"@en,
+        "maahanmuuttaja"@fi,
+        "invandrare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:refugee-sur-place a skos:Concept,
+        tapio:LegalStatus ;
+    skos:broader status:refugee ;
+    skos:definition "A refugee whose need of protection has arisen after he or she has left his or her home country. See also refugee."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "refugee sur place"@en,
+        "sur place -pakolainen"@fi,
+        "flykting ”sur place”"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:returnee a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "In residence permit matters, a returnee refers to a person moving to Finland who is of Finnish extraction or a person who otherwise has close ties to Finland (is a former Finnish citizen, a descendant of a person who is a Finnish citizen by birth or is otherwise Finnish in origin, for example an Ingrian Finn). See also Finnish citizen, Finnish citizen by birth, Finnish origin."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "returnee"@en,
+        "paluumuuttaja"@fi,
+        "återflyttare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:sponsor a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person residing in Finland whose family member applies for a residence permit to Finland on the basis of family ties in order to be together with the sponsor."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "sponsor"@en,
+        "perheenkokoaja"@fi,
+        "anknytningsperson"@sv ;
+    skos:related permit:family-ties-residence-permit ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:temporary-protection a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "Temporary protection may be given to foreign nationals who need international protection and who cannot return safely to their home country or country of permanent residence, because there has been a massive displacement of people in the country or its neighbouring areas as a result of an armed conflict, some other violent situation or an environmental disaster. Providing temporary protection requires that the need for protection may be considered to be of short duration."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Temporary protection"@en,
+        "Tilapäinen suojelu"@fi,
+        "Tillfälligt skydd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/tillfalligt-skydd> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/temporary-protection> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tilapainen-suojelu> ] .
+
+status:third-country-national a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A foreign national who is not an EU citizen or a comparable person (a citizen of Iceland, Liechtenstein, Norway or Switzerland). See EU citizen or a comparable person, European Union (EU)."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "third-country national"@en,
+        "kolmannen maan kansalainen"@fi,
+        "tredjelandsmedborgare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:answer-supplement-request a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Answering a request for additional information"@en,
+        "Täydennyspyyntöön vastaaminen"@fi,
+        "Svara på kompletteringsbegäran"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/answering-a-request-for-additional-information> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/taydennyspyyntoon-vastaaminen> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/svara-pa-kompletteringsbegaran> ] .
+
+step:appeal-decision a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Appealing a decision"@en,
+        "Muutoksenhaku eli päätöksestä valittaminen"@fi,
+        "Ändringssökande och överklagande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:administrative-court ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/andringssokande-och-overklagande> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/appealing-a-decision> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/muutoksenhaku> ] .
+
+step:application-processing a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Processing of applications"@en,
+        "Hakemuksen käsittelyvaiheet"@fi,
+        "Så behandlas din ansökan"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/sa-behandlas-din-ansokan> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/application-processing-stages> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/hakemuksen-kasittelyvaiheet> ] .
+
+step:apply-for-asylum a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Applying for asylum"@en,
+        "Turvapaikka Suomesta"@fi,
+        "Asyl i Finland"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/turvapaikka-suomesta> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/asylum-in-finland> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/asyl-i-finland> ] .
+
+step:assisted-voluntary-return a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "Assisted voluntary return refers to an arrangement where a third-country national who has applied for international protection, a beneficiary of temporary protection, a victim of human trafficking or a person who has been granted a residence permit under section 51 of the Aliens Act can receive assistance and compensation for travel and relocation costs to his or her home country or another country. A further requirement is that the applicant must leave the country voluntarily and with permanent intent after having cancelled his or her application or after the application has been rejected. See international protection, third-country national, temporary protection. Cf. voluntary return."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "assisted voluntary return"@en,
+        "avustettu vapaaehtoinen paluu"@fi,
+        "assisterad frivillig återresa"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:asylum-examination a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "A procedure in which the Finnish Immigration Service or the Border Guard first establishes the identity and travel route of the asylum seeker and whether his or her application can be processed in Finland. After that, the Finnish Immigration Service interviews the applicant in order to establish the grounds for his or her asylum application. See asylum interview."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "asylum examination"@en,
+        "turvapaikkatutkinta"@fi,
+        "asylutredning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:asylum-interview a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "The purpose of an asylum interview is to establish the grounds for an asylum application. The asylum interview is conducted by the Finnish Immigration Service."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "asylum interview"@en,
+        "turvapaikkapuhuttelu"@fi,
+        "asylsamtal"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:book-appointment a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Booking an appointment at a service point"@en,
+        "Varaa aika palvelupisteeseen"@fi,
+        "Boka tid vid vårt serviceställe"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/book-an-appointment> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/ajanvaraus> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/boka-tid> ] .
+
+step:citizenship-application a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "A foreign national may be granted Finnish citizenship on application if the requirements laid down in the Citizenship Act are met. Exceptions may be made as provided in the Act. Cf. citizenship declaration."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Citizenship application"@en,
+        "Kansalaisuushakemus aikuiselle"@fi,
+        "Medborgarskapsansökan för vuxna"@sv ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kansalaisuus-aikuiselle> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/medborgarskap-for-vuxna> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/citizenship-for-adults> ] .
+
+step:citizenship-declaration a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "Certain groups of people may acquire Finnish citizenship by declaration. These groups are specified in the Citizenship Act. Cf. citizenship application."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Citizenship declaration"@en,
+        "Kansalaisuusilmoitus"@fi,
+        "Medborgarskapsanmälan"@sv ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/citizenship-declaration> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/medborgarskapsanmalan> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kansalaisuusilmoitus> ] .
+
+step:consider-application-inadmissible a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "Considering an application inadmissible means that the application is not examined in substance. However, the Finnish Immigration Service will always conduct a preliminary examination and decide whether your application contains grounds for continuing the examination. If there are such grounds, the application will be examined in substance. If there are no such grounds, you may get a decision on your application being dismissed as inadmissible."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "considering an application inadmissible"@en,
+        "tutkimatta jättäminen"@fi,
+        "avvisande av ansökan utan prövning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:decision-notification a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Notification of the decision"@en,
+        "Tieto päätöksestä"@fi,
+        "Delgivande av beslut"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tieto-paatoksesta> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/delgivande-av-beslut> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/informing-of-the-decision> ] .
+
+step:detention a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "An interim measure, means of monitoring. A foreign national may be held in detention if there are grounds to believe that he or she will, for example, hide in order to avoid denial of admittance or stay or deportation. An asylum seeker may be held in detention if it is necessary to establish his or her identity."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "detention"@en,
+        "säilöönotto"@fi,
+        "tagande i förvar, förvarstagande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:determine-citizenship-status a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "In unclear situations, the Finnish Immigration Service establishes which citizenship a person is considered to hold in Finland. See also citizenship."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "determination of citizenship status"@en,
+        "kansalaisuusaseman määrittäminen"@fi,
+        "bestämmande av medborgarskapsstatus"@sv ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:dublin-procedure a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "The Dublin procedure is based on the EU Dublin Regulation and is conducted to determine the state responsible for examining an asylum application. The member states of the EU as well as Iceland, Liechtenstein, Norway and Switzerland apply the Regulation. Another country can be responsible for examining an application if the asylum seeker, for example, has family ties, a residence permit or a visa in another country applying the Regulation. Another country is also responsible for examining an application if the asylum seeker’s fingerprints have been entered in the Eurodac system after an illegal crossing of the external border of the EU. The country where an asylum seeker has previously sought asylum may also be responsible for examining the application. See European Union (EU), asylum."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Dublin procedure"@en,
+        "Dublin-menettely"@fi,
+        "Dublinförfarande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:establish-identity a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Establishment of identity"@en,
+        "Henkilöllisyyden selvittäminen"@fi,
+        "Utredning av identitet"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/utredning-av-identitet> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/henkilollisyyden-selvittaminen> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/establishment-of-identity> ] .
+
+step:identification a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Identification"@en,
+        "Tunnistautuminen"@fi,
+        "Identifiering"@sv ;
+    skos:related svc:enter-finland ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/identifiering> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tunnistautuminen> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/identification> ] .
+
+step:mobility-notification a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Mobility notification to Finland"@en,
+        "Liikkumisilmoitus Suomeen"@fi,
+        "Underrättelse om rörlighet till Finland"@sv ;
+    sdo:validFrom "2018-01-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/mobility-notification-to-finland> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/underrattelse-om-rorlighet-till-finland> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/liikkumisilmoitus-suomeen> ] .
+
+step:register-right-of-residence a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Registration of the right of residence of an EU citizen"@en,
+        "Oleskeluoikeuden rekisteröinti"@fi,
+        "Registrering av uppehållsrätt"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/registrering-av-uppehallsratt> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/registration-of-right-of-residence> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskeluoikeuden-rekisterointi> ] .
+
+step:renew-residence-permit-card a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Renewal of a residence permit card"@en,
+        "Oleskelulupakortin uusiminen"@fi,
+        "Att förnya uppehållstillståndskortet"@sv ;
+    skos:related doc:residence-permit-card ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/att-fornya-uppehallstillstandskortet> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/renewal-of-a-residence-permit-card> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupakortin-uusiminen> ] .
+
+step:tracing a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "Tracing means establishing the location of the parents or a guardian of an unaccompanied minor or of a child victim of human trafficking who applies for international protection."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "tracing"@en,
+        "jäljittäminen"@fi,
+        "spårande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:visit-finnish-mission a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Handling your matters at a Finnish mission"@en,
+        "Asiointi Suomen edustustossa"@fi,
+        "Att uträtta ärenden vid en finsk beskickning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:finnish-mission ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/att-utratta-arenden-vid-en-finsk-beskickning> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/handling-your-matters-at-a-finnish-mission> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/asiointi-suomen-edustustossa> ] .
+
+step:voluntary-return a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "In a decision on denial of admittance or stay or on deportation, which does not include an entry ban, a third-country national is given a period of at least seven and a maximum of thirty days during which he or she can leave the country voluntarily. See denial of admittance or stay, deportation, entry ban, third-country national. See also assisted voluntary return."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "voluntary return"@en,
+        "vapaaehtoinen paluu"@fi,
+        "frivillig återresa"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:withdraw-permit a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Withdrawal of a residence permit"@en,
+        "Luvan peruuttaminen"@fi,
+        "Återkallande av tillstånd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/cancellation-of-a-permit> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/luvan-peruuttaminen> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/aterkallande-av-tillstand> ] .
+
+term:birthplace-principle a skos:Concept,
+        tapio:Term ;
+    skos:definition "A principle according to which a child acquires citizenship on the basis of the place of birth (ius soli). The birthplace principle is a secondary principle in the Finnish Citizenship Act. Cf. parentage principle, inheritance principle."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "birthplace principle"@en,
+        "syntymämaaperiaate"@fi,
+        "territorialprincipen, födelselandsprincipen"@sv ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:citizenship a skos:Concept,
+        tapio:Term ;
+    skos:definition "Citizenship means a legislative bond between an individual and a state determining the individual’s status in the state as well as the basic rights and duties existing between the individual and the state."@en ;
+    skos:exactMatch <yso:p2736> ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "citizenship"@en,
+        "kansalaisuus"@fi,
+        "medborgarskap"@sv ;
+    skos:related law:citizenship-act ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p2736> ;
+            rdfs:comment "YSO: citizenship / kansalaisuus / medborgarskap"@en ] .
+
+term:country-of-nationality a skos:Concept,
+        tapio:Term ;
+    skos:definition "The country of which a person holds citizenship. See citizenship."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "country of nationality"@en,
+        "kansalaisuusvaltio"@fi,
+        "medborgarskapsland"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:customer-number a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Customer number"@en,
+        "Asiakasnumero"@fi,
+        "Kundnummer"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/kundnummer-och-diarienummer> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/customer-number-and-diary-number> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/asiakasnumero-ja-diaarinumero> ] .
+
+term:diary-number a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Diary number"@en,
+        "Diaarinumero"@fi,
+        "Diarienummer"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/kundnummer-och-diarienummer> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/customer-number-and-diary-number> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/asiakasnumero-ja-diaarinumero> ] .
+
+term:emergency-cases a skos:Concept,
+        tapio:Term ;
+    skos:definition "Persons who the UN refugee agency UNHCR considers to be refugees in need of urgent resettlement, often due to their personal safety or health. These persons are admitted into the country on the basis of UNHCR’s documents without being interviewed by the Finnish authorities. The emergency cases that are admitted into Finland are a part of the yearly refugee quota. In recent years, the yearly number of emergency cases admitted into Finland has been 100. See also quota refugee."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "emergency cases"@en,
+        "hätätapaukset"@fi,
+        "akuta fall"@sv ;
+    skos:related status:quota-refugee ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:ethnic-nationality a skos:Concept,
+        tapio:Term ;
+    skos:definition "Ethnic background. Belonging to a specific nation or a group of people (e.g. Ingrian Finns, Kurds, Roma). Ethnic nationality has a different meaning than citizenship. For instance, a person of Kurdish ethnic origin may hold Finnish citizenship. Cf. citizenship."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "ethnic nationality"@en,
+        "kansallisuus"@fi,
+        "nationalitet"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:european-economic-area a skos:Concept,
+        tapio:Term ;
+    skos:definition "The European Economic Area is a common market. Member states of the European Union as well as Iceland, Liechtenstein and Norway belong to the European Economic Area. See European Union (EU)."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "European Economic Area"@en,
+        "Euroopan talousalue (ETA)"@fi,
+        "Europeiska ekonomiska samarbetsområdet (EES)"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:european-union a skos:Concept,
+        tapio:Term ;
+    skos:definition "The European Union is a political and economic union that has 27 European member states: Austria, Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, the Netherlands, Poland, Portugal, Romania, Slovakia, Slovenia, Spain and Sweden."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "European Union"@en,
+        "Euroopan unioni (EU)"@fi,
+        "Europeiska unionen (EU)"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:finnish-origin a skos:Concept,
+        tapio:Term ;
+    skos:definition "Finnish origin refers to Finnish citizens, former Finnish citizens, descendants of persons who have acquired Finnish citizenship by birth and, in residence permit matters, also persons of Finnish ethnic origin. See also Finnish citizen, Finnish citizen by birth, citizenship, (ethnic) nationality, ethnic origin."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish origin"@en,
+        "suomalainen syntyperä"@fi,
+        "finländsk härkomst"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:immigration-legislation a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Legislation"@en,
+        "Lainsäädäntö"@fi,
+        "Lagstiftning"@sv ;
+    skos:related law:aliens-act,
+        law:citizenship-act ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/legislation> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/lagstiftning> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/lainsaadanto> ] .
+
+term:legal-residence a skos:Concept,
+        tapio:Term ;
+    skos:definition "Legal stay means that a foreign national is residing in the country with appropriate and valid permits. The stay is legal on the basis of a valid visa, exemption from the visa requirement or a valid residence permit. A foreign national may reside legally in the country also while his or her residence permit or asylum application is being processed."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "legal residence"@en,
+        "laillinen oleskelu"@fi,
+        "laglig vistelse"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:manifestly-unfounded-application a skos:Concept,
+        tapio:Term ;
+    skos:definition "An asylum application can be considered manifestly unfounded if 1) no serious violations of human rights or other grounds that are related to non-refoulement have been presented, or if the claims presented are clearly implausible, 2) the applicant obviously intends to abuse the asylum procedure or 3) the applicant comes from a safe country of origin where he or she may be returned. See also non-refoulement."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "manifestly unfounded application"@en,
+        "ilmeisen perusteeton hakemus"@fi,
+        "uppenbart ogrundad ansökan"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:non-refoulement a skos:Concept,
+        tapio:Term ;
+    skos:definition "According to the principle of non-refoulement, no one may be sent back to an area where he or she could be subject to the death penalty, torture, persecution or other inhuman treatment or other treatment violating human dignity."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "non-refoulement"@en,
+        "palautuskielto (non-refoulement)"@fi,
+        "förbud mot tillbakasändning, förbud mot återsändande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:parentage-principle a skos:Concept,
+        tapio:Term ;
+    skos:definition "A principle according to which a child acquires the citizenship of his or her parent (ius sanguinis). The inheritance principle is a primary principle in the Finnish Citizenship Act. Cf. birthplace principle."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "parentage principle"@en,
+        "periytymisperiaate"@fi,
+        "härstamningsprincipen"@sv ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:processing-time a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Processing time"@en,
+        "Käsittelyajat"@fi,
+        "Behandlingstider"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/processing-times> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/behandlingstider> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kasittelyajat> ] .
+
+term:registered-partnership a skos:Concept,
+        tapio:Term ;
+    skos:definition "An official relationship between two persons of the same sex. A registered partnership is in many ways comparable to a marriage."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "registered partnership"@en,
+        "rekisteröity parisuhde"@fi,
+        "registrerat partnerskap"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:removal-from-the-country a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Removal from the country"@en,
+        "Käännyttäminen, karkottaminen ja maahantulokielto"@fi,
+        "Avvisning, utvisning och meddelande av inreseförbud"@sv ;
+    skos:related step:denial-of-admittance-or-stay,
+        step:deportation,
+        term:entry-ban ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/denial-of-admittance-or-stay-deportation-entry-ban> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kaannyttaminen-karkottaminen-ja-maahantulokielto> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/avvisning-utvisning-och-meddelande-av-inreseforbud> ] .
+
+term:residence-permit-types a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit types"@en,
+        "Oleskelulupatyypit"@fi,
+        "Olika typer av uppehållstillstånd"@sv ;
+    skos:related permit:residence-permit ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-types> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/olika-typer-av-uppehallstillstand> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupatyypit> ] .
+
+term:schengen-area a skos:Concept,
+        tapio:Term ;
+    skos:definition "The Schengen area refers to the area of states applying the Schengen acquis. These states include Austria, Belgium, Bulgaria, Czechia, Croatia, Denmark, Estonia, Finland, France, Germany, Greece, Hungary, Iceland, Italy, Latvia, Liechtenstein, Lithuania, Luxembourg, Malta, the Netherlands, Norway, Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden and Switzerland."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Schengen area"@en,
+        "Schengen-alue"@fi,
+        "Schengenområdet"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+doc:residence-permit-card a skos:Concept,
+        tapio:Document ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit card"@en,
+        "Oleskelulupakortti"@fi,
+        "Uppehållstillståndskort"@sv ;
+    skos:related permit:residence-permit ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupakortti> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-card> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallstillstandskort> ] .
+
+doc:seasonal-work-certificate a skos:Concept,
+        tapio:Document ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Certificate for seasonal work"@en,
+        "Kausityötodistus"@fi,
+        "Intyg för säsongsarbete"@sv ;
+    skos:related permit:seasonal-work-residence-permit ;
+    sdo:validFrom "2018-01-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/seasonal-work-certificate> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kausityotodistus> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/intyg-for-sasongsarbete> ] .
+
+org:ely-centre a skos:Concept,
+        tapio:Organization ;
+    dcterms:isReplacedBy org:economic-development-centre ;
+    skos:altLabel "ELY Centre"@en,
+        "ELY-keskus"@fi,
+        "NTM-centralen"@sv ;
+    skos:changeNote "Reorganised into the Economic Development Centres on 1 January 2026."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Centre for Economic Development, Transport and the Environment"@en,
+        "elinkeino-, liikenne- ja ympäristökeskus"@fi,
+        "närings-, trafik- och miljöcentralen"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    sdo:validThrough "2025-12-31"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://elinvoimakeskus.fi/web/english> ;
+            rdfs:comment "Replaced by the Economic Development Centres, which started operating on 1 January 2026."@en ] .
+
+org:kela a skos:Concept,
+        tapio:Organization ;
+    skos:altLabel "Kela"@en,
+        "Kela"@fi,
+        "FPA"@sv ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Social Insurance Institution of Finland"@en,
+        "Kansaneläkelaitos"@fi,
+        "Folkpensionsanstalten"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "kela" ;
+            dcterms:source <https://www.kela.fi/moving-to-finland> ] .
+
+org:municipal-health-and-social-services a skos:Concept,
+        tapio:Organization ;
+    dcterms:isReplacedBy org:wellbeing-services-county ;
+    skos:changeNote "Service organisation transferred to the wellbeing services counties on 1 January 2023."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "municipal health and social services"@en,
+        "kunnan sosiaali- ja terveyspalvelut"@fi,
+        "kommunens social- och hälsovårdstjänster"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    sdo:validThrough "2022-12-31"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://vm.fi/en/wellbeing-services-counties> ;
+            rdfs:comment "Responsibility for organising health, social, and rescue services transferred from municipalities and joint municipal authorities to the wellbeing services counties on 1 January 2023."@en ] .
+
+org:police a skos:Concept,
+        tapio:Organization ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish Police"@en,
+        "Poliisi"@fi,
+        "Polisen"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "police" ;
+            dcterms:source <https://poliisi.fi/en/frontpage> ] .
+
+org:te-office a skos:Concept,
+        tapio:Organization ;
+    dcterms:isReplacedBy org:municipal-employment-area ;
+    skos:altLabel "TE Office"@en,
+        "TE-toimisto"@fi,
+        "TE-byrån"@sv ;
+    skos:changeNote "Dissolved on 1 January 2025; employment services transferred to municipal employment areas."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Employment and Economic Development Office"@en,
+        "työ- ja elinkeinotoimisto"@fi,
+        "arbets- och näringsbyrån"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    sdo:validThrough "2024-12-31"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://tem.fi/en/employment-areas> ;
+            rdfs:comment "TE Offices were dissolved and their services transferred to municipal employment areas on 1 January 2025."@en ] .
+
+permit:employed-person-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:altLabel "TTOL"@en,
+        "TTOL"@fi ;
+    skos:broader permit:residence-permit ;
+    skos:closeMatch <yso:p10321> ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for an employed person"@en,
+        "Työntekijän oleskelulupa"@fi,
+        "Uppehållstillstånd för arbetstagare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p10321> ;
+            rdfs:comment "YSO: work permits / työluvat / arbetstillstånd"@en ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallstillstand-for-arbetstagare> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tyontekijan-oleskelulupa> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-for-an-employed-person> ] .
+
+permit:entrepreneur-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for an entrepreneur"@en,
+        "Yrittäjä"@fi,
+        "Företagare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/entrepreneur> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/yrittaja> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/foretagare> ] .
+
+permit:eu-blue-card a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:definition "A residence permit intended for a third-country national who comes to an EU member state for highly qualified employment. See third-country national."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "EU Blue Card"@en,
+        "Erityisasiantuntija, EU:n sininen kortti"@fi,
+        "EU-blåkort"@sv ;
+    sdo:validFrom "2012-01-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/eu-blue-card> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/eu-n-sininen-kortti> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/eu-blakort> ] .
+
+permit:family-ties-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:closeMatch <yso:p24177> ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit on the basis of family ties"@en,
+        "Perheenjäsenen luokse Suomeen"@fi,
+        "Flytta till en familjemedlem i Finland"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/flytta-till-en-familjemedlem-i-finland> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/perheenjasenen-luokse-suomeen> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/moving-to-finland-to-be-with-a-family-member> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p24177> ;
+            rdfs:comment "YSO: family reunification / perheenyhdistäminen / familjeåterförening"@en ] .
+
+permit:ict-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for an intra-corporate transfer (Mobile ICT)"@en,
+        "Yrityksen sisäinen siirto (liikkuva ICT-oleskelulupa)"@fi,
+        "Rörlighet för längre vistelse (Mobile ICT)"@sv ;
+    sdo:validFrom "2018-01-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/yrityksen-sisainen-siirto-liikkuva-ict> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/intra-corporate-transfer-mobile-ict-> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/rorlighet-for-langre-vistelse-mobile-ict-> ] .
+
+permit:internship-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for an internship"@en,
+        "Harjoittelu"@fi,
+        "Praktik"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/praktik> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/harjoittelu> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/internship> ] .
+
+permit:job-seeking-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit to look for work or to start a business"@en,
+        "Oleskelulupahakemus opiskelijoille ja tutkijoille työnhakua varten"@fi,
+        "Ansökan för studerande och forskare: uppehållstillstånd för att söka arbete"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallstillstand-for-att-soka-arbete> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupahakemus-tyonhakua-varten> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-to-look-for-work> ] .
+
+permit:specialist-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for a specialist"@en,
+        "Erityisasiantuntija"@fi,
+        "Specialsakkunnig"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/erityisasiantuntija> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/specialsakkunnig> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/specialist> ] .
+
+permit:startup-entrepreneur-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for a start-up entrepreneur"@en,
+        "Startup-yrittäjä"@fi,
+        "Tillväxtföretagare"@sv ;
+    sdo:validFrom "2018-04-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/start-up-entrepreneur> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/startup-yrittaja> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/tillvaxtforetagare> ] .
+
+svc:enter-finland a skos:Concept,
+        tapio:Service ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Enter Finland"@en,
+        "Enter Finland -verkkopalvelu"@fi,
+        "E-tjänsten Enter Finland"@sv ;
+    sdo:validFrom "2012-01-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sahkoinen-asiointi> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/lamna-in-en-ansokan-i-e-tjansten> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "enter_finland" ;
+            dcterms:source <https://enterfinland.fi/> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/submit-your-application-in-the-e-service> ] .
+
+status:finnish-citizen a skos:Concept,
+        tapio:LegalStatus ;
+    skos:definition "A person who by birth, or later by some other means, has acquired Finnish citizenship. See also naturalisation, citizenship."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish citizen"@en,
+        "Suomen kansalainen"@fi,
+        "finsk medborgare"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:international-protection a skos:Concept,
+        tapio:LegalStatus ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "international protection"@en,
+        "kansainvälinen suojelu"@fi,
+        "internationellt skydd According to EU directives and the Finnish Aliens Act, international protection means refugee status or subsidiary protection status. See also refugee, subsidiary protection, humanitarian protection."@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:quota-refugee a skos:Concept,
+        tapio:LegalStatus ;
+    skos:broader status:refugee ;
+    skos:definition "A person considered a refugee by the UN refugee agency UNHCR who has been granted a residence permit under the refugee quota verified in the Finnish state budget. In recent years, the Finnish refugee quota has been 750–1,050 people. See also emergency cases, refugee."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "quota refugee"@en,
+        "kiintiöpakolainen"@fi,
+        "kvotflykting"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+status:subsidiary-protection a skos:Concept,
+        tapio:LegalStatus ;
+    skos:broader status:international-protection ;
+    skos:definition "Reason for granting a residence permit. A residence permit is issued on the basis of subsidiary protection when the requirements for granting asylum are not met, but the applicant faces a risk of being subjected to the death penalty, execution, torture or other inhuman or degrading treatment or punishment in his or her home country or country of former habitual residence. A permit may also be issued if the applicant is unable to return to his or her home country or country of former habitual residence without being exposed to serious and individual threat as a result of armed conflicts. See also asylum, international protection."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "subsidiary protection"@en,
+        "toissijainen suojelu"@fi,
+        "alternativt skydd"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:denial-of-admittance-or-stay a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "Procedure for removing a person from the country. When a foreign national has not been issued with a residence permit and a decision is made to remove the person from the country, he or she is denied admittance or stay. Cf. deportation."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "denial of admittance or stay"@en,
+        "käännyttäminen"@fi,
+        "avvisning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:deportation a skos:Concept,
+        tapio:ProcessStep ;
+    skos:definition "Procedure for removing a person from the country. When a foreign national has been issued with a residence permit but a decision is made to remove the person from the country, he or she will be deported. Cf. refusal of entry."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "deportation"@en,
+        "karkottaminen"@fi,
+        "utvisning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+step:labour-market-test a skos:Concept,
+        tapio:ProcessStep ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Labour market test"@en,
+        "Saatavuusharkinta"@fi,
+        "Prövning av tillgången på arbetskraft"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:municipal-employment-area ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/labour-market-test> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/saatavuusharkinta> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/provning-av-tillgangen-pa-arbetskraft> ] .
+
+term:entry-ban a skos:Concept,
+        tapio:Term ;
+    skos:definition "In a decision on denial of admittance or stay or on deportation, a foreign national may be prohibited from entering Finland. The entry ban may be valid for a fixed term or until further notice, and it applies either in the entire Schengen area or only in Finland. See also Schengen area."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "entry ban"@en,
+        "maahantulokielto"@fi,
+        "inreseförbud"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+term:income-requirement a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Income requirement"@en,
+        "Toimeentuloedellytys"@fi,
+        "Försörjningsförutsättning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/forsorjningsforutsattning> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/toimeentulo> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/income-requirement> ] .
+
+term:municipality-of-residence a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "municipality of residence"@en,
+        "kotikunta"@fi,
+        "hemkommun"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:dvv ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "dvv" ;
+            dcterms:source <https://dvv.fi/en/municipality-of-residence> ] .
+
+term:personal-identity-code a skos:Concept,
+        tapio:Term ;
+    skos:closeMatch <yso:p16456> ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Personal identity code"@en,
+        "Henkilötunnus"@fi,
+        "Personbeteckning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:dvv,
+        org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/henkilotunnus> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p16456> ;
+            rdfs:comment "YSO: personal identification numbers / henkilötunnukset / personbeteckningar"@en ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/personbeteckning> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/personal-identity-code> ;
+            rdfs:comment "Labels taken from the term the page is about, not its full heading."@en ] .
+
+term:processing-fee a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Processing fee"@en,
+        "Käsittelymaksut ja maksaminen"@fi,
+        "Behandlingsavgifter och betalningssätt"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/processing-fees-and-payment-methods> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/behandlingsavgifter-och-betalningssatt> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kasittelymaksut-ja-maksaminen> ] .
+
+term:right-to-work a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Right to work"@en,
+        "Työnteko Suomessa"@fi,
+        "Arbete i Finland"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/work-in-finland> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tyonteko-suomessa> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/arbete-i-finland> ] .
+
+term:student-insurance-requirement a skos:Concept,
+        tapio:Term ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Insurance requirement for students"@en,
+        "Opiskelijan vakuutusvaatimus"@fi,
+        "Försäkringskrav för studerande"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/forsakringar> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/insurance> ;
+            rdfs:comment "Labels shortened from the page's own heading, which is a sentence."@en ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/vakuutukset> ] .
+
+org:administrative-court a skos:Concept,
+        tapio:Organization ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Administrative Court"@en,
+        "hallinto-oikeus"@fi,
+        "förvaltningsdomstolen"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/muutoksenhaku> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/andringssokande-och-overklagande> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/appealing-a-decision> ;
+            rdfs:comment "Named as the appeal body in all three languages."@en ] .
+
+org:economic-development-centre a skos:Concept,
+        tapio:Organization ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Economic Development Centre"@en,
+        "elinvoimakeskus"@fi,
+        "livskraftscentral"@sv ;
+    sdo:validFrom "2026-01-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://elinvoimakeskus.fi/web/english> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://tem.fi/sv/livskraftscentralerna> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://elinvoimakeskus.fi/etusivu> ] .
+
+org:wellbeing-services-county a skos:Concept,
+        tapio:Organization ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "wellbeing services county"@en,
+        "hyvinvointialue"@fi,
+        "välfärdsområde"@sv ;
+    sdo:validFrom "2023-01-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://vm.fi/sv/valfardsomradena> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://vm.fi/hyvinvointialueet> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://vm.fi/en/wellbeing-services-counties> ] .
+
+permit:seasonal-work-residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:broader permit:residence-permit ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit for seasonal work"@en,
+        "Kausityöoleskelulupa"@fi,
+        "Uppehållstillstånd för säsongsarbete"@sv ;
+    sdo:validFrom "2018-01-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit-for-seasonal-work> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/kausityooleskelulupa> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallstillstand-for-sasongsarbete> ] .
+
+status:refugee a skos:Concept,
+        tapio:LegalStatus ;
+    skos:closeMatch <yso:p6458> ;
+    skos:definition "A foreign national who has a well-founded fear of being persecuted for reasons of ethnic origin, religion, nationality, membership in a particular social group or political opinion. Refugee status is granted to a person who has been granted asylum by a state or who is considered a refugee by UNHCR. See also quota refugee, asylum seeker, asylum."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "refugee"@en,
+        "pakolainen"@fi,
+        "flykting"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p6458> ;
+            rdfs:comment "YSO: refugees / pakolaiset / flyktingar"@en ] .
+
+law:aliens-act a skos:Concept,
+        tapio:LegalAct ;
+    skos:definition "The act governing entry, residence, and removal from the country for foreign nationals."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:notation "301/2004" ;
+    skos:prefLabel "Aliens Act (301/2004)"@en,
+        "Ulkomaalaislaki (301/2004)"@fi,
+        "Utlänningslag (301/2004)"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "finlex" ;
+            dcterms:source <https://www.finlex.fi/fi/lainsaadanto/2004/301> ] .
+
+law:citizenship-act a skos:Concept,
+        tapio:LegalAct ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:notation "359/2003" ;
+    skos:prefLabel "Citizenship Act (359/2003)"@en,
+        "Kansalaisuuslaki (359/2003)"@fi,
+        "Medborgarskapslag (359/2003)"@sv ;
+    sdo:validFrom "2003-06-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "finlex" ;
+            dcterms:source <https://www.finlex.fi/fi/lainsaadanto/2003/359> ] .
+
+org:dvv a skos:Concept,
+        tapio:Organization ;
+    skos:altLabel "DVV"@en,
+        "DVV"@fi,
+        "MDB"@sv ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Digital and Population Data Services Agency"@en,
+        "Digi- ja väestötietovirasto"@fi,
+        "Myndigheten för digitalisering och befolkningsdata"@sv ;
+    sdo:validFrom "2020-01-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "dvv" ;
+            dcterms:source <https://dvv.fi/en/municipality-of-residence> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "dvv" ;
+            dcterms:source <https://dvv.fi/en/moving-to-finland> ] .
+
+org:finnish-mission a skos:Concept,
+        tapio:Organization ;
+    skos:altLabel "consulate"@en,
+        "embassy"@en,
+        "Suomen edustusto"@fi,
+        "suurlähetystö"@fi,
+        "ambassad"@sv ;
+    skos:definition "On the website Migri.fi, the word ‘mission’ usually refers to Finnish embassies and consulates."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish mission"@en,
+        "edustusto"@fi,
+        "beskickning"@sv ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ] .
+
+org:municipal-employment-area a skos:Concept,
+        tapio:Organization ;
+    skos:altLabel "municipal employment area"@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "employment area"@en,
+        "työllisyysalue"@fi,
+        "sysselsättningsområde"@sv ;
+    sdo:validFrom "2025-01-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://tem.fi/en/employment-areas> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://tem.fi/sv/sysselsattningsomradena> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "other" ;
+            dcterms:source <https://tem.fi/tyollisyysalueet> ] .
+
+permit:residence-permit a skos:Concept,
+        tapio:Permit ;
+    skos:closeMatch <yso:p6463> ;
+    skos:definition "A permit issued to a foreign national for a purpose other than tourism or a comparable short-term residence that entitles the holder to enter the country repeatedly and stay in the country. Residence permits are either fixed-term or permanent. A residence permit can be issued on the basis of, for example, work, self-employment, studies or family ties. See fixed-term residence permit, permanent residence permit. See also visa."@en ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Residence permit"@en,
+        "Oleskelulupa"@fi,
+        "Uppehållstillstånd"@sv ;
+    skos:related law:aliens-act ;
+    sdo:validFrom "2004-05-01"^^xsd:date ;
+    tapio:handledBy org:migri ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/glossary> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/oleskelulupa> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "yso" ;
+            dcterms:source <http://www.yso.fi/onto/yso/p6463> ;
+            rdfs:comment "YSO: residence permits / oleskeluluvat / uppehållstillstånd"@en ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/residence-permit> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/uppehallstillstand> ] .
+
+org:migri a skos:Concept,
+        tapio:Organization ;
+    skos:altLabel "Migri"@en,
+        "Migri"@fi,
+        "Migri"@sv ;
+    skos:inScheme <https://tapio.finntegrate.org/register/scheme> ;
+    skos:prefLabel "Finnish Immigration Service"@en,
+        "Maahanmuuttovirasto"@fi,
+        "Migrationsverket"@sv ;
+    sdo:validFrom "2008-01-01"^^xsd:date ;
+    tapio:observation [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/tietoa-meista> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/sv/om-oss> ],
+        [ a tapio:Observation ;
+            dcterms:date "2026-09-19"^^xsd:date ;
+            dcterms:publisher "migri" ;
+            dcterms:source <https://migri.fi/en/about-us> ;
+            rdfs:comment "Organisation page; the name in each language is the site's own."@en ] .
+
+<https://tapio.finntegrate.org/register/scheme> a skos:ConceptScheme ;
+    dcterms:description "The closed-world authority over which entities a guide answer may assert, and a time-indexed record of how the Finnish immigration system changes. This edition covers Ilmarinen's domain: residence permits, visas, and the application process, together with the authorities, documents, statuses, and legal acts those answers have to name."@en ;
+    dcterms:hasVersion "2026-09-19" ;
+    dcterms:issued "2026-09-19"^^xsd:date ;
+    dcterms:license "https://creativecommons.org/licenses/by/4.0/" ;
+    dcterms:title "Tapio term register"@en ;
+    rdfs:comment "This register records what its sources said on the dates they were observed, not ground truth. Its coverage is bounded by the sources listed in each concept's observations, its observation dates are when Tapio looked rather than when reality changed, and a gap in it is evidence of a gap in Tapio's attention, not evidence that nothing happened. valid_from is the earliest date from which the register treats an entity as in force, not a claim about when it was created: where a commencement date is known it is used, and otherwise valid_from is the register's floor of 1 May 2004, the commencement of the Aliens Act (301/2004), which records that no start date has been established. A date not stated by one of the cited sources is the register's own best evidence and is open to correction. Nothing here is legal advice, and an entry being in force is a statement about a published source rather than about any individual's case."@en .
+

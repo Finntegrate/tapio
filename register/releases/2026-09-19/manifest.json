@@ -1,0 +1,43 @@
+{
+  "register_version": "2026-09-19",
+  "title": "Tapio term register",
+  "license": "https://creativecommons.org/licenses/by/4.0/",
+  "coverage_caveat": "This register records what its sources said on the dates they were observed, not ground truth. Its coverage is bounded by the sources listed in each concept's observations, its observation dates are when Tapio looked rather than when reality changed, and a gap in it is evidence of a gap in Tapio's attention, not evidence that nothing happened. valid_from is the earliest date from which the register treats an entity as in force, not a claim about when it was created: where a commencement date is known it is used, and otherwise valid_from is the register's floor of 1 May 2004, the commencement of the Aliens Act (301/2004), which records that no start date has been established. A date not stated by one of the cited sources is the register's own best evidence and is open to correction. Nothing here is legal advice, and an entry being in force is a statement about a published source rather than about any individual's case.",
+  "summary": {
+    "register_version": "2026-09-19",
+    "concept_count": 129,
+    "lapsed_count": 4,
+    "externally_aligned_count": 7,
+    "by_kind": {
+      "document": 5,
+      "legal_act": 2,
+      "organization": 15,
+      "permit": 26,
+      "service": 6,
+      "status": 21,
+      "step": 27,
+      "term": 27
+    },
+    "by_guide": {
+      "ilmarinen": 128,
+      "otso": 8,
+      "rauni": 18,
+      "sampo": 5
+    },
+    "observations_by_source": {
+      "dvv": 3,
+      "enter_finland": 1,
+      "finlex": 2,
+      "kela": 1,
+      "migri": 240,
+      "other": 13,
+      "police": 1,
+      "yso": 7
+    }
+  },
+  "files": {
+    "register.jsonld": "sha256:7a21a418648ec2c3faf46f6eabb0968e0bbe4c12c03a115298833142f6311fa1",
+    "register.ttl": "sha256:ed50d246d9a2306606eac57f16df242e38a1350852bcf87588fd8313e0bd7cf7",
+    "register.yaml": "sha256:3bee91ab29d2db247d3f65172c237aec9abb460cf8b3cc970a0bc866092038f4"
+  }
+}

@@ -11,10 +11,14 @@ Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing,
 - `ingest/` chunks that Markdown and writes it to the shared `vectorstore/` collection.
 - `backend/` owns the RAG/agent-routing orchestration and only reads from that collection, exposing it as a FastAPI HTTP/SSE API.
 - `app/` is the SvelteKit chat client that calls `backend/`.
+- `register/` holds the versioned term register: the closed-world set of entities
+  a guide answer may name, released as dated, immutable editions
+  (see [ADR 0007](docs/ADRs/0007-ontological-harness.md)).
 
-`crawler/`, `ingest/`, and `backend/` each have their own dependency manifest and
-can be tested independently with `mise run test:crawl`, `mise run test:ingest`, or
-`mise run test:backend`. `app/` is tested with `npm run test:unit` (see its own README).
+`crawler/`, `ingest/`, `backend/`, and `register/` each have their own dependency
+manifest and can be tested independently with `mise run test:crawl`,
+`mise run test:ingest`, `mise run test:backend`, or `mise run test:register`.
+`app/` is tested with `npm run test:unit` (see its own README).
 
 ```text
 crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  backend  ──>  app
@@ -75,6 +79,7 @@ mise install
 (cd crawler && uv sync)
 (cd ingest && uv sync)
 (cd backend && uv sync)
+(cd register && uv sync)
 (cd app && npm install)
 
 ollama pull gemma4:latest

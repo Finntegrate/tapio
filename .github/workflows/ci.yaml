@@ -24,6 +24,9 @@ jobs:
           - service: backend
             package: app
             mypy_args: --config-file mypy.ini app
+          - service: register
+            package: tapio_register
+            mypy_args: --config-file mypy.ini tapio_register
     defaults:
       run:
         working-directory: ${{ matrix.service }}
@@ -284,7 +287,7 @@ jobs:
             const path = require('path');
 
             const resultsDir = 'results';
-            const serviceOrder = ['crawler', 'ingest', 'backend', 'app'];
+            const serviceOrder = ['crawler', 'ingest', 'register', 'backend', 'app'];
             const results = fs.existsSync(resultsDir)
               ? fs.readdirSync(resultsDir)
                   .map((dir) => path.join(resultsDir, dir, 'result.json'))

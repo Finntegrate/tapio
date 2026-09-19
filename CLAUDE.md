@@ -10,6 +10,7 @@ Tapio is an AI-powered Finnish immigration assistant built by the Finntegrate pr
 - **Orchestration**: LangGraph `StateGraph` (routing → retrieval → specialist generation, `backend/app/graph/`); checkpointing (#16) and tool-wrapped retrieval (#18) not yet done
 - **Backend**: FastAPI (`backend/`), owns the RAG/agent orchestration and exposes it over HTTP/SSE
 - **UI**: SvelteKit (`app/`); the earlier Gradio prototype has been retired (see ADR 0006)
+- **Term register**: LinkML-defined SKOS register in `register/`, released as dated editions; the artifact the ontological harness validates answers against (ADR 0007)
 - **Task runner**: mise (`mise.toml` at project root)
 - **Package manager**: uv
 - **CI target**: GitHub Actions + Codespaces
@@ -88,6 +89,9 @@ Skills in `.claude/skills/` are automatically available as slash commands when t
 | `.claude/skills/create-issue/SKILL.md`    | Source for `/create-issue`                               |
 | `.claude/skills/backlog/SKILL.md`         | Source for `/backlog`                                    |
 | `.claude/skills/retro/SKILL.md`           | Source for `/retro`                                      |
+| `register/tapio_register/schema/term_register.yaml` | LinkML schema the register's Pydantic, JSON Schema, and SHACL artifacts are generated from |
+| `register/tapio_register/data/register.yaml` | The curated term register, hand-reviewed with per-concept provenance |
+| `register/releases/<date>/`               | Dated, immutable editions, published as SKOS |
 | `mise.toml`                               | Task runner targets (`mise run <task>`)                  |
 
 ## Conventions
