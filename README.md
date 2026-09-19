@@ -1,183 +1,102 @@
-# Tapio
+<!-- markdownlint-disable -->
+<h1 align="center">Tapio</h1>
+
+<div align="center">
+
 <!-- ALL-CONTRIBUTORS-BADGE:START - Do not remove or modify this section -->
 [![All Contributors](https://img.shields.io/badge/all_contributors-3-orange.svg?style=flat-square)](#contributors-)
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
+[![Service CI](https://github.com/Finntegrate/tapio/actions/workflows/ci.yaml/badge.svg)](https://github.com/Finntegrate/tapio/actions/workflows/ci.yaml)
+[![License: EUPL-1.2](https://img.shields.io/badge/license-EUPL--1.2-blue.svg)](LICENSE)
 
-Tapio is a RAG (Retrieval Augmented Generation) tool for extracting, processing, and querying information from websites like Migri.fi (Finnish Immigration Service). Its crawler, ingestion pipeline, and chat application are independent projects in this monorepo.
+</div>
+<!-- markdownlint-restore -->
 
-## Projects
+**Tapio is a guide network that helps people navigate Finnish immigration — residence permits, employment, benefits, and housing — through one coordinated conversation grounded in official sources.**
 
-- `crawler/` collects source pages and emits Markdown with `source_url` frontmatter.
-- `ingest/` chunks that Markdown and writes it to the shared `vectorstore/` collection.
-- `backend/` owns the RAG/agent-routing orchestration and only reads from that collection, exposing it as a FastAPI HTTP/SSE API.
-- `app/` is the SvelteKit chat client that calls `backend/`.
+Moving to a new country means learning an unfamiliar bureaucracy in a language you may not read fluently, from a dozen different authorities that don't talk to each other. Tapio is a first stop: it answers in plain language, tells you exactly which official page an answer came from, and hands you off to a specialist guide when your question crosses into their territory — all without asking who you are.
 
-`crawler/`, `ingest/`, and `backend/` each have their own dependency manifest and
-can be tested independently with `mise run test:crawl`, `mise run test:ingest`, or
-`mise run test:backend`. `app/` is tested with `npm run test:unit` (see its own README).
+🔗 **Live roster and product overview:** [finntegrate.org/tapio](https://finntegrate.org/tapio/)
+
+> [!NOTE]
+> **Project status:** Tapio is in active development. The coordinator plus four specialists (Ilmarinen, Sampo, Rauni, Otso) are live today; seven more guides on the public roster are planned but not yet built (see [the guide network](#the-guide-network) below). Conversation history, accounts, and proactive guidance are also still on the roadmap — see the [PRD](docs/PRD.md) for what's shipped versus planned.
+
+## Why Tapio
+
+Finnish immigration information is scattered across Migri, Kela, TE-palvelut, municipal services, and more — written in dense administrative language, often only in Finnish and Swedish. People navigating this system are frequently non-native speakers under time pressure who don't yet know which authority to ask, or what to even call the thing they need.
+
+A generic chatbot doesn't fix this: it hides who's answering, why an answer applies to your situation, and whether it's trustworthy enough to act on. Tapio is built around the opposite bet — that trust in an AI system navigating something this consequential comes from **visible expertise, cited sources, and a stated boundary of what it won't do**, not from a single black-box assistant that sounds confident about everything.
+
+## What makes it different
+
+- **A named guide network, not one assistant.** Tapio (the coordinator) and specialists like Ilmarinen, Sampo, Rauni, and Otso — each named for a figure from Finnish cultural heritage — handle distinct domains. Every answer is attributed to the guide that gave it, with a plain-language reason for why that guide was chosen.
+- **Every answer is sourced, or says it isn't.** Guide answers cite the official page they're drawn from; if no reliable source is found, Tapio says so rather than guessing. Crisis and legal-sensitive questions are redirected to vetted official resources instead of an ordinary answer — see the [guardrails spec](docs/specs/guardrails.md) for exactly how that detection works.
+- **Proactive, not just reactive.** Newcomers often don't know what to ask next. Guides surface likely-relevant next steps tied to your situation, grounded in the same official sources as any direct answer.
+- **One conversation, not a maze of tabs.** A permit question that turns into a benefits question stays in the same thread — no repeating your situation to a different tool.
+- **Privacy by design, not by policy.** Tapio doesn't ask for or retain a case number, application status, or family details. Many people who rely on it — asylum seekers, undocumented people, people fleeing abuse — face real physical risk from a data exposure, so the product is built to have as little as possible to expose.
+- **Knows its own boundary.** Tapio is explicit that it isn't a caseworker, legal representative, or official authority, and hands off to human or official support when a question needs one.
+
+## The guide network
+
+| Guide | Role | Status |
+| --- | --- | --- |
+| **Tapio** | Coordinator — routing, handoffs, cross-guide summaries | Live |
+| **Ilmarinen** | Residence permits, visas, applications | Live |
+| **Sampo** | Job seeking, career pathways, workplace culture | Live |
+| **Rauni** | Kela, social security, benefits, family support | Live |
+| **Otso** | Housing, tenant rights, settlement | Live |
+| **Pellervo** | Entrepreneurship, business establishment | Planned |
+| **Agricola** | Language learning, education, qualification recognition | Planned |
+| **Louhi** | Finnish customs and etiquette | Planned |
+| **Mielikki** | Healthcare navigation | Planned |
+| **Lempi** | Mental health, community connections | Planned |
+| **Ahti** | Transportation, utilities, banking | Planned |
+| **Kokko** | Regional and municipal services | Planned |
+
+Each name comes from Finnish cultural heritage, paired with a specific area of expertise. Full scope per guide is in [PRD §6](docs/PRD.md#6-the-guide-network); the canonical public roster is [finntegrate.org/tapio](https://finntegrate.org/tapio/).
+
+## Who it's for
+
+- **Students** navigating study-related residence permits and enrollment
+- **Workers** exploring employment-based permits, job seeking, and workplace rights
+- **Families** pursuing reunification, or supporting a family member's application
+- **Refugees and asylum seekers** needing guidance on process and available support
+- **Partner organizations** — NGOs, employers, and municipalities — that refer clients to Tapio and want visibility into how it supports their own advising work
+
+## How it works
 
 ```text
 crawler  ── Markdown + source_url ──>  content/  ── embeddings ──>  vectorstore/  ──>  backend  ──>  app
 ```
 
-`content/` and `vectorstore/` are local runtime data, not source code. They
-are ignored by Git and are the only handoffs between the services.
+A crawler collects official source pages, an ingestion pipeline chunks and embeds them into a vector store, and a FastAPI backend runs the multi-agent retrieval and routing logic ([LangGraph](https://www.langchain.com/langgraph)) behind a chat API. A SvelteKit web app is the reference client. See [Documentation](#documentation) below for the full architecture and product spec.
 
-## Features
+## Documentation
 
-- **Multi-site support** - Configurable site-specific crawling and extraction
-- **End-to-end pipeline** - Crawl → Ingest → Query workflow
-- **Local LLM integration** - Uses Ollama for private, local inference
-- **Semantic search** - ChromaDB vector database for relevant content retrieval
-- **Interactive chatbot** - Web interface for natural language queries
-- **Flexible crawling** - Configurable depth and domain restrictions
-- **Comprehensive testing** - Full test suite for reliability
+| Document | Covers |
+| --- | --- |
+| [Product requirements (PRD)](docs/PRD.md) | Product goals, the guide network, success metrics, open questions |
+| [Architecture decision records](docs/ADRs/) | Why the system is built the way it is |
+| [Specs](docs/specs/) | Detailed designs for specific subsystems (guardrails, multi-agent chat, the ontological harness, and more) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | Development environment setup, running the pipeline locally, code style, and how to submit changes |
+| [WORKFLOW.md](WORKFLOW.md) | How work is planned and triaged on the project board |
 
-## Target Use Cases
-
-**Primary Users:** EU and non-EU citizens navigating Finnish immigration processes
-
-- Students seeking education information
-- Workers exploring employment options
-- Families pursuing reunification
-- Refugees and asylum seekers needing guidance
-
-**Core Needs:**
-
-- Finding relevant, accurate information quickly
-- Practice conversations on specific topics (family reunification, work permits, etc.)
-
-## Run the pipeline
-
-### Prerequisites
-
-- [mise](https://mise.jdx.dev/) to install and run the pinned development tools
-- Network access for the initial Crawl4AI browser and embedding-model downloads
-- [Ollama](https://ollama.com/) running locally, for the chat model
-
-### System requirements
-
-- Enough available RAM for the selected Ollama model; `gemma4:latest` is the default
-- For low-resource environments such as GitHub Codespaces, choose a smaller model explicitly with `--model-name`
-
-### First-time setup
-
-Clone the repository, then install the tools specified in `mise.toml`, prepare
-each service environment, install Google Chrome for the crawler, and download
-the chat model:
+## Quick start
 
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
-
-mise install
-
-(cd crawler && uv sync)
-(cd ingest && uv sync)
-(cd backend && uv sync)
-(cd app && npm install)
-
-ollama pull gemma4:latest
 ```
 
-### End-to-end quick start
-
-Run these commands from the repository root, in this order:
-
-```bash
-# 1. Discover each site's URL inventory, then render what's due into content/.
-mise run crawl
-
-# 2. Chunk and embed the Markdown written to content/.
-mise run ingest
-
-# 3. Start the backend API, which reads vectorstore/.
-mise run backend
-
-# 4. In a second terminal, start the SvelteKit chat client.
-mise run app
-```
-
-For each configured site, `mise run crawl` runs `discover` (populating its URL
-manifest) and then `crawl` (rendering only manifest records that are due - see
-`crawler/README.md`). It attempts every configured site even if an earlier one
-fails, then returns a non-zero status if any site failed. When new pages are crawled,
-rerun `mise run ingest`, then restart the backend (`backend/` is what reads
-`vectorstore/`; the SvelteKit `app/` only calls the backend's API) so it opens
-the refreshed vector collection.
-
-### Shared runtime directories
-
-| Directory | Written by | Read by | Local default | Deployment setting |
-| --- | --- | --- | --- | --- |
-| `content/` | `crawler` | `ingest` | repository root | `TAPIO_CONTENT_DIR` |
-| `vectorstore/` | `ingest` | `backend` | repository root | `TAPIO_VECTORSTORE_DIR` |
-
-For deployment, mount the same content volume in `crawler` and `ingest`, and
-the same vector-store volume in `ingest` and `backend`. Set the corresponding
-environment variable to the mount path in each service. The services share
-files only; they do not import, invoke, or otherwise depend on one another.
-
-### Mise task reference
-
-| Command | Purpose |
-| --- | --- |
-| `mise run crawl` | Discover, then render, every configured site; attempt all sites before reporting failures. |
-| `mise run ingest` | Ingest all crawler Markdown from `content/` into `vectorstore/`. |
-| `mise run backend` | Start the FastAPI backend, which reads `vectorstore/`. |
-| `mise run app` | Start the SvelteKit chat client's dev server. |
-| `mise run test:crawl` | Run the crawler test suite. |
-| `mise run test:ingest` | Run the ingestion test suite. |
-| `mise run test:backend` | Run the backend test suite. |
-
-Pass ingestion options after `--`:
-
-```bash
-# Re-ingest one site's Markdown only.
-mise run ingest -- --site migri
-```
-
-### Work with an individual site
-
-The root crawl task intentionally collects every configured source. For a
-single-site crawl or a shallow smoke test, use the crawler CLI directly:
-
-```bash
-cd crawler
-uv run tapio-crawler list-sites
-uv run tapio-crawler discover migri
-uv run tapio-crawler crawl migri --max-urls 5
-```
-
-Then return to the repository root and run `mise run ingest -- --site migri`.
-
-`discover` builds a site's URL inventory (sitemap or bounded gap-crawl) into
-a separate manifest database; it doesn't write Markdown, so it isn't part of
-the ingest pipeline above. See [crawler/README.md](crawler/README.md#url-discovery-and-the-manifest).
-
-### Troubleshooting
-
-- **“No relevant documents found”** — Run `mise run ingest` after a crawl and
-  restart the backend. The backend must be started after the shared vector
-  collection has been written.
-- **Crawl4AI cannot start a browser** — Install the stable Google Chrome
-  release through your operating system. Crawl4AI launches it through
-  Playwright's `chrome` channel.
-- **The app cannot generate an answer** — Ensure the Ollama service is running
-  and the selected model has been pulled, for example `ollama pull gemma4:latest`.
-- **A mounted directory is not used** — Set `TAPIO_CONTENT_DIR` and/or
-  `TAPIO_VECTORSTORE_DIR` to the absolute mount path before running the relevant
-  service.
-
-For technical details on site configurations, programmatic API usage, and adding new sites, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Setup, dependencies, running the pipeline, LLM provider configuration, and troubleshooting are all in [CONTRIBUTING.md](CONTRIBUTING.md) — kept there rather than duplicated here so operational detail stays in one place as it changes.
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines, code style requirements, and how to submit pull requests.
+Contributions of any kind are welcome — code, documentation, translations, or source research. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and the pull request process.
 
 ## License
 
-Licensed under the European Union Public License version 1.2. See LICENSE for details.
+Licensed under the European Union Public License version 1.2. See [LICENSE](LICENSE) for details.
 
 ## Contributors ✨
 
