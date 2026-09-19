@@ -21,7 +21,7 @@ A generic chatbot doesn't fix this: it hides who's answering, why an answer appl
 ## What makes it different
 
 - **A named guide network, not one assistant.** Tapio (the coordinator) and specialists like Ilmarinen, Sampo, Rauni, and Otso — each named for a figure from Finnish cultural heritage — handle distinct domains. Every answer is attributed to the guide that gave it, with a plain-language reason for why that guide was chosen.
-- **Every answer is sourced, or says it isn't.** Guide answers cite the official page they're drawn from; if no reliable source is found, Tapio says so rather than guessing. Crisis or legal-sensitive questions are normally intercepted before retrieval and pointed straight to vetted official resources instead — crisis detection additionally fails toward caution if its own classifier misfires twice in a row, while a legal-sensitive check that fails the same way falls through to an ordinary sourced answer rather than blocking the turn.
+- **Every answer is sourced, or says it isn't.** Guide answers cite the official page they're drawn from; if no reliable source is found, Tapio says so rather than guessing. Crisis and legal-sensitive questions are redirected to vetted official resources instead of an ordinary answer — see the [guardrails spec](docs/specs/guardrails.md) for exactly how that detection works.
 - **Proactive, not just reactive.** Newcomers often don't know what to ask next. Guides surface likely-relevant next steps tied to your situation, grounded in the same official sources as any direct answer.
 - **One conversation, not a maze of tabs.** A permit question that turns into a benefits question stays in the same thread — no repeating your situation to a different tool.
 - **Privacy by design, not by policy.** Tapio doesn't ask for or retain a case number, application status, or family details. Many people who rely on it — asylum seekers, undocumented people, people fleeing abuse — face real physical risk from a data exposure, so the product is built to have as little as possible to expose.
@@ -58,21 +58,9 @@ A crawler collects official source pages, an ingestion pipeline chunks and embed
 ```bash
 git clone https://github.com/Finntegrate/tapio.git
 cd tapio
-mise install                        # pinned dev tools
-(cd crawler && uv sync) && (cd ingest && uv sync) && (cd backend && uv sync) && (cd app && npm install)
-ollama serve &                      # skip if Ollama is already running as a background service
-ollama pull gemma4:latest           # zero-setup local model — or configure a hosted provider, see below
-
-mise run crawl && mise run ingest   # collect and index a source site (needs Chrome installed, see below)
-mise run backend                    # start the API (in one terminal)
-mise run app                        # start the chat client (in another)
 ```
 
-You'll need the stable release of [Google Chrome](https://www.google.com/chrome/) installed: the crawler drives it directly and won't fall back to Chromium or another browser. Note that the crawl step fetches real pages from each configured source site (Migri, Kela, etc.) over the network like any web crawler — that traffic isn't privacy-isolated, and those sites see ordinary request metadata (your IP address, user agent).
-
-The chat backend's LLM is provider-configurable, not local-only: the command above uses [Ollama](https://ollama.com/) because it needs no API key, but Tapio is moving toward commodity hosted providers (OpenAI, Anthropic, or any OpenAI-compatible endpoint) as the primary target — a local model is a heavier download and needs a machine capable of running it, which not every contributor has. Local inference stays available as a fallback for anyone who wants it (offline use, no chat traffic sent to a third party), just not the assumed default. See [backend/README.md](backend/README.md#configuration) for `TAPIO_LLM_PROVIDER` setup.
-
-For prerequisites, troubleshooting, dev containers/Codespaces, and everything else needed to develop on Tapio, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Setup, dependencies, running the pipeline, LLM provider configuration, and troubleshooting are all in [CONTRIBUTING.md](CONTRIBUTING.md) — kept there rather than duplicated here so operational detail stays in one place as it changes.
 
 ## Contributing
 

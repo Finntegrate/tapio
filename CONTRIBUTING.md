@@ -206,12 +206,15 @@ mise install   # installs the tool versions pinned in mise.toml
 
 ### Installing Required Models
 
-Regardless of which setup method you chose, you'll need to install `gemma4:latest`, the default model this project uses for text generation:
+Regardless of which setup method you chose, you'll need to install `gemma4:latest`, the default model this project uses for text generation. `ollama pull` needs a running `ollama serve` to talk to — most installers set this up as a background service automatically, but not on every platform (containers, some Linux installs); if the pull can't connect, start it yourself first:
 
 ```bash
+ollama serve &               # skip if already running as a background service
 ollama pull gemma4:latest
 ollama list  # verify it installed
 ```
+
+Ollama isn't the only option: the backend's LLM is provider-configurable, and can point at a hosted provider (OpenAI, Anthropic, or any OpenAI-compatible endpoint) instead of a local model — see [backend/README.md](backend/README.md#configuration) for `TAPIO_LLM_PROVIDER`.
 
 **Note on Model Sizes**: Some Ollama models are several GB and need significant disk space and compute. If your machine is limited, pull a smaller model and pass its name explicitly to the Tapio CLI.
 
@@ -228,6 +231,8 @@ crawler  ── Markdown + source_url ──>  content/  ── embeddings ─�
 ```
 
 `content/` and `vectorstore/` are local runtime data, not source code — they are ignored by Git and are the only handoffs between services. The services share files only; they do not import, invoke, or otherwise depend on one another.
+
+The crawl step fetches real pages from each configured source site (Migri, Kela, etc.) over the network like any web crawler — that traffic isn't privacy-isolated, and those sites see ordinary request metadata (your IP address, user agent).
 
 ### End-to-End Quick Start
 
