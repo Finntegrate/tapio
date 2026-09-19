@@ -172,8 +172,13 @@ def _check_validity(concepts: list[Concept], known: dict[str, Concept]) -> list[
             successor = known.get(target)
             if successor is None:
                 continue
-            if successor.valid_until is not None and successor.valid_until < concept.valid_until:
-                issues.append(Issue(concept.id, f"superseded_by '{target}' lapsed before this concept did"))
+            if successor.valid_until is not None and successor.valid_until <= concept.valid_until:
+                # `valid_until` is inclusive, so a successor lapsing on the same
+                # day was never in force after the handover: following the
+                # pointer would land G5 on another stale concept.
+                issues.append(
+                    Issue(concept.id, f"superseded_by '{target}' did not outlast this concept"),
+                )
             if successor.valid_from > concept.valid_until + timedelta(days=1):
                 # G5 repairs a stale assertion by following this pointer, so a
                 # successor that was not yet in force when its predecessor

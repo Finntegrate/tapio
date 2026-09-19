@@ -73,7 +73,16 @@ def test_successor_may_not_have_lapsed_first(register_dict):
     register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit"]
     register_dict["concepts"][0]["valid_until"] = "2020-01-01"
     register_dict["concepts"][0]["change_note"] = "Gone."
-    assert any("lapsed before this concept did" in message for message in messages(register_dict))
+    assert any("did not outlast this concept" in message for message in messages(register_dict))
+
+
+def test_a_successor_lapsing_on_the_same_day_is_rejected(register_dict):
+    """`valid_until` is inclusive, so it was never in force after the handover."""
+    register_dict["concepts"][1]["valid_until"] = "2025-01-01"
+    register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit"]
+    register_dict["concepts"][0]["valid_until"] = "2025-01-01"
+    register_dict["concepts"][0]["change_note"] = "Also gone, the same day."
+    assert any("did not outlast this concept" in message for message in messages(register_dict))
 
 
 def test_supersession_cycle_is_rejected(register_dict):
