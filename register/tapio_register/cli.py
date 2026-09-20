@@ -146,7 +146,14 @@ def diff(
     later: Annotated[str, typer.Argument(help="The newer edition.")],
 ) -> None:
     """Show what changed between two editions."""
-    typer.echo(json.dumps(releasing.diff_releases(earlier, later), indent=2, ensure_ascii=False))
+    try:
+        comparison = releasing.diff_releases(earlier, later)
+    except FileNotFoundError as error:
+        # A missing edition or an unbuilt payload is an ordinary thing to hit in
+        # a fresh checkout, and the message says what to do about it.
+        typer.echo(f"Cannot compare those editions: {error}")
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps(comparison, indent=2, ensure_ascii=False))
 
 
 @app.command("in-force")

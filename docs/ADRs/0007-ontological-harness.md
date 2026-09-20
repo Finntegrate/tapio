@@ -110,7 +110,7 @@ This work is assigned to milestone 2.1.0 and precedes further guide development.
 
 ### Risks
 
-- **Over-rejection.** A gate that blocks a correct answer because a concept was not registered yet is worse for that user than no gate. Every check therefore runs in shadow mode, logging without blocking, until coverage measurement shows it is safe to enforce. This is the failure mode closed-world designs actually die of.
+- **Over-rejection.** A check that blocks a correct answer because a concept was not registered yet is worse for that user than no check. So a check earns the right to block: it starts by logging what it would have done, and only what coverage measurement shows to be safe is allowed to change an answer — and even then the mildest intervention that works, which is usually to soften or qualify rather than to refuse. This is the failure mode closed-world designs actually die of.
 - **The harness bounds form, not truth.** A well-formed, in-scope, correctly-cited answer can still misread its source. The harness must not be described, internally or to users, as making answers correct. This is the easiest claim to overstate and the most damaging one to overstate.
 - **Resolution relocates hallucination rather than ending it.** Something still decides which phrase to take from the question. A confidently wrong reading that resolves cleanly passes every check. These checks catch invented entities, not misread ones.
 - **Surfaced state may read as a case file**, which PRD §5 and §7.5 rule out. Mitigations exist in the specification, but perception is the hazard and perception is not fully controllable by design.

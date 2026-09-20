@@ -7,7 +7,7 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from tapio_register import paths
+from tapio_register import paths, releasing
 from tapio_register.cli import app
 
 runner = CliRunner()
@@ -138,3 +138,9 @@ def test_a_second_harvest_on_the_same_day_does_not_overwrite_the_first(tmp_path,
     assert len(written) == 2, written
     queries = [yaml.safe_load((tmp_path / name).read_text(encoding="utf-8"))["queries"] for name in written]
     assert sorted(queries) == [["oleskelulupa"], ["viisumi"]]
+
+
+def test_diff_reports_a_missing_edition_without_a_traceback():
+    result = runner.invoke(app, ["diff", releasing.latest_version(), "2099-01-01"])
+    assert result.exit_code == 1
+    assert "Cannot compare those editions" in result.stdout

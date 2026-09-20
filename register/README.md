@@ -61,9 +61,13 @@ re-emitted in canonical order), so `tapio-register verify-releases` rebuilds the
 edition the source names and checks it against the recorded digests. That one
 check catches a register edited without a version bump, a hand-edited manifest,
 and any change that breaks reproducibility. To reconstruct an older edition,
-check out the commit that wrote its manifest and run `register:release`. The
-cross-edition check does not need that: each manifest records its own concept
-ids, so a later edition can prove nothing was dropped from a manifest alone.
+check out the commit that wrote its manifest and run `register:release`.
+
+Two things do not need that, because each manifest records its own concept ids:
+the cross-edition continuity check, which proves nothing was dropped, and
+`tapio-register diff`, which falls back to comparing those ids when no payload
+is built. The fallback answers what came and went but not what changed inside a
+concept, and says which of the two comparisons it made.
 
 `--overwrite` is the one way an edition can change identity while keeping its
 version. It exists for correcting an edition that has not been merged, it names
@@ -83,11 +87,19 @@ uv run --directory register tapio-register seed-finto oleskelulupa viisumi
 ## What a consumer needs
 
 Reading the register needs the data, the generated Pydantic module, and
-`loading.py` — so pydantic and pyyaml, and nothing else. LinkML, rdflib,
-jsonschema, typer and httpx are authoring-time only: they generate artifacts,
-publish SKOS, validate, and seed candidates. A service that only reads the
-register does not ship the toolchain that builds it, and a test fails if a
-convenience import ever changes that.
+`loading.py` — so pydantic and pyyaml, and nothing else. Those are the package's
+only mandatory dependencies. LinkML, rdflib, jsonschema, typer and httpx are
+authoring-time only — they generate artifacts, publish SKOS, validate, and seed
+candidates — and live in the `authoring` extra, which is what the
+`tapio-register` command and the test suite need:
+
+```bash
+uv sync --all-extras
+```
+
+So a service that only reads the register does not install the toolchain that
+builds it, and a test fails if a convenience import ever puts one of those
+libraries back on the read path.
 
 Nothing in the read path reaches outside the package — no network, no
 subprocess, no repository history — so it behaves the same in a container with

@@ -5,13 +5,13 @@
   "coverage_caveat": "This register records what its sources said on the dates they were observed, not ground truth. Its coverage is bounded by the sources listed in each concept's observations, its observation dates are when Tapio looked rather than when reality changed, and a gap in it is evidence of a gap in Tapio's attention, not evidence that nothing happened. valid_from is the earliest date from which the register treats an entity as in force, not a claim about when it was created: where a commencement date is known it is used, and otherwise valid_from is the register's floor of 1 May 2004, the commencement of the Aliens Act (301/2004), which records that no start date has been established. A date not stated by one of the cited sources is the register's own best evidence and is open to correction. Nothing here is legal advice, and an entry being in force is a statement about a published source rather than about any individual's case.",
   "summary": {
     "register_version": "2026-09-20",
-    "concept_count": 129,
+    "concept_count": 130,
     "lapsed_count": 4,
     "externally_aligned_count": 7,
     "by_kind": {
       "document": 5,
       "legal_act": 2,
-      "organization": 15,
+      "organization": 16,
       "permit": 26,
       "service": 6,
       "status": 21,
@@ -19,7 +19,7 @@
       "term": 27
     },
     "by_guide": {
-      "ilmarinen": 128,
+      "ilmarinen": 129,
       "otso": 6,
       "rauni": 2,
       "sampo": 16
@@ -29,8 +29,8 @@
       "enter_finland": 1,
       "finlex": 2,
       "kela": 1,
-      "migri": 240,
-      "other": 13,
+      "migri": 241,
+      "other": 16,
       "police": 1,
       "yso": 7
     }
@@ -44,6 +44,7 @@
     "law:aliens-act",
     "law:citizenship-act",
     "org:administrative-court",
+    "org:border-guard",
     "org:dvv",
     "org:economic-development-centre",
     "org:ely-centre",
@@ -167,8 +168,8 @@
     "term:student-insurance-requirement"
   ],
   "files": {
-    "register.jsonld": "sha256:2b1c96413e9041da90ff31ad126bb0518f973819bddad9cf5a51a64cf8088b9e",
-    "register.ttl": "sha256:150da4363db6e82937183511acfdc29e01a7deb2b94b77e911a3f1905acfbb9e",
-    "register.yaml": "sha256:e518a7654fc4d968196e8514719022f95d2a800c3628de84f0ad1ba3f853e732"
+    "register.jsonld": "sha256:4aa9d637ea8eaf3088ba712e36e13bb16364b3b6c129ace999b1415a03b27c98",
+    "register.ttl": "sha256:2062d3037c5b8483f7c6e501662c9696c0c122d1f97c15848951f499475ae485",
+    "register.yaml": "sha256:b2da8e303481a4dc7042cf8bab2eef46ce50d2cf088675a9c5a285656b3a602f"
   }
 }

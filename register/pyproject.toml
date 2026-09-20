@@ -12,16 +12,27 @@ license = "MIT"
 authors = [
     {name = "Finntegrate Team", email = "info@finntegrate.org"}
 ]
+# What a consumer needs to read the register, and nothing more. The read path
+# (data, the generated Pydantic module, loading, history, projection) imports
+# only these, and a test in `tests/test_loading_and_generation.py` fails if that
+# ever changes.
 dependencies = [
+    "pydantic>=2.13.4",
+    "pyyaml>=6.0.3",
+]
+
+# The toolchain that builds, publishes, and checks the register. Needed by the
+# `tapio-register` command and by the test suite; not by a service that only
+# reads the register. Install with `uv sync --all-extras`.
+[project.optional-dependencies]
+authoring = [
     # Imported directly to validate against the checked-in JSON Schema, so it is
     # declared here rather than relied on as one of LinkML's transitive deps.
     "jsonschema>=4.23.0",
     "linkml>=1.9.4",
     "linkml-runtime>=1.9.7",
-    "pydantic>=2.13.4",
     "rdflib>=7.1.4",
     "httpx>=0.27.0",
-    "pyyaml>=6.0.3",
     "typer>=0.9.0",
 ]
 

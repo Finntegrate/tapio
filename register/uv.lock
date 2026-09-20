@@ -1609,12 +1609,16 @@ name = "tapio-register"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
+    { name = "pydantic" },
+    { name = "pyyaml" },
+]
+
+[package.optional-dependencies]
+authoring = [
     { name = "httpx" },
     { name = "jsonschema" },
     { name = "linkml" },
     { name = "linkml-runtime" },
-    { name = "pydantic" },
-    { name = "pyyaml" },
     { name = "rdflib" },
     { name = "typer" },
 ]
@@ -1633,15 +1637,16 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "jsonschema", specifier = ">=4.23.0" },
-    { name = "linkml", specifier = ">=1.9.4" },
-    { name = "linkml-runtime", specifier = ">=1.9.7" },
+    { name = "httpx", marker = "extra == 'authoring'", specifier = ">=0.27.0" },
+    { name = "jsonschema", marker = "extra == 'authoring'", specifier = ">=4.23.0" },
+    { name = "linkml", marker = "extra == 'authoring'", specifier = ">=1.9.4" },
+    { name = "linkml-runtime", marker = "extra == 'authoring'", specifier = ">=1.9.7" },
     { name = "pydantic", specifier = ">=2.13.4" },
     { name = "pyyaml", specifier = ">=6.0.3" },
-    { name = "rdflib", specifier = ">=7.1.4" },
-    { name = "typer", specifier = ">=0.9.0" },
+    { name = "rdflib", marker = "extra == 'authoring'", specifier = ">=7.1.4" },
+    { name = "typer", marker = "extra == 'authoring'", specifier = ">=0.9.0" },
 ]
+provides-extras = ["authoring"]
 
 [package.metadata.requires-dev]
 dev = [

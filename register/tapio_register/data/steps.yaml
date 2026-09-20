@@ -333,6 +333,8 @@ concepts:
   - source: migri
     url: https://migri.fi/en/asylum-in-finland
     observed_on: '2026-09-19'
+    note: States that an application is made in person to the border authorities or the police, and processed
+      by the Finnish Immigration Service.
   - source: migri
     url: https://migri.fi/turvapaikka-suomesta
     observed_on: '2026-09-19'
@@ -341,6 +343,8 @@ concepts:
     observed_on: '2026-09-19'
   handled_by:
   - org:migri
+  - org:police
+  - org:border-guard
 - id: step:asylum-interview
   kind: step
   pref_label:

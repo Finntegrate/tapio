@@ -10,19 +10,26 @@ from datetime import date
 from tapio_register.generated.term_register_model import Concept, TermRegister
 
 
+def is_in_force(concept: Concept, reference: date) -> bool:
+    """Say whether ``concept`` is in force on ``reference``.
+
+    Both ends matter. A concept with a ``valid_until`` in the future has not
+    lapsed, and one whose ``valid_from`` has not yet arrived is not in force
+    however far off its end is. Both bounds are inclusive, so a body dissolved
+    on 1 January was still in force on 31 December.
+    """
+    if concept.valid_from > reference:
+        return False
+    return concept.valid_until is None or concept.valid_until >= reference
+
+
 def in_force_on(register: TermRegister, reference: date) -> list[Concept]:
     """Return the concepts in force on ``reference``.
 
-    ``valid_until`` is inclusive, so an entity dissolved on 1 January is still
-    in force on 31 December. This is the time slice that lets a claim about the
-    past be checked against the state of affairs at its own date rather than
-    against today.
+    This is the time slice that lets a claim about the past be read against the
+    state of affairs at its own date rather than against today.
     """
-    return [
-        concept
-        for concept in register.concepts
-        if concept.valid_from <= reference and (concept.valid_until is None or concept.valid_until >= reference)
-    ]
+    return [concept for concept in register.concepts if is_in_force(concept, reference)]
 
 
 def lineage(register: TermRegister, concept_id: str) -> list[Concept]:

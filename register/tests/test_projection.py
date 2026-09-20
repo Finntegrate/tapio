@@ -71,3 +71,46 @@ def test_one_guides_options_fit_in_a_prompt():
     chosen = projection.options(loading.load_register(), guide="ilmarinen")
     assert len(chosen) > 100
     assert sum(len(k) + len(v) for k, v in chosen.items()) < 20_000
+
+
+def test_a_concept_ending_in_the_future_is_still_offered(register_dict):
+    """An end date is not a lapse until it arrives, and --current-only must not hide it."""
+    register_dict["concepts"][1]["valid_until"] = "2099-12-31"
+    register = TermRegister.model_validate(register_dict)
+    chosen = projection.options(register, include_lapsed=False)
+    assert "(until 2099-12-31)" in chosen["permit:residence-permit"]
+
+
+def test_a_concept_not_yet_in_force_is_marked_and_filtered(register_dict):
+    register_dict["concepts"][1]["valid_from"] = "2099-01-01"
+    register = TermRegister.model_validate(register_dict)
+    assert "(from 2099-01-01)" in projection.options(register)["permit:residence-permit"]
+    assert "permit:residence-permit" not in projection.options(register, include_lapsed=False)
+
+
+def test_options_read_validity_at_a_reference_date(register_dict):
+    register_dict["concepts"][1]["valid_until"] = "2024-12-31"
+    register = TermRegister.model_validate(register_dict)
+    on_the_day = projection.options(register, include_lapsed=False, reference=date(2024, 6, 1))
+    assert "permit:residence-permit" in on_the_day
+    after = projection.options(register, include_lapsed=False, reference=date(2025, 6, 1))
+    assert "permit:residence-permit" not in after
+
+
+def test_facts_read_the_start_of_validity_too(register_dict):
+    """A concept that had not started yet is not in force, and has not been superseded."""
+    register_dict["concepts"][1]["valid_from"] = "2024-01-01"
+    register = TermRegister.model_validate(register_dict)
+    (fact,) = projection.facts(register, ["permit:residence-permit"], reference=date(2023, 1, 1))
+    assert fact["in_force"] is False
+    assert fact["in_force_from"] == date(2024, 1, 1)
+    assert "lapsed_on" not in fact
+    assert "Not in force until 2024-01-01." in projection.as_prompt_block([fact])
+
+
+def test_facts_call_a_future_end_date_in_force(register_dict):
+    register_dict["concepts"][1]["valid_until"] = "2099-12-31"
+    register = TermRegister.model_validate(register_dict)
+    (fact,) = projection.facts(register, ["permit:residence-permit"])
+    assert fact["in_force"] is True
+    assert "lapsed_on" not in fact

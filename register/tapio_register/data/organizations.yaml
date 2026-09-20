@@ -327,3 +327,29 @@ concepts:
     url: https://vm.fi/sv/valfardsomradena
     observed_on: '2026-09-19'
     note: Ministry of Finance.
+- id: org:border-guard
+  kind: organization
+  pref_label:
+    en: The Finnish Border Guard
+    fi: Rajavartiolaitos
+    sv: Gränsbevakningsväsendet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://raja.fi/en/frontpage
+    observed_on: '2026-09-20'
+    note: The Finnish Border Guard's own site, English front page.
+  - source: other
+    url: https://raja.fi/etusivu
+    observed_on: '2026-09-20'
+    note: The Finnish Border Guard's own site, Finnish front page.
+  - source: other
+    url: https://raja.fi/sv/startsida
+    observed_on: '2026-09-20'
+    note: The Finnish Border Guard's own site, Swedish front page.
+  - source: migri
+    url: https://migri.fi/en/asylum-in-finland
+    observed_on: '2026-09-19'
+    note: Named as one of the authorities an asylum application is made to.

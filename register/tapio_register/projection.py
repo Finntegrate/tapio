@@ -1,7 +1,7 @@
 """Render the register into the two shapes a model actually consumes.
 
-The register as curated is 129 concepts with per-concept provenance, which is
-the right shape for a person maintaining it and the wrong shape for a prompt.
+The register as curated is a concept per entity with its own provenance, which
+is the right shape for a person maintaining it and the wrong shape for a prompt.
 Two projections come out of it:
 
 *Options* are what a classifier picks from — one line per concept, scoped to
@@ -32,27 +32,35 @@ def options(
     kinds: list[str] | None = None,
     *,
     include_lapsed: bool = True,
+    reference: date | None = None,
 ) -> dict[str, str]:
     """Return ``concept id -> label``, the set a classifier chooses from.
 
     Scoped to one guide, the set is small enough to put in front of a model as
-    a list to pick from rather than a name to recall. Lapsed concepts are kept
-    by default and marked: a person asking about the TE Office should have that
-    recognised, and then be told what replaced it, rather than not matched at
-    all.
+    a list to pick from rather than a name to recall. Concepts out of force are
+    kept by default and marked: a person asking about the TE Office should have
+    that recognised, and then be told what replaced it, rather than not matched
+    at all.
+
+    A known end date is always shown, whether or not it has arrived. What
+    ``include_lapsed`` decides is only whether concepts *not in force on*
+    ``reference`` are offered at all — a body that closes next year is still a
+    body to pick today.
     """
+    on = reference or date.today()  # noqa: DTZ011 - validity is a calendar question
     chosen: dict[str, str] = {}
     for concept in register.concepts:
         if guide is not None and guide not in [enum_value(g) for g in concept.in_scope_of]:
             continue
         if kinds is not None and enum_value(concept.kind) not in kinds:
             continue
+        if not history.is_in_force(concept, on) and not include_lapsed:
+            continue
+        chosen[concept.id] = _labels(concept)
         if concept.valid_until is not None:
-            if not include_lapsed:
-                continue
-            chosen[concept.id] = f"{_labels(concept)} (until {concept.valid_until})"
-        else:
-            chosen[concept.id] = _labels(concept)
+            chosen[concept.id] += f" (until {concept.valid_until})"
+        elif concept.valid_from > on:
+            chosen[concept.id] += f" (from {concept.valid_from})"
     return chosen
 
 
@@ -79,14 +87,18 @@ def facts(
             "id": concept.id,
             "kind": enum_value(concept.kind),
             "labels": {"en": concept.pref_label.en, "fi": concept.pref_label.fi, "sv": concept.pref_label.sv},
-            "in_force": concept.valid_until is None or concept.valid_until >= on,
+            "in_force": history.is_in_force(concept, on),
         }
         if concept.definition is not None and concept.definition.en:
             fact["definition"] = concept.definition.en
         handled_by = [known[a].pref_label.en for a in concept.handled_by or [] if a in known]
         if handled_by:
             fact["handled_by"] = handled_by
-        if not fact["in_force"]:
+        if concept.valid_from > on:
+            # Not in force because it has not started yet, which is a different
+            # thing from having lapsed and must not be reported as supersession.
+            fact["in_force_from"] = concept.valid_from
+        elif not fact["in_force"]:
             fact["lapsed_on"] = concept.valid_until
             chain = history.lineage(register, concept.id)[1:]
             if chain:
@@ -111,7 +123,9 @@ def as_prompt_block(rendered: list[dict[str, Any]]) -> str:
             lines.append(f"    {fact['definition']}")
         if fact.get("handled_by"):
             lines.append(f"    Handled by: {', '.join(fact['handled_by'])}")
-        if not fact["in_force"]:
+        if "in_force_from" in fact:
+            lines.append(f"    Not in force until {fact['in_force_from']}.")
+        elif not fact["in_force"]:
             replaced = ", ".join(r["label"] for r in fact.get("replaced_by", []))
             lines.append(
                 f"    No longer in force since {fact['lapsed_on']}."

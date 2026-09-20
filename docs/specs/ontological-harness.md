@@ -245,7 +245,7 @@ Seven checks, ordered cheapest first, all deterministic.
 | G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | Set intersection against the guide's concept set | Repairable |
 | G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | Lookup of each concept's `kind`, and of the relations the register records | Repairable |
 | G5 Currency | Every concept is in force at the claim's reference date, per the rules below | Date comparison plus `supersededBy` lookup | Repairable, often auto-repairable |
-| G6 Citation binding | `Claim.text` contains no URL absent from that claim's `cites` | URL scan against the claim's allowed set | Repairable |
+| G6 Citation binding | `Claim.text` contains no URL absent from the source URLs of that claim's `cites` | Resolve each cited chunk id to its canonical source URL, then scan the prose against that set | Repairable |
 | G7 Stated evidence | Every `SituationItem` with `basis: stated` carries an `evidence` span resolving to text the person actually wrote | Offset lookup against conversation history | Not repairable by the model; demote to `inferred` |
 
 Every gate is a plain Python operation over the register and the turn's state: set membership, set intersection, a lookup of a concept's kind, a date comparison, and for G2 and G6 a scan of a closed set the turn itself produced. None of them needs a shape language, and a register small enough to hold in memory does not need a graph store to query.
@@ -258,7 +258,7 @@ G5 is the one that earns its keep in this domain specifically. When a present-te
 
 **G6 and what it can honestly check.** The premise of this design is that the model keeps the words while the harness owns the commitments, and prose can still smuggle a commitment past the structural checks: a claim whose slots are impeccable can contain an invented URL. The primary defence is rendering rather than checking — names of concepts, authorities, and sources are emitted into the prose from the validated slots, through the register's labels in the user's language, rather than written freehand.
 
-G6 is the backstop for the part of that which is mechanically checkable. A URL is a string, so scanning prose for URLs outside the claim's `cites` is exact. An entity name is not: prose says `oleskeluluvan`, the register says `oleskelulupa`, and a label scan either misses it or needs the inflection lexicon §3.2 rejects. Checking entity names in prose is therefore left to rendering, which avoids the problem rather than detecting it.
+G6 is the backstop for the part of that which is mechanically checkable. `cites` holds chunk ids, not URLs, so the check first resolves each cited chunk to the canonical URL of the page it came from — the same normalisation the corpus already applies, so a trailing slash or a tracking parameter does not read as a different source. Scanning the prose against that resolved set is then exact, because a URL is a string. An entity name is not: prose says `oleskeluluvan`, the register says `oleskelulupa`, and a label scan either misses it or needs the inflection lexicon §3.2 rejects. Checking entity names in prose is therefore left to rendering, which avoids the problem rather than detecting it.
 
 This is deliberately narrow, and §9.5's limit restated: the harness bounds what an answer can cite, not whether what it says about those sources is true.
 

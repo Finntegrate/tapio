@@ -99,8 +99,11 @@ def test_reading_the_register_pulls_in_no_authoring_dependencies():
     — and nothing else would notice.
     """
     probe = (
-        "import sys, tapio_register.loading as loading, tapio_register.history as history;"
-        "history.in_force_on(loading.load_register(), __import__('datetime').date.today());"
+        "import sys, tapio_register.loading as loading, tapio_register.history as history,"
+        " tapio_register.projection as projection;"
+        "register = loading.load_register();"
+        "history.in_force_on(register, __import__('datetime').date.today());"
+        "projection.as_prompt_block(projection.facts(register, list(projection.options(register))[:3]));"
         "print(','.join(m for m in ('linkml','linkml_runtime','rdflib','pyshacl','typer','httpx','jsonschema')"
         " if m in sys.modules))"
     )

@@ -179,7 +179,7 @@ def _differences(existing: dict[str, Any], rebuilt: dict[str, Any]) -> list[str]
     """Name what changed between two manifests, for a caller about to overwrite one."""
     fields = [
         field
-        for field in ("register_version", "title", "license", "coverage_caveat", "summary")
+        for field in ("register_version", "title", "license", "coverage_caveat", "summary", "concept_ids")
         if existing.get(field) != rebuilt.get(field)
     ]
     existing_files, rebuilt_files = existing.get("files", {}), rebuilt.get("files", {})
@@ -282,6 +282,9 @@ def verify_current_edition(source_path: Path | None = None, releases_dir: Path |
         for field in ("register_version", "title", "license", "coverage_caveat", "summary")
         if recorded.get(field) != rebuilt[field]
     ]
+    # The concept ids are what the next edition's continuity check reads, so an
+    # edited list would otherwise let a dropped concept through unnoticed.
+    problems.extend(_concept_id_problems(recorded.get("concept_ids"), rebuilt["concept_ids"], version))
     recorded_files: dict[str, str] = recorded.get("files", {})
     rebuilt_files: dict[str, str] = rebuilt["files"]
     problems.extend(
@@ -298,6 +301,19 @@ def verify_current_edition(source_path: Path | None = None, releases_dir: Path |
         for name in sorted(set(recorded_files) & set(rebuilt_files))
         if recorded_files[name] != rebuilt_files[name]
     )
+    return problems
+
+
+def _concept_id_problems(recorded: list[str] | None, rebuilt: list[str], version: str) -> list[str]:
+    """Name the concept ids a manifest and its source disagree about."""
+    if recorded is None:
+        return [f"manifest concept_ids: the {version} manifest records none, so continuity cannot be checked"]
+    missing = sorted(set(rebuilt) - set(recorded))
+    extra = sorted(set(recorded) - set(rebuilt))
+    problems = [f"manifest concept_ids: {c} is in the source and not in the manifest" for c in missing]
+    problems += [f"manifest concept_ids: {c} is in the manifest and not in the source" for c in extra]
+    if not problems and recorded != rebuilt:
+        problems.append("manifest concept_ids: the same ids, recorded in a different order")
     return problems
 
 
@@ -319,18 +335,26 @@ def edition_source(version: str, releases_dir: Path | None = None) -> dict:
     return yaml.safe_load(snapshot.read_text(encoding="utf-8"))
 
 
-def diff_releases(earlier: str, later: str, releases_dir: Path | None = None) -> dict[str, list[str]]:
+def diff_releases(earlier: str, later: str, releases_dir: Path | None = None) -> dict[str, Any]:
     """Compare two editions: what was added, what lapsed, what was re-scoped.
 
     This is the operation the register exists to make cheap - "how many of the
     steps in that process changed between these dates, and which ones".
+
+    A full comparison needs both editions' payloads, and a clean checkout holds
+    only their manifests. Rather than fail there, this falls back to the concept
+    ids the manifests record, which answers what came and went but not what
+    changed within a concept. ``compared`` says which of the two it did.
     """
 
     def load(version: str) -> dict[str, dict]:
         source = edition_source(version, releases_dir)
         return {concept["id"]: concept for concept in source["concepts"]}
 
-    before, after = load(earlier), load(later)
+    try:
+        before, after = load(earlier), load(later)
+    except FileNotFoundError:
+        return _manifest_diff(earlier, later, releases_dir)
     added = sorted(set(after) - set(before))
     removed = sorted(set(before) - set(after))
     lapsed = sorted(
@@ -343,7 +367,37 @@ def diff_releases(earlier: str, later: str, releases_dir: Path | None = None) ->
         for concept_id in set(before) & set(after)
         if before[concept_id] != after[concept_id] and concept_id not in lapsed
     )
-    return {"added": added, "lapsed": lapsed, "changed": changed, "withdrawn": removed}
+    return {"added": added, "lapsed": lapsed, "changed": changed, "withdrawn": removed, "compared": "sources"}
+
+
+def _manifest_diff(earlier: str, later: str, releases_dir: Path | None = None) -> dict[str, Any]:
+    """Compare two editions by the concept ids their manifests record."""
+    root = releases_dir or paths.RELEASES_DIR
+
+    def ids(version: str) -> set[str]:
+        manifest_path = root / version / MANIFEST_NAME
+        if not manifest_path.exists():
+            message = f"there is no {version} edition in {root.name}/"
+            raise FileNotFoundError(message)
+        recorded = json.loads(manifest_path.read_text(encoding="utf-8")).get("concept_ids")
+        if recorded is None:
+            message = (
+                f"the {version} manifest records no concept ids, and its payload is not built. "
+                f"Check out the commit that wrote it and run `tapio-register release` to compare."
+            )
+            raise FileNotFoundError(message)
+        return set(recorded)
+
+    before, after = ids(earlier), ids(later)
+    return {
+        "added": sorted(after - before),
+        "withdrawn": sorted(before - after),
+        "compared": (
+            "manifest concept ids only - neither edition's payload is built, so what lapsed or "
+            "changed within a concept cannot be seen. Run `tapio-register release` at each "
+            "edition's commit for the full comparison."
+        ),
+    }
 
 
 def latest_version(releases_dir: Path | None = None) -> str | None:
