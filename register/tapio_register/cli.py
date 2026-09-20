@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 import yaml
 
-from tapio_register import generation, loading, paths, releasing, skos, validation
+from tapio_register import generation, history, loading, paths, releasing, validation
 from tapio_register.seeding import finto
 
 app = typer.Typer(help="Tapio's versioned term register.", no_args_is_help=True)
@@ -156,7 +156,7 @@ def in_force(
 ) -> None:
     """List the concepts that were in force on a date."""
     register = loading.load_register(source)
-    for concept in skos.in_force_on(register, date.fromisoformat(reference)):
+    for concept in history.in_force_on(register, date.fromisoformat(reference)):
         typer.echo(f"{concept.id}\t{concept.pref_label.en}")
 
 

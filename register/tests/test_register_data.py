@@ -12,8 +12,9 @@ import pytest
 
 from tapio_register import loading, releasing, validation
 from tapio_register.generated.term_register_model import TermRegister
+from tapio_register.history import in_force_on
 from tapio_register.loading import enum_value
-from tapio_register.skos import in_force_on, to_graph
+from tapio_register.skos import to_graph
 
 #: Named in the grounding-source research as entities the corpus still refers to.
 STALE = {

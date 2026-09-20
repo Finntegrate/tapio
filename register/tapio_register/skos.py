@@ -6,7 +6,6 @@ instead of sitting beside it.
 """
 
 import json
-from datetime import date
 from typing import Any
 
 from rdflib import Graph, Literal, Namespace, URIRef
@@ -215,16 +214,3 @@ def serialize(graph: Graph, rdf_format: str) -> str:
     if rdf_format == "json-ld":
         text = json.dumps(_canonical(json.loads(text)), indent=2, ensure_ascii=False, sort_keys=True)
     return text if text.endswith("\n") else text + "\n"
-
-
-def in_force_on(register: TermRegister, reference: date) -> list[Concept]:
-    """Return the concepts in force on ``reference``.
-
-    This is the time slice gate G5 reads, and the same operation that makes
-    "what applied when I arrived" answerable from a dated edition.
-    """
-    return [
-        concept
-        for concept in register.concepts
-        if concept.valid_from <= reference and (concept.valid_until is None or concept.valid_until >= reference)
-    ]
