@@ -20,7 +20,7 @@ It arrives in two increments, in this order.
 
 **First, better input and better context.** Classify what is being asked, select the concepts it concerns, and put those facts in front of the answering guide. This prevents the failure rather than detecting it, and it is small: the register exists, and what it still needs is a projection of itself that fits in a prompt.
 
-**Second, and only if measurement says it is needed, checking what an answer committed to.** That requires the model to emit a typed plan before its prose, and that is where nearly all the machinery lives. Sections 3.3 and 3.4 describe it; ADR 0007's principle 10 is why it waits.
+**Second, and only if measurement says it is needed, checking what an answer committed to.** Sections 3.3 and 3.4 describe one route to that, through a typed plan the model emits before its prose, which is where most of the machinery would live. §3.5 describes a cheaper one. ADR 0007's principle 10 is why either waits.
 
 What keeps the first increment honest is measurement rather than a gate. Record which concepts were supplied and check offline whether answers stayed inside them ([#27](https://github.com/Finntegrate/tapio/issues/27)); record what could not be placed, in the words people actually used, so the register's gaps are visible rather than silent.
 
@@ -123,7 +123,7 @@ The provider abstraction added in #143 helps here rather than complicating it. B
 
 ### 3.3 The answer plan
 
-*Second increment. Not built until measurement shows that supplying context is not enough on its own — ADR 0007, principle 10.*
+*Second increment, and the more expensive of the two routes to it — see §3.5. Not built until measurement shows that supplying context is not enough on its own, per ADR 0007, principle 10.*
 
 Sketched as LinkML, which compiles to the Pydantic classes the codebase already uses and the JSON Schema that constrains generation. One source, two generated artifacts, no drift between them.
 
@@ -263,6 +263,20 @@ G6 is the backstop for the part of that which is mechanically checkable. A URL i
 This is deliberately narrow, and §9.5's limit restated: the harness bounds what an answer can cite, not whether what it says about those sources is true.
 
 **G7 and the panel's honesty.** A `SituationItem` with `basis: stated` asserts that the person said something, and §8.2 displays it differently on that basis. The claim is only as good as its evidence, so `stated` requires an `evidence` span that resolves to text in the conversation history. A model that promotes its own guess to "you told me" makes the panel in §8 lie, which is worse than having no panel. Failure here is not sent back for repair, because a model that has already fabricated an attribution is the wrong party to ask for a better one: the item is silently demoted to `inferred`, where the interface presents it as an assumption open to correction, and the demotion is logged.
+
+### 3.5 Classification as a capability, not a component
+
+Several decisions in this pipeline have the same shape: a small judgment over text the system already holds, returning a typed value that code branches on. Which guide should answer. Whether a question is in any guide's remit. Which concepts it concerns. Which retrieved chunks actually bear on it. Whether an answer stayed inside the sources it was given. None of these needs slow reasoning, and `guardrails/llm_classifier.py` already does one of them.
+
+Treating this as a capability rather than a component has three consequences worth stating.
+
+**The register is what makes the judgments specific.** A classifier with no world model can only sort into generic categories. Given the register, it sorts into Tapio's own: this permit, that authority, in force or superseded, inside this guide's remit. That is the difference between "this looks like a permit question" and "this concerns `permit:extended-permit`, which Ilmarinen owns and which is in force today."
+
+**Checking an answer need not mean the answer plan.** §3.3 and §3.4 describe output validation through a typed plan the model emits before its prose. That is one route to it, and the most expensive: a schema-constrained generation, a second pass, and a repair loop. A judgment over the answer and the sources it was given — "is every claim here supported by these?" — is another, and it costs one classification. Which route the second increment takes is open, and should be settled by what the measurement shows rather than decided here.
+
+**What must not be classified.** A classifier returns a judgment with a probability attached; a lookup returns a fact. Asking a model whether the TE Office is still in force reintroduces exactly the uncertainty the register exists to remove, because that is a date comparison against a row we own. The rule is narrow: if the answer is already in the register, look it up, and classify only what requires reading language. A capable classification API makes breaking this rule easy and tempting.
+
+Where a classifier reports calibrated confidence, that confidence is an input to the branch rather than a second opinion about the answer: assert above a threshold, ask near it, record a coverage gap below it. Where it does not, the coverage measurement in §9.1 is the stand-in — it shows where reading failed, without a number to threshold on.
 
 ## 4. What we are leaving out, and why
 
@@ -600,6 +614,7 @@ Per `CLAUDE.md`, scan the open backlog before creating anything: several of thes
 | Schema source of truth | **LinkML** | One YAML generates the Pydantic classes and the JSON Schema. It earns its place only while that is true; if it stops being true, the schema becomes a plain Pydantic module and the data is untouched. |
 | Constrained generation | **`BaseChatModel.with_structured_output`** | Already in `guardrails/llm_classifier.py`, and provider-independent since #143. No new dependency. |
 | Graph handling | **rdflib** | In-memory is fine at this size. Do not reach for a triplestore before the register outgrows a dict. |
+| Input classification | **A model behind a provider-neutral interface** | `guardrails/llm_classifier.py` is the existing instance. One request carrying several questions, not a node per judgment. |
 | Entity resolution | **The model, in `plan`** | A concept is named by the model and checked by G1. No matcher, no lexicon of inflected forms. |
 | Graph store | **Not yet.** pyoxigraph if the register outgrows memory | Deliberately deferred. |
 | DL reasoner | **None** | See §4. |
