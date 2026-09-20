@@ -67,6 +67,19 @@ CI:
 uv run --directory register tapio-register seed-finto oleskelulupa viisumi
 ```
 
+## What a consumer needs
+
+Reading the register needs the data, the generated Pydantic module, and
+`loading.py` — so pydantic and pyyaml, and nothing else. LinkML, rdflib,
+jsonschema, typer and httpx are authoring-time only: they generate artifacts,
+publish SKOS, validate, and seed candidates. A service that only reads the
+register does not ship the toolchain that builds it, and a test fails if a
+convenience import ever changes that.
+
+Nothing in the read path reaches outside the package — no network, no
+subprocess, no repository history — so it behaves the same in a container with
+no `.git` as it does in a checkout.
+
 ## The rules this artifact lives by
 
 These come from ADR 0007 and are enforced by `tapio-register validate`, not

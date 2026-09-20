@@ -1,5 +1,7 @@
 """Loading the source, and keeping the generated artifacts honest."""
 
+import subprocess
+import sys
 from enum import StrEnum
 from pathlib import Path
 
@@ -7,7 +9,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from tapio_register import generation, loading
+from tapio_register import generation, loading, paths
 
 
 def test_expand_turns_register_curies_into_iris():
@@ -86,3 +88,27 @@ def test_generate_writes_every_artifact(tmp_path, monkeypatch):
     assert {path.name for path in written} == {a.path.name for a in artifacts}
     assert (tmp_path / "__init__.py").exists()
     assert all(path.read_text(encoding="utf-8") for path in written)
+
+
+def test_reading_the_register_pulls_in_no_authoring_dependencies():
+    """A consumer ships the data and reads it; it does not ship the toolchain.
+
+    LinkML, rdflib, jsonschema, typer and httpx are all authoring-time. One
+    convenience import in `loading.py` would quietly drag them into anything
+    that only wanted to read the register — an API image, a notebook, a script
+    — and nothing else would notice.
+    """
+    probe = (
+        "import sys, tapio_register.loading as loading;"
+        "loading.load_register();"
+        "print(','.join(m for m in ('linkml','linkml_runtime','rdflib','pyshacl','typer','httpx','jsonschema')"
+        " if m in sys.modules))"
+    )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=paths.SERVICE_DIR,
+    )
+    assert result.stdout.strip() == "", f"runtime import now pulls in: {result.stdout.strip()}"
