@@ -22,14 +22,14 @@ register rather than starting new ones.
 | `tapio_register/schema/term_register.yaml` | The LinkML schema. The single source of truth. |
 | `tapio_register/data/` | The curated register: `edition.yaml` for the edition's own metadata, and one file per kind of concept. A concept's id prefix says which file it belongs in, and the loader refuses a concept filed under the wrong kind. |
 | `tapio_register/generated/` | Pydantic classes and JSON Schema, both derived from the schema. Never hand-edited. |
-| `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into `register.yaml`. |
+| `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into the matching file under `tapio_register/data/`, with its own observation provenance. |
 | `releases/<date>/manifest.json` | One dated, immutable edition: its coverage summary and a SHA-256 digest per payload file. |
 | `evals/concept-resolution.yaml` | 30 real-shaped queries in Finnish, Swedish and English — inflected, misspelled, code-switched, obsolete, ambiguous — with the concepts each should resolve to. What a classifier has to get right before the register is worth feeding it. |
 
 ## Working with it
 
 ```bash
-mise run register:validate      # schema, SHACL, and integrity checks
+mise run register:validate      # schema, integrity, and publication checks
 mise run register:generate      # regenerate the derived artifacts after a schema change
 mise run register:release       # build the edition named by the source's register_version
 mise run test:register          # unit tests

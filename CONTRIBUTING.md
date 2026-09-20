@@ -483,7 +483,7 @@ The repository is a monorepo of independently-managed projects (see [ADR 0002](d
 - `register/`: The versioned term register — the closed-world set of entities a guide answer may name, and the time-indexed record of how the Finnish immigration system changes (see [ADR 0007](docs/ADRs/0007-ontological-harness.md) and [register/README.md](register/README.md)). Within `register/tapio_register/`:
   - `schema/`: The LinkML schema every other artifact is generated from
   - `data/`: The curated register — `edition.yaml` plus one file per kind of concept, hand-reviewed with per-concept provenance
-  - `generated/`: Pydantic classes, JSON Schema, and SHACL shapes derived from the schema
+  - `generated/`: Pydantic classes and JSON Schema derived from the schema
 - `tests/` (within each project): Test suite for that project's modules
 
 ## Programmatic API

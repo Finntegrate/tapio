@@ -103,7 +103,7 @@ This is the division the whole design rests on, and it is worth stating negative
 
 What the register therefore is: an authority over which entities may be asserted, and a record of when each was in force. What it is not: a lexicon for matching strings.
 
-The graph itself is unchanged in kind. Resolved concepts and `situation` live in the LangGraph state exactly as they would have; what differs is which node writes them. The model mutates that state inside `plan`, the deterministic nodes read it, and `validate` decides whether what was written may stand. Keeping it in the state rather than recomputing it per turn is also what lets a correction from the user (§8.3) or a concept resolved on an earlier turn feed forward as an IRI, instead of being re-derived from text every time.
+The graph itself is unchanged in kind. Resolved concepts and `situation` live in the LangGraph state exactly as they would have; what differs is which node writes them, and that differs by increment. **In the first increment, classification is the producer**: it writes the resolved concept ids to state, and context assembly reads them back to build the facts block. **In the second, `plan` additionally writes `situation` and the claims** — the model mutates that state inside `plan`, the deterministic nodes read it, and `validate` decides whether what was written may stand. `plan` does not own the concept write in the first increment, because in the first increment there is no `plan`. Keeping any of it in the state rather than recomputing it per turn is what lets a correction from the user (§8.3) or a concept resolved on an earlier turn feed forward as an IRI, instead of being re-derived from text every time.
 
 **What the first increment is, concretely.** Three small pieces, none of which needs the answer plan:
 
@@ -242,13 +242,13 @@ Seven checks, ordered cheapest first, all deterministic.
 | --- | --- | --- | --- |
 | G1 Vocabulary | Every IRI in `about`, `authority`, `step`, `because`, `concept` exists in the register | Set membership against the loaded register | Repairable |
 | G2 Citation | Every `cites` value is a chunk id from this turn's retrieval set; every `Claim` has at least one | Set membership against graph state | Repairable |
-| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | Set intersection against the guide's concept set | Repairable |
+| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | Subset check against the union of the permitted guides' concept sets | Repairable |
 | G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | Lookup of each concept's `kind`, and of the relations the register records | Repairable |
 | G5 Currency | Every concept is in force at the claim's reference date, per the rules below | Date comparison plus `supersededBy` lookup | Repairable, often auto-repairable |
 | G6 Citation binding | `Claim.text` contains no URL absent from the source URLs of that claim's `cites` | Resolve each cited chunk id to its canonical source URL, then scan the prose against that set | Repairable |
 | G7 Stated evidence | Every `SituationItem` with `basis: stated` carries an `evidence` span resolving to text the person actually wrote | Offset lookup against conversation history | Not repairable by the model; demote to `inferred` |
 
-Every gate is a plain Python operation over the register and the turn's state: set membership, set intersection, a lookup of a concept's kind, a date comparison, and for G2 and G6 a scan of a closed set the turn itself produced. None of them needs a shape language, and a register small enough to hold in memory does not need a graph store to query.
+Every gate is a plain Python operation over the register and the turn's state: set membership, a subset test, a lookup of a concept's kind, a date comparison, and for G2 and G6 a scan of a closed set the turn itself produced. None of them needs a shape language, and a register small enough to hold in memory does not need a graph store to query.
 
 **G3 and handoffs.** A `handoff` is a narrow licence, not a blanket one. A concept outside the answering guide's scope is permitted only when a handoff is present *and* that concept falls within `handoff.to_guide`'s own scope set. Otherwise emitting a handoff would let a guide assert anything at all, which is the opposite of what the gate is for: Otso handing off to Rauni may say that housing benefit is Kela's, not that a residence permit works a particular way. The handoff's `reason` and target guide are unaffected and still shown to the user; only what may be asserted alongside it is bounded.
 

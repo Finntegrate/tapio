@@ -51,9 +51,11 @@ def lineage(register: TermRegister, concept_id: str) -> list[Concept]:
         seen.add(current)
         concept = known[current]
         chain.append(concept)
-        # Only the first successor is followed. A concept whose work was split
-        # across several bodies has no single "what it is now", and inventing
-        # one would be a worse answer than the branch point itself.
+        # The chain stops at a branch. A concept whose work was split across
+        # several bodies has no single "what it is now", and picking one would
+        # make the answer depend on the order two ids happen to be written in.
+        # The branch point itself is the honest end of the chain; a caller that
+        # wants the branches reads them off its `superseded_by`.
         successors = concept.superseded_by or []
-        current = successors[0] if successors else None
+        current = successors[0] if len(successors) == 1 else None
     return chain

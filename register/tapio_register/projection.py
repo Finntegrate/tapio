@@ -26,6 +26,19 @@ def _labels(concept: Concept) -> str:
     return f"{concept.pref_label.en} / {concept.pref_label.fi} / {concept.pref_label.sv}"
 
 
+def _named(concept: Concept) -> dict[str, Any]:
+    """Identify a concept the way a fact does: by id, and in all three languages.
+
+    An authority reduced to its English name is the wrong thing to put in front
+    of a guide answering in Finnish, which should be writing Maahanmuuttovirasto
+    rather than translating "Finnish Immigration Service" back itself.
+    """
+    return {
+        "id": concept.id,
+        "labels": {"en": concept.pref_label.en, "fi": concept.pref_label.fi, "sv": concept.pref_label.sv},
+    }
+
+
 def options(
     register: TermRegister,
     guide: str | None = None,
@@ -91,7 +104,7 @@ def facts(
         }
         if concept.definition is not None and concept.definition.en:
             fact["definition"] = concept.definition.en
-        handled_by = [known[a].pref_label.en for a in concept.handled_by or [] if a in known]
+        handled_by = [_named(known[a]) for a in concept.handled_by or [] if a in known]
         if handled_by:
             fact["handled_by"] = handled_by
         if concept.valid_from > on:
@@ -102,14 +115,25 @@ def facts(
             fact["lapsed_on"] = concept.valid_until
             chain = history.lineage(register, concept.id)[1:]
             if chain:
-                fact["replaced_by"] = [{"id": c.id, "label": c.pref_label.en} for c in chain]
+                fact["replaced_by"] = [_named(c) for c in chain]
+            # `lineage` stops at a branch rather than picking a successor, so the
+            # bodies the work was split across are named here instead of one of
+            # them being presented as the replacement.
+            split = [known[s] for s in (chain[-1] if chain else concept).superseded_by or [] if s in known]
+            if len(split) > 1:
+                fact["split_into"] = [_named(c) for c in split]
             if concept.change_note:
                 fact["what_changed"] = concept.change_note
         rendered.append(fact)
     return rendered
 
 
-def as_prompt_block(rendered: list[dict[str, Any]]) -> str:
+def _names(named: list[dict[str, Any]], language: str) -> str:
+    """Render referenced concepts by their label in the answering language."""
+    return ", ".join(entry["labels"][language] for entry in named)
+
+
+def as_prompt_block(rendered: list[dict[str, Any]], language: str = "en") -> str:
     """Render facts as the plain text that goes in front of a guide.
 
     Plain lines rather than JSON: this is read by a model alongside prose, and
@@ -122,15 +146,17 @@ def as_prompt_block(rendered: list[dict[str, Any]]) -> str:
         if "definition" in fact:
             lines.append(f"    {fact['definition']}")
         if fact.get("handled_by"):
-            lines.append(f"    Handled by: {', '.join(fact['handled_by'])}")
+            lines.append(f"    Handled by: {_names(fact['handled_by'], language)}")
         if "in_force_from" in fact:
             lines.append(f"    Not in force until {fact['in_force_from']}.")
         elif not fact["in_force"]:
-            replaced = ", ".join(r["label"] for r in fact.get("replaced_by", []))
-            lines.append(
-                f"    No longer in force since {fact['lapsed_on']}."
-                + (f" Replaced by: {replaced}." if replaced else "")
-            )
+            # `valid_until` is inclusive: the concept was still in force on that
+            # date, so "since" would put the lapse a day early.
+            lines.append(f"    In force through {fact['lapsed_on']}, not after.")
+            if fact.get("replaced_by"):
+                lines.append(f"    Replaced by: {_names(fact['replaced_by'], language)}")
+            if fact.get("split_into"):
+                lines.append(f"    Its work was split across: {_names(fact['split_into'], language)}")
             if "what_changed" in fact:
                 lines.append(f"    {fact['what_changed']}")
     return "\n".join(lines)

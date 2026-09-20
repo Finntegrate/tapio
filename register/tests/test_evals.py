@@ -8,7 +8,6 @@ set of queries that pass because they no longer assert anything.
 import collections
 
 import pytest
-import yaml
 
 from tapio_register import loading, paths
 
@@ -17,7 +16,9 @@ EVAL_PATH = paths.SERVICE_DIR / "evals" / "concept-resolution.yaml"
 
 @pytest.fixture(scope="module")
 def queries():
-    return yaml.safe_load(EVAL_PATH.read_text(encoding="utf-8"))["queries"]
+    # The same strict read the register gets: a duplicated key here would
+    # silently drop an expected result, which is the one thing this file is for.
+    return loading.load_yaml(EVAL_PATH)["queries"]
 
 
 def test_every_expected_concept_exists(queries):

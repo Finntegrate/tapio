@@ -115,3 +115,23 @@ def test_reading_the_register_pulls_in_no_authoring_dependencies():
         cwd=paths.SERVICE_DIR,
     )
     assert result.stdout.strip() == "", f"runtime import now pulls in: {result.stdout.strip()}"
+
+
+def test_a_duplicate_key_is_refused_rather_than_silently_overwritten(tmp_path):
+    """Last-write-wins would drop one of two labels before any rule could see it."""
+    path = tmp_path / "part.yaml"
+    path.write_text(
+        "concepts:\n- id: permit:x\n  pref_label:\n    en: first\n    fi: eka\n    sv: forsta\n    en: second\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate key 'en'"):
+        loading.load_yaml(path)
+
+
+def test_a_missing_kind_file_is_refused_rather_than_read_as_empty(tmp_path):
+    """A partial register is worse than none: the projections just stop offering a kind."""
+    for name in (paths.EDITION_NAME, *paths.KIND_FILES.values()):
+        (tmp_path / name).write_text("concepts: []\n", encoding="utf-8")
+    (tmp_path / paths.KIND_FILES["organization"]).unlink()
+    with pytest.raises(FileNotFoundError, match="without its organization concepts"):
+        loading.read_source(tmp_path)

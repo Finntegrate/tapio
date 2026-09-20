@@ -39,9 +39,12 @@ def test_facts_cover_only_the_concepts_asked_for(register):
     assert rendered[0]["kind"] == "organization"
 
 
-def test_facts_name_the_handling_authority(register):
+def test_facts_name_the_handling_authority_in_every_language(register):
+    """A guide answering in Finnish needs the authority's Finnish name, not a gloss."""
     rendered = projection.facts(register, ["permit:first-residence-permit"])
-    assert rendered[0]["handled_by"] == ["org:migri"]
+    (authority,) = rendered[0]["handled_by"]
+    assert authority["id"] == "org:migri"
+    assert authority["labels"] == {"en": "org:migri", "fi": "org:migri fi", "sv": "org:migri sv"}
 
 
 def test_facts_for_a_lapsed_concept_carry_what_replaced_it():
@@ -62,8 +65,28 @@ def test_facts_answer_as_of_a_past_date():
 def test_the_prompt_block_says_what_lapsed_and_what_replaced_it():
     shipped = loading.load_register()
     block = projection.as_prompt_block(projection.facts(shipped, ["org:te-office"]))
-    assert "No longer in force since 2024-12-31" in block
-    assert "Replaced by: employment area" in block
+    # valid_until is inclusive, so the office was still there on 2024-12-31.
+    assert "In force through 2024-12-31, not after." in block
+    assert "Replaced by: " in block
+    assert "employment area" in block
+
+
+def test_the_prompt_block_names_authorities_in_the_answering_language():
+    shipped = loading.load_register()
+    facts = projection.facts(shipped, ["step:apply-for-asylum"])
+    assert "Rajavartiolaitos" in projection.as_prompt_block(facts, language="fi")
+    assert "Gränsbevakningsväsendet" in projection.as_prompt_block(facts, language="sv")
+
+
+def test_a_concept_split_across_several_bodies_names_all_of_them(register_dict):
+    """Picking one successor would make the answer depend on YAML order."""
+    register_dict["concepts"][1]["valid_until"] = "2024-12-31"
+    register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit", "org:migri"]
+    register = TermRegister.model_validate(register_dict)
+    (fact,) = projection.facts(register, ["permit:residence-permit"])
+    assert "replaced_by" not in fact
+    assert [entry["id"] for entry in fact["split_into"]] == ["permit:first-residence-permit", "org:migri"]
+    assert "Its work was split across:" in projection.as_prompt_block([fact])
 
 
 def test_one_guides_options_fit_in_a_prompt():
