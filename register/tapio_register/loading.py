@@ -114,13 +114,36 @@ def _read_directory(path: Path) -> dict[str, Any]:
     return register
 
 
+def _check_kind_prefixes(register: TermRegister) -> None:
+    """Refuse a concept whose id prefix disagrees with its kind.
+
+    Checked here rather than left to :mod:`tapio_register.validation`, which a
+    consumer that only reads the register never runs. This is not a style rule:
+    :func:`expand` derives a concept's IRI namespace from its prefix, so a
+    mismatch does not produce a mislabelled concept, it produces one with an
+    IRI that denotes something else, silently and everywhere it is published.
+    """
+    for concept in register.concepts:
+        expected = KIND_PREFIXES[enum_value(concept.kind)]
+        prefix, separator, local = concept.id.partition(":")
+        if not separator or not local or prefix != expected:
+            message = (
+                f"{concept.id}: a {enum_value(concept.kind)} must be identified as "
+                f"'{expected}:something', or its IRI denotes the wrong kind of thing"
+            )
+            raise ValueError(message)
+
+
 def load_register(source_path: Path | None = None) -> TermRegister:
     """Load and structurally validate the register source.
 
     Raises ``pydantic.ValidationError`` when the source does not satisfy the
-    schema. Cross-concept rules live in :mod:`tapio_register.validation`.
+    schema, and ``ValueError`` when an id disagrees with its kind. The remaining
+    cross-concept rules live in :mod:`tapio_register.validation`.
     """
-    return TermRegister.model_validate(read_source(source_path))
+    register = TermRegister.model_validate(read_source(source_path))
+    _check_kind_prefixes(register)
+    return register
 
 
 def concepts_by_id(register: TermRegister) -> dict[str, Concept]:

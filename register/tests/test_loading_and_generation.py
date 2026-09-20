@@ -135,3 +135,13 @@ def test_a_missing_kind_file_is_refused_rather_than_read_as_empty(tmp_path):
     (tmp_path / paths.KIND_FILES["organization"]).unlink()
     with pytest.raises(FileNotFoundError, match="without its organization concepts"):
         loading.read_source(tmp_path)
+
+
+def test_an_id_that_disagrees_with_its_kind_is_refused_at_load(tmp_path):
+    """`expand` derives the IRI namespace from the prefix, so a mismatch denotes the wrong thing."""
+    source = tmp_path / "register.yaml"
+    base = loading.read_source()
+    base["concepts"] = [{**base["concepts"][0], "id": "org:mislabelled", "kind": "permit"}]
+    source.write_text(yaml.safe_dump(base, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(ValueError, match="a permit must be identified as 'permit:something'"):
+        loading.load_register(source)

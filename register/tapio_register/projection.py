@@ -77,20 +77,40 @@ def options(
     return chosen
 
 
+def _successors_at(register: TermRegister, concept: Concept, on: date) -> list[Concept]:
+    """Follow supersession only as far as ``on`` had got.
+
+    The full chain is the answer for today, not for a date in the past. If A was
+    replaced by B and B later by C, someone asking about A as of a date when B
+    still stood must be told B: naming C would be a fact about the present
+    dressed as a fact about then.
+    """
+    reached: list[Concept] = []
+    for successor in history.lineage(register, concept.id)[1:]:
+        if successor.valid_from > on:
+            break
+        reached.append(successor)
+        if history.is_in_force(successor, on):
+            break
+    return reached
+
+
 def _lapse(
     register: TermRegister,
     concept: Concept,
     known: dict[str, Concept],
+    on: date,
 ) -> dict[str, Any]:
-    """Describe what became of a concept that is no longer in force."""
+    """Describe what had become of a concept that was no longer in force on ``on``."""
     described: dict[str, Any] = {"lapsed_on": concept.valid_until}
-    chain = history.lineage(register, concept.id)[1:]
+    chain = _successors_at(register, concept, on)
     if chain:
         described["replaced_by"] = [_named(c) for c in chain]
     # `lineage` stops at a branch rather than picking a successor, so the bodies
     # the work was split across are named here instead of one of them being
-    # presented as the replacement.
-    split = [known[s] for s in (chain[-1] if chain else concept).superseded_by or [] if s in known]
+    # presented as the replacement — and only those that existed by `on`.
+    tail = chain[-1] if chain else concept
+    split = [known[s] for s in tail.superseded_by or [] if s in known and known[s].valid_from <= on]
     if len(split) > 1:
         described["split_into"] = [_named(c) for c in split]
     if concept.change_note:
@@ -113,7 +133,9 @@ def _fact(
     }
     if concept.definition is not None and concept.definition.en:
         fact["definition"] = concept.definition.en
-    handled_by = [_named(known[a]) for a in concept.handled_by or [] if a in known]
+    handled_by = [
+        _named(known[a]) for a in concept.handled_by or [] if a in known and history.is_in_force(known[a], on)
+    ]
     if handled_by:
         fact["handled_by"] = handled_by
     if concept.valid_from > on:
@@ -121,7 +143,7 @@ def _fact(
         # from having lapsed and must not be reported as supersession.
         fact["in_force_from"] = concept.valid_from
     elif not fact["in_force"]:
-        fact |= _lapse(register, concept, known)
+        fact |= _lapse(register, concept, known, on)
     return fact
 
 

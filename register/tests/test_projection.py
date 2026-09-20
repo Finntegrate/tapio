@@ -2,6 +2,8 @@
 
 from datetime import date
 
+from conftest import concept
+
 from tapio_register import loading, projection
 from tapio_register.generated.term_register_model import TermRegister
 
@@ -137,3 +139,45 @@ def test_facts_call_a_future_end_date_in_force(register_dict):
     (fact,) = projection.facts(register, ["permit:residence-permit"])
     assert fact["in_force"] is True
     assert "lapsed_on" not in fact
+
+
+def _chain(register_dict, concept_factory):
+    """A -> B -> C, each replacing the last: te-office style, two handovers deep."""
+    register_dict["concepts"] = [
+        concept_factory(
+            "org:a", kind="organization", valid_from="2000-01-01", valid_until="2010-12-31", superseded_by=["org:b"]
+        ),
+        concept_factory(
+            "org:b", kind="organization", valid_from="2011-01-01", valid_until="2020-12-31", superseded_by=["org:c"]
+        ),
+        concept_factory("org:c", kind="organization", valid_from="2021-01-01"),
+    ]
+    return TermRegister.model_validate(register_dict)
+
+
+def test_supersession_is_read_at_the_reference_date_not_today(register_dict):
+    """Naming C for a date when B still stood is a fact about now dressed as one about then."""
+    register = _chain(register_dict, concept)
+    (then,) = projection.facts(register, ["org:a"], reference=date(2015, 6, 1))
+    assert [e["id"] for e in then["replaced_by"]] == ["org:b"]
+    (now,) = projection.facts(register, ["org:a"], reference=date(2026, 6, 1))
+    assert [e["id"] for e in now["replaced_by"]] == ["org:b", "org:c"]
+
+
+def test_a_successor_that_did_not_exist_yet_is_not_named(register_dict):
+    register = _chain(register_dict, concept)
+    (fact,) = projection.facts(register, ["org:b"], reference=date(2020, 12, 31))
+    # B lapses on 2020-12-31 and C only exists from 2021-01-01.
+    assert fact["in_force"] is True
+    (after,) = projection.facts(register, ["org:b"], reference=date(2021, 6, 1))
+    assert [e["id"] for e in after["replaced_by"]] == ["org:c"]
+
+
+def test_a_handler_not_in_force_on_the_date_is_not_reported_as_handling(register_dict):
+    """Otherwise a 2018 answer names a body that did not exist until 2025."""
+    register_dict["concepts"][2]["valid_from"] = "2025-01-01"
+    register = TermRegister.model_validate(register_dict)
+    (then,) = projection.facts(register, ["permit:first-residence-permit"], reference=date(2018, 1, 1))
+    assert "handled_by" not in then
+    (now,) = projection.facts(register, ["permit:first-residence-permit"], reference=date(2026, 1, 1))
+    assert [e["id"] for e in now["handled_by"]] == ["org:migri"]
