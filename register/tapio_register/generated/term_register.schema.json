@@ -54,7 +54,7 @@
               "type": "null"
             }
           ],
-          "description": "Other surface forms the same entity is published under, including abbreviations and superseded names. Read by the ``ground`` node, so a user typing either form resolves to the same IRI."
+          "description": "Other surface forms the same entity is published under, including abbreviations and superseded names. They are how a reader, and a model asked to name the entity, recognise it under more than one name."
         },
         "broader": {
           "description": "The more general concept this one falls under.",
@@ -286,7 +286,7 @@
     },
     "PrefLabels": {
       "additionalProperties": false,
-      "description": "The preferred label in each of the three languages the corpus is grounded in. The pattern rejects an empty or whitespace-only label, which ``required`` alone permits and which would publish a concept with no surface form for the ``ground`` node to match.",
+      "description": "The preferred label in each of the three languages the corpus is grounded in. The pattern rejects an empty or whitespace-only label, which ``required`` alone permits and which would publish a concept with no name to render or resolve against.",
       "properties": {
         "en": {
           "description": "English preferred label.",

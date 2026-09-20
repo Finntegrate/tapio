@@ -181,7 +181,7 @@ def test_alt_label_colliding_with_a_pref_label_is_rejected(register_dict):
 
 
 def test_a_collision_across_two_languages_is_rejected(register_dict):
-    """`ground` matches a span against every language, so the clash is between forms."""
+    """The register serves questions that mix languages, so the clash is between forms."""
     register_dict["concepts"][1]["pref_label"]["sv"] = register_dict["concepts"][0]["pref_label"]["en"]
     assert any("is also" in message and "while both are in force" in message for message in messages(register_dict))
 

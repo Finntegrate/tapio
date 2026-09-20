@@ -26,7 +26,7 @@ from tapio_register.loading import KIND_PREFIXES, enum_value, read_source
 #: Longest a label can be before it reads as a definition rather than a term.
 _LABEL_MAX = 120
 
-#: Two concepts sharing a surface form is the collision the ground node cannot resolve.
+#: Two concepts sharing a surface form is an ambiguity nothing downstream can resolve.
 _COLLISION = 2
 
 #: Slots whose values must resolve to a concept in this same register.
@@ -46,7 +46,7 @@ class Issue:
 
 
 def normalize_label(label: str) -> str:
-    """Fold a surface form the way the harness's ``ground`` node will.
+    """Fold a surface form for comparison against another.
 
     Case and surrounding whitespace are not meaningful; everything else is left
     alone, because the register carries Finnish and Swedish and stripping
@@ -272,12 +272,11 @@ def _surface_forms(concept: Concept) -> list[tuple[str, str]]:
 def _check_label_collisions(concepts: list[Concept]) -> list[Issue]:
     """A surface form must not resolve to two concepts that are in force together.
 
-    The ``ground`` node maps spans of a user's message to IRIs by label alone,
-    across every language the register carries, because a question can be asked
-    in any of them and often mixes them. So the clash that matters is between
-    surface forms, not between surface forms within one language: an English
-    label on one concept and a Swedish label on another are just as ambiguous
-    to a span matcher as two English ones.
+    Resolution is the model's job, but a vocabulary that gives one term to two
+    live entities is ambiguous to everything that reads it: a model asked to
+    name a concept, a guide rendering an answer, and a person reading the
+    published SKOS. The clash is between surface forms rather than within one
+    language, since the register serves questions that mix languages freely.
     """
     by_form: dict[str, list[tuple[Concept, str]]] = defaultdict(list)
     for concept in concepts:
@@ -310,9 +309,10 @@ def _overlap_in_force(first: Concept, second: Concept) -> bool:
 def _check_label_shape(concepts: list[Concept]) -> list[Issue]:
     """A label is a term, not a sentence.
 
-    A gloss that lands in a label is published as ``skos:prefLabel`` and becomes
-    a surface form the ``ground`` node can match, so a parser that swept a
-    definition into a label has to fail here rather than reach the graph.
+    A gloss that lands in a label is published as ``skos:prefLabel``, where it
+    is what a consumer renders and what a model is shown as the entity's name,
+    so a parser that swept a definition into a label has to fail here rather
+    than reach the graph.
     """
     issues: list[Issue] = []
     for concept in concepts:

@@ -76,7 +76,7 @@ START -> route -> retrieve -> generate -> END
 
 ### 3.2 Proposed flow
 
-`route` and `retrieve` are unchanged. One node is added ahead of them, and the existing `generate` node splits: the commitments it used to make implicitly in prose become `plan`, the prose itself becomes `render`, and `validate` sits between the two with `repair` and `degrade` on the failure edge.
+`route` and `retrieve` are unchanged. The existing `generate` node splits: the commitments it used to make implicitly in prose become `plan`, the prose itself becomes `render`, and `validate` sits between the two with `repair` and `degrade` on the failure edge.
 
 ```text
 (guardrail classification, existing, in streaming.py)
@@ -84,21 +84,24 @@ START -> route -> retrieve -> generate -> END
   `-- no match --> the graph below
 
 START
-  -> ground        (deterministic: surface forms in the query -> concept IRIs)
-  -> route         (existing keyword scorer, plus concept-set scoring)
-  -> retrieve      (existing, plus concept-expanded query terms)
-  -> plan          (constrained generation of the answer plan)
+  -> route         (existing scorer, plus concept-set scoring)
+  -> retrieve      (existing)
+  -> plan          (constrained generation of the answer plan, resolving concepts)
   -> validate      (vocabulary, citation, scope, type, currency)
        |-- conforms --> render (stream prose) --> END
        `-- violates --> repair (bounded, one attempt) --> validate
                             `-- still violates --> degrade --> END
 ```
 
-The guardrail layer keeps its current behavior exactly: it runs before the graph, and a crisis, legal-sensitive, or out-of-scope match short-circuits the turn so nothing is retrieved and none of the nodes below execute. The harness wraps the whole ground-through-degrade flow and does not move, weaken, or depend on that check. If the guardrail checks are later folded into the graph as an input-classifier node, as the guardrails policy anticipates, they belong ahead of `ground`.
+The guardrail layer keeps its current behavior exactly: it runs before the graph, and a crisis, legal-sensitive, or out-of-scope match short-circuits the turn so nothing is retrieved and none of the nodes below execute. The harness wraps the whole route-through-degrade flow and does not move, weaken, or depend on that check. If the guardrail checks are later folded into the graph as an input-classifier node, as the guardrails policy anticipates, they belong ahead of `route`.
 
-**ground** runs before routing and uses no model. It normalizes the query and matches spans against the register's labels across every language the register carries. A Finnish user typing `toimeentulotuki` and an English user typing `social assistance` resolve to the same IRI, which is what makes concept-based routing and concept-expanded retrieval work without a translation step. Unmatched spans are left alone rather than guessed at.
+**Resolution is the model's job, validation is the harness's.** Mapping what a person wrote to a concept is a language problem: Finnish is heavily inflected, Swedish compounds, and a real question mixes languages and misspells things. The model already reads all of that, so it names the concept and the harness checks the name. `plan` emits IRIs; `validate` decides whether they exist, are in scope, and are in force.
 
-This is the query-side half of the SPIRES pattern with the expensive half removed. SPIRES uses a model to extract surface forms because it is reading arbitrary documents. We are reading one short user message and we already have the labels, so string matching is sufficient and costs nothing. That matters given the latency budget (§9.3).
+This is the division the whole design rests on, and it is worth stating negatively too. A deterministic matcher over the register's labels would be a bigger, better-curated version of the keyword list §2.3 exists to replace: to survive contact with `oleskeluluvan` it would need stems and inflected forms for every term in every language served, which is a combinatorial lexicon to hand-maintain and a linguist's job to get right. Nothing in the harness's guarantees needs it. A model that proposes a concept that does not exist is caught by G1 exactly as a model that proposes one it hallucinated, because closed-world membership is a set operation over identifiers and does not care how the identifier was arrived at.
+
+What the register therefore is: an authority over which entities may be asserted, and a record of when each was in force. What it is not: a lexicon for matching strings.
+
+The graph itself is unchanged in kind. Resolved concepts and `situation` live in the LangGraph state exactly as they would have; what differs is which node writes them. The model mutates that state inside `plan`, the deterministic nodes read it, and `validate` decides whether what was written may stand. Keeping it in the state rather than recomputing it per turn is also what lets a correction from the user (§8.3) or a concept resolved on an earlier turn feed forward as an IRI, instead of being re-derived from text every time.
 
 **plan** replaces the free-prose generation call with a schema-constrained one. Critically, this needs no new dependency: `guardrails/llm_classifier.py` already binds Pydantic schemas through `BaseChatModel.with_structured_output` on the shared model that `app.services.chat_model.build_chat_model` constructs. That rung of the ladder is already in the codebase and already load-bearing for safety. We are extending an established pattern, not introducing one.
 
@@ -253,8 +256,8 @@ The research document that prompted this is written for regulated enterprise aut
 | Gate 2, policy engine (OPA, Cedar) | Authorization, delegation limits, separation of duties | **Cut.** There is no actor, no privilege, and no write. The nearest analogue is guide scope, which is a semantic question and belongs in G3. |
 | Signed evidence bundles (Ed25519) | Non-repudiation under audit | **Cut, and it is worth saying why loudly.** A cryptographically signed, per-turn record binding a prompt to an answer is an accumulating artifact about a person asking about asylum or deportation. PRD §5 treats a data exposure for those users as a physical-safety risk, not a compliance incident. Building tamper-evident records of their questions runs directly against that. See §6 for what to build instead. |
 | Separate constrained-decoding runtime (llama.cpp GBNF, Outlines) | Grammar-constrained generation | **Already have it.** Ollama's JSON-schema mode, used today in `llm_classifier.py`, is this. No new dependency. |
-| SPIRES model-driven extraction | Grounding entities out of arbitrary documents | **Half.** Keep deterministic resolution against the register. Drop the model-based extraction on the query side, where string matching over known labels is enough and free. |
-| Ontology Access Kit | Cross-ontology term mapping | **Defer.** A normalized label index in memory is faster and simpler for a register of this size. Revisit if mapping to external vocabularies becomes routine. |
+| SPIRES model-driven extraction | Grounding entities out of arbitrary documents | **Adapted.** The model names concepts, as SPIRES does, but against a closed register rather than an open ontology, and the result is validated by set membership rather than trusted. |
+| Ontology Access Kit | Cross-ontology term mapping | **Defer.** The register records its own alignments (`exactMatch`, `closeMatch`) as data. Revisit if mapping to external vocabularies becomes routine. |
 
 The honest summary: about half of that architecture applies here, and the half that applies is the half that is cheap.
 
@@ -395,7 +398,7 @@ Empty states matter. Most first turns will have little or nothing worth showing,
 
 A read-only panel is transparency. An editable one is a repair loop with the user inside it, and that is a materially better feature.
 
-When someone changes "student residence permit" to "work-based residence permit," Tapio receives a concept IRI. Not a sentence to parse, not an intent to classify. A precise, already-resolved, language-independent correction that `ground`, `route`, and `retrieve` can consume directly on the next turn.
+When someone changes "student residence permit" to "work-based residence permit," Tapio receives a concept IRI. Not a sentence to parse, not an intent to classify. A precise, already-resolved, language-independent correction that `route`, `retrieve`, and `plan` can consume directly on the next turn.
 
 That is a better input than a clarifying question, and it is better in a way that speaks to the PRD's central observation that newcomers often do not know what to ask. Noticing that something on screen is wrong is a much lower bar than formulating the right question. The panel converts a skill the user may not have into one they certainly do.
 
@@ -477,7 +480,7 @@ Those figures are the local-CPU Ollama case. Since #143 the provider is configur
 
 Two responses, and they work on different parts of the problem.
 
-**Reduce the actual wait.** The `ground` node uses no model. The `validate` node uses no model. The plan schema is deliberately flat and small, because small local models degrade badly on deeply nested schemas. Only `plan` and a possible single `repair` add model calls, and `plan` replaces work the `generate` node was doing anyway rather than adding to it. This still needs benchmarking against the deployment target, not a developer laptop, before the gates ship.
+**Reduce the actual wait.** The `validate` node uses no model. The plan schema is deliberately flat and small, because small local models degrade badly on deeply nested schemas. Only `plan` and a possible single `repair` add model calls, and `plan` replaces work the `generate` node was doing anyway rather than adding to it. This still needs benchmarking against the deployment target, not a developer laptop, before the gates ship.
 
 **Make the remaining wait legible.** A silent 30 seconds reads as a broken page. The same 30 seconds with honest progress reads as work being done, and the harness is what makes honest progress possible: the graph's nodes are discrete, named, and sequential, so each transition is a real event to report. Free prose generation has nothing comparable to show, because it is one opaque call.
 
@@ -485,7 +488,7 @@ The SSE stream already carries typed events and `stream_chat_turn` already emits
 
 | Node | Event | Shown to the user |
 | --- | --- | --- |
-| `ground` | `progress` | "Working out what you are asking about" |
+| `route` | `progress` | "Working out what you are asking about" |
 | `route` | `routing` (exists) | "Bringing in Ilmarinen, who handles permits and paperwork" |
 | `retrieve` | `progress` | "Looking through official sources" |
 | `plan` | `progress` | "Putting together an answer" |
@@ -560,7 +563,7 @@ Everything needed to make the scope half true, and to run the validation half in
 | **Answer plan and gates** G1 and G3 through G7, plus the repair and degrade paths, in shadow mode | The validation layer itself. Shadow mode means it can ship without user-visible risk; enforcement follows the §11.1 exit criteria, per gate. G7 is the exception and enforces on arrival, since its failure demotes a label rather than rejecting an answer. |
 | **Guide scope as concept sets** | This is the actual reason to do the milestone before more guides. Scope stops being a hand-written English sentence and becomes the thing G3 checks. |
 | **Progress events** (§9.3) | The latency mitigation. Shipping the gates without it means shipping a slower product with nothing to show for the wait. |
-| **Situation panel, read-only** (§8.1 to §8.6) | Buildable as soon as `ground` populates `situation`, and it is the milestone's only surface an ordinary user can see. Read-only first keeps the scope small and the §8.5 question testable. |
+| **Situation panel, read-only** (§8.1 to §8.6) | Buildable as soon as `plan` populates `situation`, and it is the milestone's only surface an ordinary user can see. Read-only first keeps the scope small and the §8.5 question testable. |
 | **Register in CI**, dated releases | The maintenance mechanism from §9.1. Without it the register rots from the first week. |
 
 | After 2.1.0 | Why it can wait |
@@ -589,7 +592,7 @@ Per `CLAUDE.md`, scan the open backlog before creating anything: several of thes
 | Constrained generation | **`BaseChatModel.with_structured_output`** | Already in `guardrails/llm_classifier.py`, and provider-independent since #143. No new dependency. |
 | Graph handling | **rdflib** | In-memory is fine at this size. Do not reach for a triplestore before the register outgrows a dict. |
 | Shape validation | **pySHACL** | Compile shapes once at startup, not per request. |
-| Entity resolution | Normalized label index, plain Python | An `sqlite` FTS table if fuzzy matching is ever needed. |
+| Entity resolution | **The model, in `plan`** | A concept is named by the model and checked by G1. No matcher, no lexicon of inflected forms. |
 | Graph store | **Not yet.** pyoxigraph if the register outgrows memory | Deliberately deferred. |
 | DL reasoner | **None** | See §4. |
 | Policy engine | **None** | See §4. |

@@ -272,7 +272,7 @@ class Concept(ConfiguredBaseModel):
     id: str = Field(default=..., description="""Stable IRI, written as a CURIE whose prefix matches ``kind`` (``org:`` for an organization, ``permit:`` for a permit, and so on).""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept']} })
     kind: ConceptKind = Field(default=..., description="""What sort of entity this is. Determines the IRI prefix and the RDF type.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept']} })
     pref_label: PrefLabels = Field(default=..., description="""The one preferred label per language. Every concept carries all three.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept'], 'slot_uri': 'skos:prefLabel'} })
-    alt_labels: Optional[AltLabels] = Field(default=None, description="""Other surface forms the same entity is published under, including abbreviations and superseded names. Read by the ``ground`` node, so a user typing either form resolves to the same IRI.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept'], 'slot_uri': 'skos:altLabel'} })
+    alt_labels: Optional[AltLabels] = Field(default=None, description="""Other surface forms the same entity is published under, including abbreviations and superseded names. They are how a reader, and a model asked to name the entity, recognise it under more than one name.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept'], 'slot_uri': 'skos:altLabel'} })
     definition: Optional[Definitions] = Field(default=None, description="""A short gloss, in whichever languages have been reviewed.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept'], 'slot_uri': 'skos:definition'} })
     notation: Optional[str] = Field(default=None, description="""The code this entity carries in an official code list, where it has one.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept'], 'slot_uri': 'skos:notation'} })
     valid_from: date = Field(default=..., description="""The earliest date from which the register is prepared to treat this entity as in force. Where a source names a commencement date, that date is used; otherwise it is the register's floor date, which records that the register has no evidence of a start date and asserts nothing earlier. Required from day one: it is what lets gate G5 check a historical claim against the state of affairs at its own reference date rather than against today.""", json_schema_extra = { "linkml_meta": {'domain_of': ['Concept'], 'slot_uri': 'sdo:validFrom'} })
@@ -290,7 +290,7 @@ class Concept(ConfiguredBaseModel):
 
 class PrefLabels(ConfiguredBaseModel):
     """
-    The preferred label in each of the three languages the corpus is grounded in. The pattern rejects an empty or whitespace-only label, which ``required`` alone permits and which would publish a concept with no surface form for the ``ground`` node to match.
+    The preferred label in each of the three languages the corpus is grounded in. The pattern rejects an empty or whitespace-only label, which ``required`` alone permits and which would publish a concept with no name to render or resolve against.
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://tapio.finntegrate.org/schema/term-register'})
 
