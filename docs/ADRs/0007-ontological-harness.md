@@ -51,13 +51,17 @@ Constrain guide answers with a deterministic harness, on the principles below.
 
 **Mechanism is the specification's concern, not this record's.** How a phrase becomes an identifier, which checks run in what order, and what the register is authored and validated with are all expected to change as the work is built and measured. They live in the [ontological harness specification](../specs/ontological-harness.md), which is revised freely. This record fixes only what would require rethinking the approach to change.
 
+**0. The harness is a safeguard, not the final say.** It removes a class of failure that is cheap to detect and expensive to leave in. It does not certify that an answer is right, and nothing downstream should be built as though it did. That bounds the engineering as much as the claims: each check earns its place by naming a failure it actually prevents, and the measure of success is whether guides answer better, not whether the harness is complete. Weight accrued here is weight taken from the rest of the PRD.
+
 **1. Prose and commitments are separated.** The model writes the prose. A deterministic layer owns what a turn commits to: which concept, which authority, which next step, which source, which guide answered. Commitments are produced as a typed object before the prose, never parsed out of it afterwards.
 
 **2. A versioned register is the authority, and it is closed-world.** An entity absent from the register cannot be asserted; absence is rejection, not silence. The register is append-only and time-indexed: entities are superseded rather than deleted, and carry the dates between which they were in force. Editions are dated and immutable, so an answer can name the edition it was produced against. Anchor to published Finnish vocabularies where they exist rather than minting identifiers by preference.
 
 Append-only is not bookkeeping tidiness. It is what separates "what was true when this page was crawled" from "what is true now", which is the only honest way to reason over a corpus that is always somewhat stale.
 
-**3. Validation is deterministic and runs before the user sees anything.** Set membership, lookup, date comparison. No model evaluates another model's output, and no probabilistic self-check is treated as a gate. A check that is itself uncertain is not a gate; it is a second opinion, and two opinions do not make a fact.
+**3. Interpretation is probabilistic, verification is deterministic.** Language is fuzzy — misspelled, inflected, colloquial, code-switched, half-finished — and nothing deterministic reads it well. So reading is a model's job, and what comes back is a structured classification the rest of the system can branch on, retry, and log. Verification of what that classification commits to is set membership, lookup, and date comparison, and it runs before the user sees anything.
+
+Determinism belongs on the check, not on the reading. An interpreter reporting calibrated confidence in its own reading is an input to the decision rather than a violation of it; what is excluded is a second model asked to judge the first one's answer. A check that is itself uncertain is not a gate — it is a second opinion, and two opinions do not make a fact.
 
 **4. Coherence and permission are separate.** Whether a plan is *coherent* — these entities exist, are in force, are related as claimed, were retrieved this turn, are within the answering guide's remit — is a different question from whether a coherent plan is *permitted* to be said now and unprompted. They change for different reasons and are maintained by different people. Folding permission into the domain model degrades the domain model.
 
