@@ -24,6 +24,7 @@ register rather than starting new ones.
 | `tapio_register/generated/` | Pydantic classes and JSON Schema, both derived from the schema. Never hand-edited. |
 | `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into `register.yaml`. |
 | `releases/<date>/manifest.json` | One dated, immutable edition: its coverage summary and a SHA-256 digest per payload file. |
+| `evals/concept-resolution.yaml` | 30 real-shaped queries in Finnish, Swedish and English — inflected, misspelled, code-switched, obsolete, ambiguous — with the concepts each should resolve to. What a classifier has to get right before the register is worth feeding it. |
 
 ## Working with it
 
@@ -33,6 +34,18 @@ mise run register:generate      # regenerate the derived artifacts after a schem
 mise run register:release       # build the edition named by the source's register_version
 mise run test:register          # unit tests
 ```
+
+Two projections turn the register into what a model consumes:
+
+```bash
+uv run --directory register tapio-register options --guide ilmarinen   # what a classifier picks from
+uv run --directory register tapio-register context permit:extended-permit org:te-office
+```
+
+The first is one line per concept, scoped to a guide, small enough for a
+prompt. The second is the facts a guide should generate against for the
+concepts one turn is about — including, for something no longer in force, when
+it lapsed and what replaced it.
 
 ## How an edition is stored
 

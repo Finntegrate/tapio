@@ -1,0 +1,209 @@
+# What a classifier has to get right before the world model is worth feeding it.
+#
+# Every query here is one a real person could type. They are grouped by what
+# makes each hard, because the point is not an aggregate score: it is knowing
+# which kinds of language a candidate approach handles and which it does not.
+#
+# `expect` names concepts in the register. A query that should resolve to
+# nothing has an empty list, which is as important to get right as a match —
+# an assistant that finds a permit in every sentence is worse than one that
+# says it does not know.
+#
+# Checked by tests/test_evals.py: every id here must exist in the register, so
+# this file cannot drift away from the data it is written against.
+
+queries:
+  # Finnish inflection. The reason the label matcher was dropped: none of these
+  # match a preferred label by any amount of case folding.
+  - id: fi-extension-possessive
+    query: Miten jatkan oleskelulupaani?
+    language: fi
+    difficulty: inflection
+    expect: [permit:extended-permit]
+    why: "`oleskelulupaani` carries a possessive suffix; the concept's label is `Jatkolupa`."
+  - id: fi-extension-partitive
+    query: Haen jatkolupaa ensi kuussa
+    language: fi
+    difficulty: inflection
+    expect: [permit:extended-permit]
+    why: "`jatkolupaa` is the partitive of the label."
+  - id: fi-card-genitive
+    query: Oleskelulupakortin uusiminen maksaa paljonko?
+    language: fi
+    difficulty: inflection
+    expect: [step:renew-residence-permit-card, term:processing-fee]
+    why: Genitive, and two concepts in one question.
+  - id: fi-seasonal-illative
+    query: Tarvitsenko luvan kausityöhön?
+    language: fi
+    difficulty: inflection
+    expect: [permit:seasonal-work-residence-permit]
+    why: "`kausityöhön` is the illative of a compound the label states in the nominative."
+  - id: fi-citizenship-adessive
+    query: Voinko hakea Suomen kansalaisuutta viiden vuoden jälkeen?
+    language: fi
+    difficulty: inflection
+    expect: [step:citizenship-application]
+    why: Partitive of a compound noun.
+
+  # Compounds and derivation, which Finnish and Swedish both build freely.
+  - id: fi-compound-worker
+    query: Työntekijän oleskeluluvan käsittelyaika
+    language: fi
+    difficulty: compound
+    expect: [permit:employed-person-residence-permit, term:processing-time]
+    why: Two compounds, one inflected, and two concepts.
+  - id: sv-compound-renewal
+    query: Hur förnyar jag mitt uppehållstillståndskort?
+    language: sv
+    difficulty: compound
+    expect: [step:renew-residence-permit-card]
+    why: Swedish compounds the noun the label splits.
+  - id: sv-family
+    query: Min fru bor i Finland, kan jag flytta hit?
+    language: sv
+    difficulty: paraphrase
+    expect: [permit:family-ties-residence-permit]
+    why: No term from the register appears at all; the concept is implied by the situation.
+
+  # Obsolete names. The register knows these lapsed and what replaced them.
+  - id: fi-te-office
+    query: Missä on lähin TE-toimisto Turussa?
+    language: fi
+    difficulty: obsolete
+    expect: [org:te-office]
+    why: Dissolved on 1 January 2025. Resolving it is correct; the answer must then say what replaced it.
+  - id: fi-ely
+    query: Onko ELY-keskus se joka hoitaa yritystuet?
+    language: fi
+    difficulty: obsolete
+    expect: [org:ely-centre]
+    why: Reorganised on 1 January 2026, and people will use the old name for years.
+
+  # Misspellings and typing errors, which no lexicon covers.
+  - id: en-misspelled-permit
+    query: how do i renew my residense permit
+    language: en
+    difficulty: misspelling
+    expect: [permit:extended-permit]
+    why: Misspelled, and "renew" is the user's word for what the register calls an extended permit.
+  - id: fi-misspelled-application
+    query: oleskelulupa hakemys myöhässä
+    language: fi
+    difficulty: misspelling
+    expect: [permit:residence-permit]
+    why: "`hakemys` for `hakemus`."
+
+  # Code-switching, which is ordinary for people living between languages.
+  - id: mixed-extended
+    query: Miten haen extended permit jos opiskelen vielä?
+    language: fi
+    difficulty: code-switch
+    expect: [permit:extended-permit, permit:student-residence-permit]
+    why: Finnish sentence, English term, two concepts.
+  - id: mixed-blue-card
+    query: Onko EU Blue Card parempi kuin specialist permit?
+    language: fi
+    difficulty: code-switch
+    expect: [permit:eu-blue-card, permit:specialist-residence-permit]
+    why: A comparison between two concepts, both named in English.
+
+  # Colloquial and indirect, where nobody uses the official term.
+  - id: fi-colloquial-expiry
+    query: mun lupa menee vanhaks ens kuussa, mitä teen
+    language: fi
+    difficulty: colloquial
+    expect: [permit:extended-permit]
+    why: Spoken register, no official term, and the need is an extension.
+  - id: en-indirect-card
+    query: my card is about to expire but my permit is still valid
+    language: en
+    difficulty: colloquial
+    expect: [doc:residence-permit-card, step:renew-residence-permit-card]
+    why: The distinction between the card and the permit is one people get wrong; the register holds both.
+  - id: en-indirect-money
+    query: how much money do I need in my account to bring my wife here
+    language: en
+    difficulty: paraphrase
+    expect: [term:income-requirement, permit:family-ties-residence-permit]
+    why: The concept is named nowhere in the question.
+
+  # Ordinary, correct usage. A classifier that only handles hard cases is no good.
+  - id: en-plain-first-permit
+    query: I am moving to Finland to work, which residence permit do I need?
+    language: en
+    difficulty: plain
+    expect: [permit:first-residence-permit, permit:employed-person-residence-permit]
+  - id: fi-plain-asylum
+    query: Haluan hakea turvapaikkaa Suomesta
+    language: fi
+    difficulty: plain
+    expect: [step:apply-for-asylum]
+  - id: sv-plain-student
+    query: Jag har blivit antagen till ett universitet i Finland
+    language: sv
+    difficulty: plain
+    expect: [permit:student-residence-permit]
+  - id: en-plain-enter-finland
+    query: Can I submit my application online?
+    language: en
+    difficulty: plain
+    expect: [svc:enter-finland]
+  - id: fi-plain-appeal
+    query: Sain kielteisen päätöksen, voinko valittaa?
+    language: fi
+    difficulty: plain
+    expect: [step:appeal-decision]
+  - id: en-plain-identity-code
+    query: When do I get a Finnish personal identity code?
+    language: en
+    difficulty: plain
+    expect: [term:personal-identity-code]
+
+  # Out of scope. Resolving to nothing is the correct answer.
+  - id: out-weather
+    query: Mikä on sää huomenna Helsingissä?
+    language: fi
+    difficulty: out-of-scope
+    expect: []
+    why: Nothing in the register, and a guide should not answer it.
+  - id: out-tax-card
+    query: Mistä saan verokortin?
+    language: fi
+    difficulty: out-of-scope
+    expect: []
+    why: A real question about Finnish administration, but not in this register's domain.
+  - id: out-greeting
+    query: kiitos, tämä auttoi paljon
+    language: fi
+    difficulty: out-of-scope
+    expect: []
+    why: Conversational, no concept at all.
+
+  # Ambiguous. The right behaviour is to ask, not to pick.
+  - id: ambiguous-lupa
+    query: Tarvitsenko luvan?
+    language: fi
+    difficulty: ambiguous
+    expect: []
+    why: "`lupa` alone could be any permit in the register. A guide should ask which."
+  - id: ambiguous-card
+    query: kortti on kadonnut
+    language: fi
+    difficulty: ambiguous
+    expect: []
+    why: Could be the residence permit card, a bank card, or a Kela card.
+
+  # Historical, where the answer depends on when the asker means.
+  - id: fi-historical-2018
+    query: Kävin TE-toimistossa vuonna 2018, onko se sama paikka nyt?
+    language: fi
+    difficulty: historical
+    expect: [org:te-office, org:municipal-employment-area]
+    why: "Both concepts are needed: the one that was in force then, and the one that is now."
+  - id: en-historical-humanitarian
+    query: I got humanitarian protection back in 2015, is that still a thing?
+    language: en
+    difficulty: historical
+    expect: [status:humanitarian-protection]
+    why: Ceased on 16 May 2016 with nothing replacing it, which the register records.
