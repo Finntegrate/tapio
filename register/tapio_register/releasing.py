@@ -86,6 +86,11 @@ class ReleaseResult:
     replaced: list[str]
 
 
+def _reasons(headline: str, problems: list[str]) -> str:
+    """Render a refusal as a headline and a bulleted list of what is wrong."""
+    return headline + "\n  - " + "\n  - ".join(problems)
+
+
 def _digest(path: Path) -> str:
     return "sha256:" + hashlib.sha256(path.read_bytes()).hexdigest()
 
@@ -117,18 +122,15 @@ def write_release(
 
     invalid = [str(issue) for issue in check_integrity(register)]
     if invalid:
-        message = "this register does not pass its own integrity rules:\n  - " + "\n  - ".join(invalid)
-        raise InvalidRegisterError(message)
+        raise InvalidRegisterError(_reasons("this register does not pass its own integrity rules:", invalid))
 
     problems = [str(issue) for issue in check_publication(register)]
     if problems:
-        message = "the SKOS this edition would publish is not valid:\n  - " + "\n  - ".join(problems)
-        raise InvalidPublicationError(message)
+        raise InvalidPublicationError(_reasons("the SKOS this edition would publish is not valid:", problems))
 
     dropped = check_continuity(register, root)
     if dropped:
-        message = "this edition drops concepts an earlier one published:\n  - " + "\n  - ".join(dropped)
-        raise ContinuityError(message)
+        raise ContinuityError(_reasons("this edition drops concepts an earlier one published:", dropped))
 
     # Built in full before anything in `directory` is touched, so a refused
     # release leaves the edition that is already there exactly as it was, and an
@@ -306,7 +308,8 @@ def _source_from_git(manifest_path: Path) -> str | None:
     committed, whereas the source always is.
     """
     try:
-        commit = subprocess.run(  # noqa: S603 - fixed argv, no shell
+        # Fixed argv and no shell, hence the suppressions.
+        commit = subprocess.run(  # noqa: S603
             ["git", "log", "--format=%H", "-1", "--", str(manifest_path)],  # noqa: S607
             capture_output=True,
             text=True,
@@ -382,4 +385,5 @@ def latest_version(releases_dir: Path | None = None) -> str | None:
 
 def today() -> date:
     """Today's date, as the default edition name."""
-    return date.today()  # noqa: DTZ011 - an edition is named by calendar day, not by instant
+    # An edition is named by calendar day, not by instant.
+    return date.today()  # noqa: DTZ011

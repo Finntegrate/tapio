@@ -19,7 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from tapio_register import paths
-from tapio_register.generated.term_register_model import Concept, TermRegister
+from tapio_register.generated.term_register_model import Concept, Observation, TermRegister
 from tapio_register.loading import KIND_PREFIXES, enum_value, read_source
 
 #: Longest a label can be before it reads as a definition rather than a term.
@@ -133,65 +133,92 @@ def _check_identifiers(concepts: list[Concept]) -> list[Issue]:
 
 
 def _check_references(concepts: list[Concept], known: dict[str, Concept]) -> list[Issue]:
+    """Every pointer must resolve, and an authority must be one."""
     issues: list[Issue] = []
     for concept in concepts:
-        for slot in _REFERENCE_SLOTS:
-            for target in getattr(concept, slot) or []:
-                if target not in known:
-                    issues.append(Issue(concept.id, f"{slot} points at '{target}', which is not in the register"))
-                elif target == concept.id:
-                    issues.append(Issue(concept.id, f"{slot} points at itself"))
-        for target in concept.handled_by or []:
-            handler = known.get(target)
-            if handler is None:
-                continue
-            if enum_value(handler.kind) != "organization":
-                issues.append(Issue(concept.id, f"handled_by points at '{target}', which is not an organization"))
-            elif not _overlap_in_force(concept, handler):
-                # A service cannot have been handled by a body that had already
-                # lapsed before it existed, or that only came into being after
-                # it ended. Either the dates or the edge is wrong.
-                issues.append(Issue(concept.id, f"handled_by '{target}' was never in force while this concept was"))
+        issues.extend(_unresolved_references(concept, known))
+        issues.extend(_bad_authorities(concept, known))
+    return issues
+
+
+def _unresolved_references(concept: Concept, known: dict[str, Concept]) -> list[Issue]:
+    issues: list[Issue] = []
+    for slot in _REFERENCE_SLOTS:
+        for target in getattr(concept, slot) or []:
+            if target not in known:
+                issues.append(Issue(concept.id, f"{slot} points at '{target}', which is not in the register"))
+            elif target == concept.id:
+                issues.append(Issue(concept.id, f"{slot} points at itself"))
+    return issues
+
+
+def _bad_authorities(concept: Concept, known: dict[str, Concept]) -> list[Issue]:
+    issues: list[Issue] = []
+    for target in concept.handled_by or []:
+        handler = known.get(target)
+        if handler is None:
+            continue
+        if enum_value(handler.kind) != "organization":
+            issues.append(Issue(concept.id, f"handled_by points at '{target}', which is not an organization"))
+        elif not _overlap_in_force(concept, handler):
+            # A service cannot have been handled by a body that had already
+            # lapsed before it existed, or that only came into being after it
+            # ended. Either the dates or the edge is wrong.
+            issues.append(Issue(concept.id, f"handled_by '{target}' was never in force while this concept was"))
     return issues
 
 
 def _check_validity(concepts: list[Concept], known: dict[str, Concept]) -> list[Issue]:
+    """The rules that make a lapse legible: dated, explained, and handed over."""
     issues: list[Issue] = []
     for concept in concepts:
         if concept.valid_until is None:
             if concept.superseded_by:
                 issues.append(Issue(concept.id, "superseded_by is set but valid_until is not"))
             continue
-        if concept.valid_until < concept.valid_from:
-            issues.append(Issue(concept.id, "valid_until precedes valid_from"))
-        if not concept.superseded_by and not (concept.change_note or "").strip():
-            # Never delete, always supersede: an entity that left force either
-            # points at what replaced it or says in writing that nothing did.
-            issues.append(Issue(concept.id, "lapsed concept needs either superseded_by or a change_note"))
+        issues.extend(_lapse_problems(concept))
         for target in concept.superseded_by or []:
             successor = known.get(target)
-            if successor is None:
-                continue
-            if successor.valid_until is not None and successor.valid_until <= concept.valid_until:
-                # `valid_until` is inclusive, so a successor lapsing on the same
-                # day was never in force after the handover: following the
-                # pointer would land G5 on another stale concept.
-                issues.append(
-                    Issue(concept.id, f"superseded_by '{target}' did not outlast this concept"),
-                )
-            # Subtracting rather than incrementing: `valid_until` can be
-            # `date.max`, where adding a day overflows.
-            if successor.valid_from - concept.valid_until > timedelta(days=1):
-                # G5 repairs a stale assertion by following this pointer, so a
-                # successor that was not yet in force when its predecessor
-                # lapsed would turn one validation failure into another.
-                issues.append(
-                    Issue(
-                        concept.id,
-                        f"superseded_by '{target}' only came into force on {successor.valid_from}, "
-                        f"leaving a gap after {concept.valid_until}",
-                    ),
-                )
+            if successor is not None:
+                issues.extend(_handover_problems(concept, target, successor))
+    return issues
+
+
+def _lapse_problems(concept: Concept) -> list[Issue]:
+    issues: list[Issue] = []
+    if concept.valid_until is not None and concept.valid_until < concept.valid_from:
+        issues.append(Issue(concept.id, "valid_until precedes valid_from"))
+    if not concept.superseded_by and not (concept.change_note or "").strip():
+        # Never delete, always supersede: an entity that left force either
+        # points at what replaced it or says in writing that nothing did.
+        issues.append(Issue(concept.id, "lapsed concept needs either superseded_by or a change_note"))
+    return issues
+
+
+def _handover_problems(concept: Concept, target: str, successor: Concept) -> list[Issue]:
+    """Whether the successor was actually in force when this concept lapsed.
+
+    G5 repairs a stale assertion by following this pointer, so a successor that
+    had already lapsed, or had not yet begun, turns one validation failure into
+    another.
+    """
+    if concept.valid_until is None:
+        return []
+    issues: list[Issue] = []
+    if successor.valid_until is not None and successor.valid_until <= concept.valid_until:
+        # `valid_until` is inclusive, so a successor lapsing on the same day was
+        # never in force after the handover.
+        issues.append(Issue(concept.id, f"superseded_by '{target}' did not outlast this concept"))
+    # Subtracting rather than incrementing: `valid_until` can be `date.max`,
+    # where adding a day overflows.
+    if successor.valid_from - concept.valid_until > timedelta(days=1):
+        issues.append(
+            Issue(
+                concept.id,
+                f"superseded_by '{target}' only came into force on {successor.valid_from}, "
+                f"leaving a gap after {concept.valid_until}",
+            ),
+        )
     return issues
 
 
@@ -293,6 +320,7 @@ def _check_label_shape(concepts: list[Concept]) -> list[Issue]:
 
 
 def _check_observations(concepts: list[Concept], register_version: date) -> list[Issue]:
+    """Every concept records where it was seen, and every observation says where."""
     issues: list[Issue] = []
     for concept in concepts:
         if not concept.observations:
@@ -300,16 +328,20 @@ def _check_observations(concepts: list[Concept], register_version: date) -> list
         if not concept.in_scope_of:
             issues.append(Issue(concept.id, "is in no guide's scope"))
         for observation in concept.observations:
-            if enum_value(observation.source) == "other" and not (observation.note or "").strip():
-                # `other` means the publisher has no entry of its own, so the
-                # note is the only place the source is named at all.
-                issues.append(Issue(concept.id, f"observation of {observation.url} uses 'other' without naming it"))
-            if observation.observed_on > register_version:
-                issues.append(
-                    Issue(concept.id, f"observed_on {observation.observed_on} is after the register version"),
-                )
-            if not str(observation.url).startswith(("http://", "https://")):
-                issues.append(Issue(concept.id, f"observation url '{observation.url}' is not an absolute URL"))
+            issues.extend(_observation_problems(concept, observation, register_version))
+    return issues
+
+
+def _observation_problems(concept: Concept, observation: Observation, register_version: date) -> list[Issue]:
+    issues: list[Issue] = []
+    if enum_value(observation.source) == "other" and not (observation.note or "").strip():
+        # `other` means the publisher has no entry of its own, so the note is
+        # the only place the source is named at all.
+        issues.append(Issue(concept.id, f"observation of {observation.url} uses 'other' without naming it"))
+    if observation.observed_on > register_version:
+        issues.append(Issue(concept.id, f"observed_on {observation.observed_on} is after the register version"))
+    if not str(observation.url).startswith(("http://", "https://")):
+        issues.append(Issue(concept.id, f"observation url '{observation.url}' is not an absolute URL"))
     return issues
 
 
