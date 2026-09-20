@@ -77,6 +77,54 @@ def options(
     return chosen
 
 
+def _lapse(
+    register: TermRegister,
+    concept: Concept,
+    known: dict[str, Concept],
+) -> dict[str, Any]:
+    """Describe what became of a concept that is no longer in force."""
+    described: dict[str, Any] = {"lapsed_on": concept.valid_until}
+    chain = history.lineage(register, concept.id)[1:]
+    if chain:
+        described["replaced_by"] = [_named(c) for c in chain]
+    # `lineage` stops at a branch rather than picking a successor, so the bodies
+    # the work was split across are named here instead of one of them being
+    # presented as the replacement.
+    split = [known[s] for s in (chain[-1] if chain else concept).superseded_by or [] if s in known]
+    if len(split) > 1:
+        described["split_into"] = [_named(c) for c in split]
+    if concept.change_note:
+        described["what_changed"] = concept.change_note
+    return described
+
+
+def _fact(
+    register: TermRegister,
+    concept: Concept,
+    known: dict[str, Concept],
+    on: date,
+) -> dict[str, Any]:
+    """Describe one concept as of ``on``: what it is, who handles it, whether it stands."""
+    fact: dict[str, Any] = {
+        "id": concept.id,
+        "kind": enum_value(concept.kind),
+        "labels": {"en": concept.pref_label.en, "fi": concept.pref_label.fi, "sv": concept.pref_label.sv},
+        "in_force": history.is_in_force(concept, on),
+    }
+    if concept.definition is not None and concept.definition.en:
+        fact["definition"] = concept.definition.en
+    handled_by = [_named(known[a]) for a in concept.handled_by or [] if a in known]
+    if handled_by:
+        fact["handled_by"] = handled_by
+    if concept.valid_from > on:
+        # Not in force because it has not started yet, which is a different thing
+        # from having lapsed and must not be reported as supersession.
+        fact["in_force_from"] = concept.valid_from
+    elif not fact["in_force"]:
+        fact |= _lapse(register, concept, known)
+    return fact
+
+
 def facts(
     register: TermRegister,
     concept_ids: list[str],
@@ -91,46 +139,41 @@ def facts(
     """
     known = concepts_by_id(register)
     on = reference or date.today()  # noqa: DTZ011 - validity is a calendar question
-    rendered: list[dict[str, Any]] = []
-    for concept_id in concept_ids:
-        concept = known.get(concept_id)
-        if concept is None:
-            continue
-        fact: dict[str, Any] = {
-            "id": concept.id,
-            "kind": enum_value(concept.kind),
-            "labels": {"en": concept.pref_label.en, "fi": concept.pref_label.fi, "sv": concept.pref_label.sv},
-            "in_force": history.is_in_force(concept, on),
-        }
-        if concept.definition is not None and concept.definition.en:
-            fact["definition"] = concept.definition.en
-        handled_by = [_named(known[a]) for a in concept.handled_by or [] if a in known]
-        if handled_by:
-            fact["handled_by"] = handled_by
-        if concept.valid_from > on:
-            # Not in force because it has not started yet, which is a different
-            # thing from having lapsed and must not be reported as supersession.
-            fact["in_force_from"] = concept.valid_from
-        elif not fact["in_force"]:
-            fact["lapsed_on"] = concept.valid_until
-            chain = history.lineage(register, concept.id)[1:]
-            if chain:
-                fact["replaced_by"] = [_named(c) for c in chain]
-            # `lineage` stops at a branch rather than picking a successor, so the
-            # bodies the work was split across are named here instead of one of
-            # them being presented as the replacement.
-            split = [known[s] for s in (chain[-1] if chain else concept).superseded_by or [] if s in known]
-            if len(split) > 1:
-                fact["split_into"] = [_named(c) for c in split]
-            if concept.change_note:
-                fact["what_changed"] = concept.change_note
-        rendered.append(fact)
-    return rendered
+    return [_fact(register, known[i], known, on) for i in concept_ids if i in known]
 
 
 def _names(named: list[dict[str, Any]], language: str) -> str:
     """Render referenced concepts by their label in the answering language."""
     return ", ".join(entry["labels"][language] for entry in named)
+
+
+def _lapse_lines(fact: dict[str, Any], language: str) -> list[str]:
+    """Render what became of a concept that is no longer in force."""
+    # `valid_until` is inclusive: the concept was still in force on that date, so
+    # "since" would put the lapse a day early.
+    lines = [f"    In force through {fact['lapsed_on']}, not after."]
+    if fact.get("replaced_by"):
+        lines.append(f"    Replaced by: {_names(fact['replaced_by'], language)}")
+    if fact.get("split_into"):
+        lines.append(f"    Its work was split across: {_names(fact['split_into'], language)}")
+    if "what_changed" in fact:
+        lines.append(f"    {fact['what_changed']}")
+    return lines
+
+
+def _fact_lines(fact: dict[str, Any], language: str) -> list[str]:
+    """Render one fact as the lines that go in front of a guide."""
+    labels = fact["labels"]
+    lines = [f"- {labels['en']} ({labels['fi']} / {labels['sv']}) [{fact['id']}]"]
+    if "definition" in fact:
+        lines.append(f"    {fact['definition']}")
+    if fact.get("handled_by"):
+        lines.append(f"    Handled by: {_names(fact['handled_by'], language)}")
+    if "in_force_from" in fact:
+        lines.append(f"    Not in force until {fact['in_force_from']}.")
+    elif not fact["in_force"]:
+        lines.extend(_lapse_lines(fact, language))
+    return lines
 
 
 def as_prompt_block(rendered: list[dict[str, Any]], language: str = "en") -> str:
@@ -139,24 +182,4 @@ def as_prompt_block(rendered: list[dict[str, Any]], language: str = "en") -> str
     Plain lines rather than JSON: this is read by a model alongside prose, and
     the register's own structure is not the point at the moment of answering.
     """
-    lines: list[str] = []
-    for fact in rendered:
-        labels = fact["labels"]
-        lines.append(f"- {labels['en']} ({labels['fi']} / {labels['sv']}) [{fact['id']}]")
-        if "definition" in fact:
-            lines.append(f"    {fact['definition']}")
-        if fact.get("handled_by"):
-            lines.append(f"    Handled by: {_names(fact['handled_by'], language)}")
-        if "in_force_from" in fact:
-            lines.append(f"    Not in force until {fact['in_force_from']}.")
-        elif not fact["in_force"]:
-            # `valid_until` is inclusive: the concept was still in force on that
-            # date, so "since" would put the lapse a day early.
-            lines.append(f"    In force through {fact['lapsed_on']}, not after.")
-            if fact.get("replaced_by"):
-                lines.append(f"    Replaced by: {_names(fact['replaced_by'], language)}")
-            if fact.get("split_into"):
-                lines.append(f"    Its work was split across: {_names(fact['split_into'], language)}")
-            if "what_changed" in fact:
-                lines.append(f"    {fact['what_changed']}")
-    return "\n".join(lines)
+    return "\n".join(line for fact in rendered for line in _fact_lines(fact, language))
