@@ -202,7 +202,7 @@ def test_observation_may_not_postdate_the_register_version(register_dict):
 
 def test_observation_url_must_be_absolute(register_dict):
     register_dict["concepts"][0]["observations"][0]["url"] = "/en/residence-permit"
-    assert any("is not an absolute URL" in message for message in messages(register_dict))
+    assert any("not a resolvable http(s) URL" in message for message in messages(register_dict))
 
 
 @pytest.mark.parametrize(
@@ -287,3 +287,15 @@ def test_a_concept_in_force_until_the_maximum_date_does_not_overflow(register_di
     register_dict["concepts"][1]["superseded_by"] = ["permit:first-residence-permit"]
     reported = messages(register_dict)
     assert not [message for message in reported if "leaving a gap" in message]
+
+
+@pytest.mark.parametrize("url", ["https://", "http://", "https:///path", "not-a-url", "ftp://migri.fi"])
+def test_an_observation_url_that_resolves_to_nothing_is_rejected(register_dict, url):
+    """A prefix test passes `https://`, which points at nothing a reader could open."""
+    register_dict["concepts"][0]["observations"][0]["url"] = url
+    assert any("not a resolvable http(s) URL" in message for message in messages(register_dict))
+
+
+def test_a_real_observation_url_is_accepted(register_dict):
+    register_dict["concepts"][0]["observations"][0]["url"] = "http://www.yso.fi/onto/yso/p6463"
+    assert messages(register_dict) == []

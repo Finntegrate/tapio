@@ -17,6 +17,7 @@ from dataclasses import dataclass
 from datetime import date, timedelta
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from tapio_register import paths
 from tapio_register.generated.term_register_model import Concept, Observation, TermRegister
@@ -117,6 +118,7 @@ def _shacl_issues(schema: str, source: dict[str, Any]) -> list[Issue]:
 
 
 def _check_identifiers(concepts: list[Concept]) -> list[Issue]:
+    """Report duplicate ids, and ids whose prefix does not match the concept's kind."""
     issues: list[Issue] = []
     seen: set[str] = set()
     for concept in concepts:
@@ -142,6 +144,7 @@ def _check_references(concepts: list[Concept], known: dict[str, Concept]) -> lis
 
 
 def _unresolved_references(concept: Concept, known: dict[str, Concept]) -> list[Issue]:
+    """Report pointers that name nothing in the register, or that name their own concept."""
     issues: list[Issue] = []
     for slot in _REFERENCE_SLOTS:
         for target in getattr(concept, slot) or []:
@@ -153,6 +156,7 @@ def _unresolved_references(concept: Concept, known: dict[str, Concept]) -> list[
 
 
 def _bad_authorities(concept: Concept, known: dict[str, Concept]) -> list[Issue]:
+    """Report a ``handled_by`` that is not an organization, or was never in force alongside."""
     issues: list[Issue] = []
     for target in concept.handled_by or []:
         handler = known.get(target)
@@ -185,6 +189,7 @@ def _check_validity(concepts: list[Concept], known: dict[str, Concept]) -> list[
 
 
 def _lapse_problems(concept: Concept) -> list[Issue]:
+    """Report a lapse that is misdated, or that neither points at a successor nor explains itself."""
     issues: list[Issue] = []
     if concept.valid_until is not None and concept.valid_until < concept.valid_from:
         issues.append(Issue(concept.id, "valid_until precedes valid_from"))
@@ -333,6 +338,7 @@ def _check_observations(concepts: list[Concept], register_version: date) -> list
 
 
 def _observation_problems(concept: Concept, observation: Observation, register_version: date) -> list[Issue]:
+    """Report an observation that names no publisher, postdates the edition, or cannot be opened."""
     issues: list[Issue] = []
     if enum_value(observation.source) == "other" and not (observation.note or "").strip():
         # `other` means the publisher has no entry of its own, so the note is
@@ -340,9 +346,20 @@ def _observation_problems(concept: Concept, observation: Observation, register_v
         issues.append(Issue(concept.id, f"observation of {observation.url} uses 'other' without naming it"))
     if observation.observed_on > register_version:
         issues.append(Issue(concept.id, f"observed_on {observation.observed_on} is after the register version"))
-    if not str(observation.url).startswith(("http://", "https://")):
-        issues.append(Issue(concept.id, f"observation url '{observation.url}' is not an absolute URL"))
+    if not _is_resolvable_url(str(observation.url)):
+        issues.append(Issue(concept.id, f"observation url '{observation.url}' is not a resolvable http(s) URL"))
     return issues
+
+
+def _is_resolvable_url(url: str) -> bool:
+    """Whether a URL names something a reader could actually open.
+
+    A prefix test is not enough: the bare string ``https://`` starts with the
+    scheme and points at nothing. Provenance that cannot be followed is not
+    provenance, so the host has to be there too.
+    """
+    parsed = urlparse(url)
+    return parsed.scheme in {"http", "https"} and bool(parsed.netloc)
 
 
 def check_publication(register: TermRegister) -> list[Issue]:
