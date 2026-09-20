@@ -323,10 +323,10 @@ Then return to the repository root and run `mise run ingest -- --site migri`.
 
 ## Package Management
 
-`crawler/`, `ingest/`, and `backend/` each have their own `pyproject.toml` and are managed independently with [`uv`](https://docs.astral.sh/uv/) — there's no root Python project, so run these from within the relevant service directory:
+`crawler/`, `ingest/`, `backend/`, and `register/` each have their own `pyproject.toml` and are managed independently with [`uv`](https://docs.astral.sh/uv/) — there's no root Python project, so run these from within the relevant service directory:
 
 ```bash
-cd backend            # or crawler, or ingest
+cd backend            # or crawler, ingest, or register
 uv add <package-name>
 uv sync                # synchronize that service's dependencies from its lockfile
 ```
@@ -369,6 +369,8 @@ uv run --directory ingest mypy tapio_ingest
 uv run --directory ingest pyrefly check
 uv run --directory backend mypy --config-file mypy.ini app
 uv run --directory backend pyrefly check
+uv run --directory register mypy --config-file mypy.ini tapio_register
+uv run --directory register pyrefly check tapio_register
 ```
 
 ### Pre-commit Hooks (prek)
@@ -399,15 +401,16 @@ npm run lint --prefix app
 
 ### Running Tests
 
-Each service (`crawler/`, `ingest/`, `backend/`) has its own test suite. When adding features, always include appropriate tests. Run a service's tests from its directory:
+Each service (`crawler/`, `ingest/`, `backend/`, `register/`) has its own test suite. When adding features, always include appropriate tests. Run a service's tests from its directory:
 
 ```bash
 uv run --directory crawler pytest
 uv run --directory ingest pytest
 uv run --directory backend pytest
+uv run --directory register pytest
 ```
 
-Or via `mise` from the repo root: `mise run test:crawl`, `mise run test:ingest`, `mise run test:backend`.
+Or via `mise` from the repo root: `mise run test:crawl`, `mise run test:ingest`, `mise run test:backend`, `mise run test:register`.
 
 ### Code Coverage
 
@@ -477,6 +480,10 @@ The repository is a monorepo of independently-managed projects (see [ADR 0002](d
   - `retrieval.py`, `factories.py`: Vector-store client and dependency wiring
   - `routes/`, `main.py`, `streaming.py`, `schemas.py`: The FastAPI application itself
 - `app/`: The SvelteKit chat client that calls `backend/`
+- `register/`: The versioned term register — the closed-world set of entities a guide answer may name, and the time-indexed record of how the Finnish immigration system changes (see [ADR 0007](docs/ADRs/0007-ontological-harness.md) and [register/README.md](register/README.md)). Within `register/tapio_register/`:
+  - `schema/`: The LinkML schema every other artifact is generated from
+  - `data/register.yaml`: The curated register, hand-reviewed with per-concept provenance
+  - `generated/`: Pydantic classes, JSON Schema, and SHACL shapes derived from the schema
 - `tests/` (within each project): Test suite for that project's modules
 
 ## Programmatic API

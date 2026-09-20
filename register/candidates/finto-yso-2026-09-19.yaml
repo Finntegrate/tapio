@@ -1,0 +1,89 @@
+harvested_on: '2026-09-19'
+source: finto:yso
+api: https://api.finto.fi/rest/v1
+queries:
+- oleskelulupa
+- viisumi
+- turvapaikka
+- pakolainen
+- kansalaisuus
+- maahanmuutto
+- karkottaminen
+- työlupa
+- perheenyhdistäminen
+- henkilötunnus
+note: Candidates only. Nothing here is part of the register until a person moves it
+  into tapio_register/data/register.yaml with its own observation provenance.
+candidates:
+- uri: http://www.yso.fi/onto/yso/p6463
+  vocabulary: yso
+  matched_query: oleskelulupa
+  pref_label:
+    en: residence permits
+    fi: oleskeluluvat
+    sv: uppehållstillstånd
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p16593
+  vocabulary: yso
+  matched_query: viisumi
+  pref_label:
+    en: visas
+    fi: viisumit
+    sv: visum
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p6458
+  vocabulary: yso
+  matched_query: pakolainen
+  pref_label:
+    en: refugees
+    fi: pakolaiset
+    sv: flyktingar
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p2736
+  vocabulary: yso
+  matched_query: kansalaisuus
+  pref_label:
+    en: citizenship
+    fi: kansalaisuus
+    sv: medborgarskap
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p14542
+  vocabulary: yso
+  matched_query: maahanmuutto
+  pref_label:
+    en: immigration
+    fi: maahanmuutto
+    sv: invandring
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p10321
+  vocabulary: yso
+  matched_query: työlupa
+  pref_label:
+    en: work permits
+    fi: työluvat
+    sv: arbetstillstånd
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p24177
+  vocabulary: yso
+  matched_query: perheenyhdistäminen
+  pref_label:
+    en: family reunification
+    fi: perheenyhdistäminen
+    sv: familjeåterförening
+  alt_labels: {}
+  reviewed: false
+- uri: http://www.yso.fi/onto/yso/p16456
+  vocabulary: yso
+  matched_query: henkilötunnus
+  pref_label:
+    en: personal identification numbers
+    fi: henkilötunnukset
+    sv: personbeteckningar
+  alt_labels: {}
+  reviewed: false

@@ -18,12 +18,28 @@ jobs:
           - service: crawler
             package: tapio_crawler
             mypy_args: --config-file mypy.ini tapio_crawler
+            sync_args: --no-build
           - service: ingest
             package: tapio_ingest
             mypy_args: tapio_ingest
+            sync_args: --no-build
           - service: backend
             package: app
             mypy_args: --config-file mypy.ini app
+            sync_args: --no-build
+          - service: register
+            package: tapio_register
+            mypy_args: --config-file mypy.ini tapio_register
+            # Empty rather than --no-build, unlike the services above. This is
+            # a deliberate exception, not an inconsistency to tidy up: --no-build
+            # is a supply-chain control, since allowing an sdist means a build
+            # backend executes at install time. LinkML depends on
+            # antlr4-python3-runtime, which PyPI carries as an sdist only, so
+            # this leg cannot install at all under the flag. The package is the
+            # ANTLR project's own runtime, which is why the exception is
+            # acceptable here and should not be widened without the same
+            # judgement being made again.
+            sync_args: ""
     defaults:
       run:
         working-directory: ${{ matrix.service }}
@@ -44,18 +60,23 @@ jobs:
           python-version: "3.14"
 
       - name: Install locked dependencies
-        run: uv sync --locked --all-groups --no-build --no-install-project
+        run: uv sync --locked --all-groups ${{ matrix.sync_args }} --no-install-project
 
       # Each check below is continue-on-error so a lint failure doesn't hide a
       # separate type-check or test failure -- the report job surfaces all of
       # them together, and "Fail if any check failed" at the end of this job
       # still turns the job (and its matrix leg) red.
+      # Both the linter and the formatter, because prek runs both and a commit
+      # made without it would otherwise land formatting CI never checked.
       - name: Lint
         id: ruff
         continue-on-error: true
         run: |
           set -o pipefail
-          uv run --no-sync --no-build ruff check . 2>&1 | tee /tmp/ruff-output.txt
+          status=0
+          uv run --no-sync ${{ matrix.sync_args }} ruff check . 2>&1 | tee /tmp/ruff-output.txt || status=1
+          uv run --no-sync ${{ matrix.sync_args }} ruff format --check . 2>&1 | tee -a /tmp/ruff-output.txt || status=1
+          exit "$status"
 
       - name: Capture lint output
         id: ruff-summary
@@ -73,7 +94,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          uv run --no-sync --no-build mypy ${{ matrix.mypy_args }} 2>&1 | tee /tmp/mypy-output.txt
+          uv run --no-sync ${{ matrix.sync_args }} mypy ${{ matrix.mypy_args }} 2>&1 | tee /tmp/mypy-output.txt
 
       - name: Capture type check output
         id: mypy-summary
@@ -91,7 +112,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          uv run --no-sync --no-build pyrefly check 2>&1 | tee /tmp/pyrefly-output.txt
+          uv run --no-sync ${{ matrix.sync_args }} pyrefly check 2>&1 | tee /tmp/pyrefly-output.txt
 
       - name: Capture pyrefly output
         id: pyrefly-summary
@@ -109,7 +130,7 @@ jobs:
         continue-on-error: true
         run: |
           set -o pipefail
-          uv run --no-sync --no-build pytest -q --cov=${{ matrix.package }} --cov-fail-under=80 2>&1 | tee /tmp/pytest-output.txt
+          uv run --no-sync ${{ matrix.sync_args }} pytest -q --cov=${{ matrix.package }} --cov-fail-under=80 2>&1 | tee /tmp/pytest-output.txt
 
       - name: Capture test output
         id: pytest-summary
@@ -151,7 +172,7 @@ jobs:
             '{
               service: $service,
               checks: {
-                "ruff (lint)": {outcome: $ruff_outcome, output: $ruff_output, fix: "uv run --directory \($service) ruff check ."},
+                "ruff (lint)": {outcome: $ruff_outcome, output: $ruff_output, fix: "uv run --directory \($service) ruff check . && uv run --directory \($service) ruff format ."},
                 "mypy": {outcome: $mypy_outcome, output: $mypy_output, fix: "uv run --directory \($service) mypy \($mypy_args)"},
                 "pyrefly": {outcome: $pyrefly_outcome, output: $pyrefly_output, fix: "uv run --directory \($service) pyrefly check"},
                 "pytest + coverage": {outcome: $pytest_outcome, output: $pytest_output, fix: "uv run --directory \($service) pytest --cov=\($package) --cov-fail-under=80"}
@@ -284,7 +305,7 @@ jobs:
             const path = require('path');
 
             const resultsDir = 'results';
-            const serviceOrder = ['crawler', 'ingest', 'backend', 'app'];
+            const serviceOrder = ['crawler', 'ingest', 'register', 'backend', 'app'];
             const results = fs.existsSync(resultsDir)
               ? fs.readdirSync(resultsDir)
                   .map((dir) => path.join(resultsDir, dir, 'result.json'))

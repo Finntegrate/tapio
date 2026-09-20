@@ -70,7 +70,7 @@ This also gives a partial answer to the open question in PRD §11 about whether 
 
 Guardrail classification runs in `backend/app/streaming.py`, ahead of the graph. The compiled graph in `graph/orchestrator_graph.py` is linear:
 
-```
+```text
 START -> route -> retrieve -> generate -> END
 ```
 
@@ -78,7 +78,7 @@ START -> route -> retrieve -> generate -> END
 
 `route` and `retrieve` are unchanged. One node is added ahead of them, and the existing `generate` node splits: the commitments it used to make implicitly in prose become `plan`, the prose itself becomes `render`, and `validate` sits between the two with `repair` and `degrade` on the failure edge.
 
-```
+```text
 (guardrail classification, existing, in streaming.py)
   `-- matches --> guardrail response, no retrieval --> END
   `-- no match --> the graph below
@@ -278,7 +278,7 @@ Reproducibility is genuinely useful. If an answer is wrong, knowing which corpus
 
 What is not needed is binding that record to a person. So: a content-addressed provenance record, keyed to the answer rather than the user.
 
-```
+```json
 {
   "corpus_snapshot": "sha256:...",
   "register_version": "2026-09-19",
@@ -333,6 +333,15 @@ Four requirements, all cheap if adopted early and expensive if bolted on later.
 2. **Every concept carries `validFrom`, `validUntil`, and `supersededBy`.** Tapio only reads `validUntil` today. The other two cost nothing to record and are the entire time dimension.
 3. **Every assertion carries observation provenance**: which source said this, at what URL, observed on what date. This is what separates a dataset from an opinion, and it is also what lets a reader judge coverage.
 4. **Release the register as dated, immutable versions**, not a rolling file. `2026-09-19` is citable; `main` is not. This is also what the provenance record in §6 already references as `register_version`, so the two mechanisms are one mechanism.
+
+**Where an edition lives.** The repository holds the curated source and, per edition, a manifest: the version, the coverage caveat, a coverage summary, and a SHA-256 digest per payload file. The payload itself — the SKOS serializations and the source snapshot — is built from the source by the release command and is not committed, because a register whose every three-line concept change arrives as a fourteen-thousand-line diff is one that stops being reviewed and therefore stops being maintained.
+
+This costs nothing in integrity, provided two properties hold, and both are enforced rather than assumed:
+
+- **The serializations are reproducible.** The same source always produces the same bytes, so a digest identifies an edition rather than one machine's rendering of it. Blank nodes are therefore out: observations carry IRIs, which also makes them citable. Any serializer whose output order is not stable is re-emitted in canonical order.
+- **The current edition is rebuilt and checked in CI.** A register edited without bumping its version, a manifest edited by hand, and a change that breaks reproducibility all fail the same check.
+
+Reconstructing an older edition means reading its source snapshot from the commit that added its manifest, which is what git is for. Publication (§7.5) is where the payload gets a durable home outside the repository.
 
 ### 7.5 Publication and two caveats
 
@@ -602,7 +611,7 @@ The one deliberate dependency addition is LinkML plus pySHACL plus rdflib. Every
 
 ## 14. Sources
 
-- Finto API documentation, National Library of Finland: https://api.finto.fi/
-- YSO General Finnish Ontology: https://finto.fi/yso/en/
-- Terminologies service, Interoperability platform, DVV: https://sanastot.suomi.fi/en/site-information
-- Suomi.fi Service Catalogue (PTV), per the grounding-sources research: https://kehittajille.suomi.fi/
+- Finto API documentation, National Library of Finland: <https://api.finto.fi/>
+- YSO General Finnish Ontology: <https://finto.fi/yso/en/>
+- Terminologies service, Interoperability platform, DVV: <https://sanastot.suomi.fi/en/site-information>
+- Suomi.fi Service Catalogue (PTV), per the grounding-sources research: <https://kehittajille.suomi.fi/>

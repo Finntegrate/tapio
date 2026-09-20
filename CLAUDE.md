@@ -10,19 +10,29 @@ Tapio is an AI-powered Finnish immigration assistant built by the Finntegrate pr
 - **Orchestration**: LangGraph `StateGraph` (routing → retrieval → specialist generation, `backend/app/graph/`); checkpointing (#16) and tool-wrapped retrieval (#18) not yet done
 - **Backend**: FastAPI (`backend/`), owns the RAG/agent orchestration and exposes it over HTTP/SSE
 - **UI**: SvelteKit (`app/`); the earlier Gradio prototype has been retired (see ADR 0006)
+- **Term register**: LinkML-defined SKOS register in `register/`, released as dated editions; the artifact the ontological harness validates answers against (ADR 0007)
 - **Task runner**: mise (`mise.toml` at project root)
 - **Package manager**: uv
 - **CI target**: GitHub Actions + Codespaces
 
-## Agents (planned)
+## The guide network
 
-| Name      | Role                                               |
-| --------- | -------------------------------------------------- |
-| Tapio     | Orchestrator — routes queries, synthesises answers |
-| Ilmarinen | Immigration documents and forms                    |
-| Sampo     | Financial requirements and costs                   |
-| Rauni     | Work permits and employment                        |
-| Otso      | Settlement and daily life                          |
+The public roster at [finntegrate.org/tapio](https://finntegrate.org/tapio/) is canonical and [PRD §6](docs/PRD.md#6-the-guide-network) mirrors it, so this table is a copy and never the place to change a guide's scope. `register/tests/test_guide_scope.py` fails when it drifts from the PRD or from the register's own `in_scope_of` markings.
+
+| Guide | In scope | Status |
+| --- | --- | --- |
+| **Tapio** | Clarification, routing between guides, handoffs, cross-guide summaries | Live |
+| **Ilmarinen** | Residence permits, visas, applications, official paperwork | Live |
+| **Sampo** | Job seeking, networking, career pathways, workplace culture | Live |
+| **Rauni** | Kela, social security, benefits, family support | Live |
+| **Otso** | Housing, rental agreements, tenant rights, settlement | Live |
+| **Pellervo** | Entrepreneurship, business establishment, regulations | Planned |
+| **Agricola** | Language learning, education, qualification recognition | Planned |
+| **Louhi** | Finnish customs, holidays, social norms, etiquette | Planned |
+| **Mielikki** | Healthcare navigation, medical services, insurance | Planned |
+| **Lempi** | Mental health resources, community connections | Planned |
+| **Ahti** | Transportation, utilities, banking, daily logistics | Planned |
+| **Kokko** | Regional information, local resources, community guidance | Planned |
 
 ## Backlog awareness
 
@@ -88,6 +98,9 @@ Skills in `.claude/skills/` are automatically available as slash commands when t
 | `.claude/skills/create-issue/SKILL.md`    | Source for `/create-issue`                               |
 | `.claude/skills/backlog/SKILL.md`         | Source for `/backlog`                                    |
 | `.claude/skills/retro/SKILL.md`           | Source for `/retro`                                      |
+| `register/tapio_register/schema/term_register.yaml` | LinkML schema the register's Pydantic, JSON Schema, and SHACL artifacts are generated from |
+| `register/tapio_register/data/register.yaml` | The curated term register, hand-reviewed with per-concept provenance |
+| `register/releases/<date>/`               | Dated, immutable editions, published as SKOS |
 | `mise.toml`                               | Task runner targets (`mise run <task>`)                  |
 
 ## Conventions
