@@ -249,7 +249,7 @@ class SourceId(str, Enum):
 
 class TermRegister(ConfiguredBaseModel):
     """
-    One dated, immutable edition of the register. Concepts are never removed between editions: an entity that leaves force gains a ``valid_until`` and a ``superseded_by`` pointer instead (ADR 0007, decision 5).
+    One dated, immutable edition of the register. Concepts are never removed between editions: an entity that leaves force gains a ``valid_until`` and a ``superseded_by`` pointer instead (ADR 0007: never delete, always supersede).
     """
     linkml_meta: ClassVar[LinkMLMeta] = LinkMLMeta({'from_schema': 'https://tapio.finntegrate.org/schema/term-register',
          'tree_root': True})

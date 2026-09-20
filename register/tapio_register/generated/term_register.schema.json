@@ -337,7 +337,7 @@
     },
     "TermRegister": {
       "additionalProperties": false,
-      "description": "One dated, immutable edition of the register. Concepts are never removed between editions: an entity that leaves force gains a ``valid_until`` and a ``superseded_by`` pointer instead (ADR 0007, decision 5).",
+      "description": "One dated, immutable edition of the register. Concepts are never removed between editions: an entity that leaves force gains a ``valid_until`` and a ``superseded_by`` pointer instead (ADR 0007: never delete, always supersede).",
       "properties": {
         "concepts": {
           "items": {
@@ -383,7 +383,7 @@
   "$id": "https://tapio.finntegrate.org/schema/term-register",
   "$schema": "https://json-schema.org/draft/2019-09/schema",
   "additionalProperties": false,
-  "description": "One dated, immutable edition of the register. Concepts are never removed between editions: an entity that leaves force gains a ``valid_until`` and a ``superseded_by`` pointer instead (ADR 0007, decision 5).",
+  "description": "One dated, immutable edition of the register. Concepts are never removed between editions: an entity that leaves force gains a ``valid_until`` and a ``superseded_by`` pointer instead (ADR 0007: never delete, always supersede).",
   "metamodel_version": "1.11.0",
   "properties": {
     "concepts": {

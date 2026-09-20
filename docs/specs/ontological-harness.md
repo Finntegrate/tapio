@@ -6,7 +6,7 @@
 
 **Owner:** Finntegrate
 
-**Related:** [ADR 0007: constrain guide answers with an ontological harness](../ADRs/0007-ontological-harness.md), [PRD §7.2 proactive guidance](../PRD.md#72-proactive-guidance), [PRD §7.3 grounded answers and sources](../PRD.md#73-grounded-answers-and-sources), [PRD §6 the guide network](../PRD.md#6-the-guide-network), [guardrails policy](guardrails.md), [guide network grounding sources](../research/guide-network-grounding-sources.md), issues [#15](https://github.com/Finntegrate/tapio/issues/15), [#26](https://github.com/Finntegrate/tapio/issues/26), [#27](https://github.com/Finntegrate/tapio/issues/27), [#33](https://github.com/Finntegrate/tapio/issues/33), [#119](https://github.com/Finntegrate/tapio/issues/119)
+**Related:** [ADR 0007: constrain guide answers with a deterministic harness](../ADRs/0007-ontological-harness.md), [PRD §7.2 proactive guidance](../PRD.md#72-proactive-guidance), [PRD §7.3 grounded answers and sources](../PRD.md#73-grounded-answers-and-sources), [PRD §6 the guide network](../PRD.md#6-the-guide-network), [guardrails policy](guardrails.md), [guide network grounding sources](../research/guide-network-grounding-sources.md), issues [#15](https://github.com/Finntegrate/tapio/issues/15), [#26](https://github.com/Finntegrate/tapio/issues/26), [#27](https://github.com/Finntegrate/tapio/issues/27), [#33](https://github.com/Finntegrate/tapio/issues/33), [#119](https://github.com/Finntegrate/tapio/issues/119)
 
 ---
 

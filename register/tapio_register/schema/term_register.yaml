@@ -41,7 +41,7 @@ classes:
     description: >-
       One dated, immutable edition of the register. Concepts are never removed
       between editions: an entity that leaves force gains a ``valid_until`` and a
-      ``superseded_by`` pointer instead (ADR 0007, decision 5).
+      ``superseded_by`` pointer instead (ADR 0007: never delete, always supersede).
     attributes:
       register_version:
         description: >-
