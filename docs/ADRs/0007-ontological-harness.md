@@ -81,6 +81,10 @@ Determinism belongs on the check, not on the reading. An interpreter reporting c
 
 **9. The register earns its scope.** It starts at the smallest set of concepts that lets one guide answer, and grows only where use shows the coverage is needed. Tapio is built by two part-time engineers and occasional contributors; a curated artifact that outgrows the attention available to maintain it fails in the way that matters most, by rejecting correct answers on the basis of stale curation.
 
+**10. Context first, checks when measurement warrants them.** The cheapest way to stop a guide naming a dissolved office is to put the current fact in front of the model, not to catch the claim afterwards. So the first increment is input-side: classify what is being asked, select the concepts it concerns, and hand the answering guide those facts to generate against. Validating an answer's commitments at runtime is a later increment, because it requires the model to emit a typed plan before its prose, and that is where nearly all the machinery lives.
+
+The failures in the table remain the things to prevent. Prevention is simply cheaper than detection, and cheaper is what a small team can sustain. What keeps prevention honest is measurement rather than a gate: record which concepts were supplied and check offline whether answers stayed inside them ([#27](https://github.com/Finntegrate/tapio/issues/27)). If they do not, the checks are then justified by evidence rather than by this table's plausibility.
+
 **We do not adopt** description-logic reasoning, a decoupled policy engine, or signed evidence bundles. The first answers a question the failure table does not ask, since every check is decidable without inference. The second is machinery for a permission surface small enough to read. The third is directly contrary to PRD §5: a per-turn signed record binding a question to an asker is a hazard for people whose safety depends on no such record existing. Reproducibility is served instead by a content-addressed record of system state, carrying no user identifier, no query text, and no signature.
 
 This work is assigned to milestone 2.1.0 and precedes further guide development.
@@ -89,7 +93,7 @@ This work is assigned to milestone 2.1.0 and precedes further guide development.
 
 ### Positive
 
-- Failures 1 through 5 become structurally impossible rather than statistically rare. A guide cannot assert an entity that does not exist, direct someone to a dissolved body, pair a matter with the wrong authority, cite a source it did not retrieve, or answer outside its remit without that being caught.
+- Failures 1 through 5 become preventable at the point they arise, because the guide generates against current facts rather than against whatever the corpus happened to contain. Where prevention is not enough, each of them remains checkable by set membership or a date comparison, which is what makes the later increment cheap to add.
 - Administrative change is corrected where it is tractable: a supersession is one row applied in hours, rather than a wait for recrawl and reindex.
 - One artifact serves four planned pieces of work. The register's labels **are** the glossary of [#119](https://github.com/Finntegrate/tapio/issues/119); scope and routing under ADR 0005 and #154 need its concept sets; cross-language retrieval ([#26](https://github.com/Finntegrate/tapio/issues/26)) needs its labels; the evaluation set of [#27](https://github.com/Finntegrate/tapio/issues/27) needs stable identifiers to assert against.
 - Proactive guidance becomes attemptable, because a suggestion is a traversal of asserted relations that cleared both questions in principle 4 rather than a generation.
