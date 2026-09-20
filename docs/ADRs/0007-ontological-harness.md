@@ -39,6 +39,12 @@ The rates are mismatched. Administrative change lands on the day a law takes eff
 
 PRD §7.2 plans unrequested next steps. Answering a question badly and volunteering a wrong next step to someone working against a permit deadline are different risk classes. The second is not safely buildable on free generation.
 
+### Balance, not constraint
+
+A generative model is good at associative work: reading a confused, misspelled, code-switched question, working out what is being asked, and answering warmly in the reader's own language. It is weaker at holding a stable, organized picture of which permits exist, who administers them, and which office closed last January. That is not a reasoning failure. It is the absence of a world model.
+
+This decision adds one and checks answers against it. In the System 1 and System 2 shorthand: fast, structured judgment over an organized picture of the domain, working beside the model's slower creative reasoning rather than in place of it. The aim is a guide that stays fluent about language while being exact about facts — which is the outcome that matters, an answer someone can act on that does not send them to an office that closed.
+
 ### What the reference architecture is for
 
 The neuro-symbolic harness in the source research — constrained decoding, a closed-world vocabulary gate, description-logic reasoning, a decoupled policy engine, signed evidence bundles — is built for agents that execute transactions and defend them under regulatory audit.
