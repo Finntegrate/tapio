@@ -107,13 +107,13 @@ The graph itself is unchanged in kind. Resolved concepts and `situation` live in
 
 The provider abstraction added in #143 helps here rather than complicating it. Because the pipeline depends on `BaseChatModel` rather than a specific client, `with_structured_output` is available uniformly across the configured providers, so the plan node does not become provider-specific. What does differ is the mechanism underneath: Ollama constrains generation with a JSON-schema grammar, while the hosted providers use their own structured-output paths. The guarantee is comparable, the failure behavior on an awkward schema is not, which is one more reason to keep the plan schema flat (§9.3) and to validate it against whichever provider a deployment actually uses rather than only against the default.
 
-**validate** is pure Python plus pySHACL, no model call, and therefore deterministic and fast.
+**validate** is pure Python, no model call, and therefore deterministic and fast.
 
 **repair** gets exactly one attempt. See §5.
 
 ### 3.3 The answer plan
 
-Sketched as LinkML, which compiles to the Pydantic classes the codebase already uses, the JSON Schema that constrains the Ollama call, and the SHACL shapes the validator runs. One source, three generated artifacts, no drift between them.
+Sketched as LinkML, which compiles to the Pydantic classes the codebase already uses and the JSON Schema that constrains generation. One source, two generated artifacts, no drift between them.
 
 ```yaml
 id: https://tapio.finntegrate.org/schema/answer-plan
@@ -228,13 +228,13 @@ Seven checks, ordered cheapest first, all deterministic.
 | --- | --- | --- | --- |
 | G1 Vocabulary | Every IRI in `about`, `authority`, `step`, `because`, `concept` exists in the register | Set membership against the loaded register | Repairable |
 | G2 Citation | Every `cites` value is a chunk id from this turn's retrieval set; every `Claim` has at least one | Set membership against graph state | Repairable |
-| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | SHACL, one shape per guide, generated from the register | Repairable |
-| G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | SHACL `sh:class` and path constraints | Repairable |
+| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | Set intersection against the guide's concept set | Repairable |
+| G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | Lookup of each concept's `kind`, and of the relations the register records | Repairable |
 | G5 Currency | Every concept is in force at the claim's reference date, per the rules below | Date comparison plus `supersededBy` lookup | Repairable, often auto-repairable |
 | G6 Citation binding | `Claim.text` contains no URL absent from that claim's `cites` | URL scan against the claim's allowed set | Repairable |
 | G7 Stated evidence | Every `SituationItem` with `basis: stated` carries an `evidence` span resolving to text the person actually wrote | Offset lookup against conversation history | Not repairable by the model; demote to `inferred` |
 
-G1, G2, G6, and G7 are plain Python operations and belong in Python, not SHACL. G2 and G6 in particular are parameterized by the turn, so expressing them as SHACL would mean generating a shape per request for no benefit. G3, G4, and G5 are static per guide and per register version, so they compile once at startup and belong in SHACL where they are declarative and reviewable.
+Every gate is a plain Python operation over the register and the turn's state: set membership, set intersection, a lookup of a concept's kind, a date comparison, and for G2 and G6 a scan of a closed set the turn itself produced. None of them needs a shape language, and a register small enough to hold in memory does not need a graph store to query.
 
 **G3 and handoffs.** A `handoff` is a narrow licence, not a blanket one. A concept outside the answering guide's scope is permitted only when a handoff is present *and* that concept falls within `handoff.to_guide`'s own scope set. Otherwise emitting a handoff would let a guide assert anything at all, which is the opposite of what the gate is for: Otso handing off to Rauni may say that housing benefit is Kela's, not that a residence permit works a particular way. The handoff's `reason` and target guide are unaffected and still shown to the user; only what may be asserted alongside it is bounded.
 
@@ -592,16 +592,15 @@ Per `CLAUDE.md`, scan the open backlog before creating anything: several of thes
 
 | Role | Choice | Note |
 | --- | --- | --- |
-| Schema source of truth | **LinkML** | One YAML generates Pydantic, JSON Schema, SHACL, and OWL. Python-native, fits the existing uv and Pydantic setup. |
+| Schema source of truth | **LinkML** | One YAML generates the Pydantic classes and the JSON Schema. It earns its place only while that is true; if it stops being true, the schema becomes a plain Pydantic module and the data is untouched. |
 | Constrained generation | **`BaseChatModel.with_structured_output`** | Already in `guardrails/llm_classifier.py`, and provider-independent since #143. No new dependency. |
 | Graph handling | **rdflib** | In-memory is fine at this size. Do not reach for a triplestore before the register outgrows a dict. |
-| Shape validation | **pySHACL** | Compile shapes once at startup, not per request. |
 | Entity resolution | **The model, in `plan`** | A concept is named by the model and checked by G1. No matcher, no lexicon of inflected forms. |
 | Graph store | **Not yet.** pyoxigraph if the register outgrows memory | Deliberately deferred. |
 | DL reasoner | **None** | See §4. |
 | Policy engine | **None** | See §4. |
 
-The one deliberate dependency addition is LinkML plus pySHACL plus rdflib. Everything else is already present or explicitly declined.
+The deliberate dependency additions are LinkML and rdflib. Everything else is already present or explicitly declined.
 
 ## 13. Open questions
 

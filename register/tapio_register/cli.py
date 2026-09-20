@@ -45,19 +45,19 @@ def _echo_issues(label: str, issues: list[str]) -> None:
 @app.command()
 def validate(
     source: Annotated[Path | None, typer.Option("--source", help="Register source to validate.")] = None,
-    skip_shapes: Annotated[
+    skip_schema: Annotated[
         bool,
-        typer.Option("--skip-shapes", help="Skip the JSON Schema and SHACL pass, which is the slow one."),
+        typer.Option("--skip-schema", help="Skip the JSON Schema pass."),
     ] = False,
 ) -> None:
-    """Check the register against the schema, the shapes, the integrity rules, and the published SKOS."""
+    """Check the register against the schema, the integrity rules, and the published SKOS."""
     register = loading.load_register(source)
-    schema_issues = [] if skip_shapes else [str(issue) for issue in validation.check_schema(source)]
+    schema_issues = [] if skip_schema else [str(issue) for issue in validation.check_schema(source)]
     integrity_issues = [str(issue) for issue in validation.check_integrity(register)]
     publication_issues = [str(issue) for issue in validation.check_publication(register)]
     continuity_issues = releasing.check_continuity(register)
-    if not skip_shapes:
-        _echo_issues("Schema and shape violations", schema_issues)
+    if not skip_schema:
+        _echo_issues("Schema violations", schema_issues)
     _echo_issues("Integrity violations", integrity_issues)
     _echo_issues("Publication violations", publication_issues)
     _echo_issues("Continuity violations", continuity_issues)
@@ -82,7 +82,7 @@ def generate(
         typer.Option("--check", help="Report whether the checked-in artifacts are current instead of rewriting them."),
     ] = False,
 ) -> None:
-    """Derive the Pydantic classes, JSON Schema, and SHACL shapes from the LinkML schema."""
+    """Derive the Pydantic classes and JSON Schema from the LinkML schema."""
     if check:
         stale = generation.check_generated_is_current()
         if stale:

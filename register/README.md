@@ -20,8 +20,8 @@ register rather than starting new ones.
 | Path | What it is |
 | --- | --- |
 | `tapio_register/schema/term_register.yaml` | The LinkML schema. The single source of truth. |
-| `tapio_register/data/register.yaml` | The curated register source, reviewed by a person. |
-| `tapio_register/generated/` | Pydantic classes, JSON Schema, and SHACL shapes, all derived from the schema. Never hand-edited. |
+| `tapio_register/data/` | The curated register: `edition.yaml` for the edition's own metadata, and one file per kind of concept. A concept's id prefix says which file it belongs in, and the loader refuses a concept filed under the wrong kind. |
+| `tapio_register/generated/` | Pydantic classes and JSON Schema, both derived from the schema. Never hand-edited. |
 | `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into `register.yaml`. |
 | `releases/<date>/manifest.json` | One dated, immutable edition: its coverage summary and a SHA-256 digest per payload file. |
 
@@ -48,7 +48,9 @@ re-emitted in canonical order), so `tapio-register verify-releases` rebuilds the
 edition the source names and checks it against the recorded digests. That one
 check catches a register edited without a version bump, a hand-edited manifest,
 and any change that breaks reproducibility. To reconstruct an older edition,
-read its `register.yaml` from the commit that added its manifest.
+check out the commit that wrote its manifest and run `register:release`. The
+cross-edition check does not need that: each manifest records its own concept
+ids, so a later edition can prove nothing was dropped from a manifest alone.
 
 `--overwrite` is the one way an edition can change identity while keeping its
 version. It exists for correcting an edition that has not been merged, it names

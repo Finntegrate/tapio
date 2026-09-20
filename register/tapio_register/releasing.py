@@ -19,7 +19,6 @@ them.
 import hashlib
 import json
 import shutil
-import subprocess
 import tempfile
 from dataclasses import dataclass
 from datetime import date
@@ -155,6 +154,9 @@ def write_release(
             "license": register.license,
             "coverage_caveat": register.coverage_caveat,
             "summary": summary,
+            # Recorded so a later edition can check that nothing was dropped
+            # without needing this edition's payload to still be built.
+            "concept_ids": sorted(concept.id for concept in register.concepts),
             "files": {path.name: _digest(path) for path in built},
         }
         replaced = _differences(existing, manifest) if existing is not None else []
@@ -201,7 +203,12 @@ def check_continuity(register: TermRegister, releases_dir: Path | None = None) -
     if not earlier:
         return []
     previous = earlier[-1]
-    published = {concept["id"] for concept in edition_source(previous, root)["concepts"]}
+    recorded = json.loads((root / previous / MANIFEST_NAME).read_text(encoding="utf-8")).get("concept_ids")
+    if recorded is None:
+        # An edition cut before manifests recorded their concept ids. Say so
+        # rather than reporting a clean check that did not happen.
+        return [f"the {previous} manifest records no concept ids, so continuity with it cannot be checked"]
+    published = set(recorded)
     current = {concept.id for concept in register.concepts}
     return [
         f"{concept_id}: published in {previous} and absent here. Never delete, always supersede: "
@@ -294,60 +301,22 @@ def verify_current_edition(source_path: Path | None = None, releases_dir: Path |
     return problems
 
 
-def _source_from_git(manifest_path: Path) -> str | None:
-    """Read an edition's source snapshot out of the commit that last wrote its manifest.
-
-    Only the manifest is committed, so an older edition's payload is usually not
-    on disk. It is still recoverable: the commit that wrote the manifest is the
-    commit that released the edition, and the source at that commit is what it
-    was cut from. The *last* such commit rather than the first, so an edition
-    amended before it was published resolves to what its manifest now records.
-
-    What is read is the curated source, ``data/register.yaml``, not the
-    edition's own snapshot: the snapshot is a copy of that file and is not
-    committed, whereas the source always is.
-    """
-    try:
-        # Fixed argv and no shell, hence the suppressions.
-        commit = subprocess.run(  # noqa: S603
-            ["git", "log", "--format=%H", "-1", "--", str(manifest_path)],  # noqa: S607
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=paths.SERVICE_DIR,
-        ).stdout.strip()
-        if not commit:
-            return None
-        relative = paths.SOURCE_PATH.relative_to(paths.SERVICE_DIR.parent)
-        return subprocess.run(  # noqa: S603
-            ["git", "show", f"{commit}:{relative}"],  # noqa: S607
-            capture_output=True,
-            text=True,
-            check=True,
-            cwd=paths.SERVICE_DIR,
-        ).stdout
-    except subprocess.CalledProcessError, OSError, ValueError:
-        return None
-
-
 def edition_source(version: str, releases_dir: Path | None = None) -> dict:
-    """Return the register source an edition was cut from.
+    """Return the register source an edition was cut from, if its payload is built.
 
-    From the built payload when it is present, and otherwise from the commit
-    that released the edition.
+    Only manifests are committed, so an older edition's payload is usually
+    absent until someone rebuilds it. The cross-edition check does not depend on
+    this: it reads the concept ids the manifest records.
     """
     root = releases_dir or paths.RELEASES_DIR
     snapshot = root / version / SOURCE_NAME
-    if snapshot.exists():
-        return yaml.safe_load(snapshot.read_text(encoding="utf-8"))
-    from_git = _source_from_git(root / version / MANIFEST_NAME)
-    if from_git is None:
+    if not snapshot.exists():
         message = (
-            f"{snapshot} is not built and could not be recovered from git. "
-            f"Run `tapio-register release` while the source names {version}."
+            f"{snapshot} is not built. Check out the commit that wrote the {version} manifest "
+            f"and run `tapio-register release`."
         )
         raise FileNotFoundError(message)
-    return yaml.safe_load(from_git)
+    return yaml.safe_load(snapshot.read_text(encoding="utf-8"))
 
 
 def diff_releases(earlier: str, later: str, releases_dir: Path | None = None) -> dict[str, list[str]]:

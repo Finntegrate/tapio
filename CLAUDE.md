@@ -99,7 +99,7 @@ Skills in `.claude/skills/` are automatically available as slash commands when t
 | `.claude/skills/backlog/SKILL.md`         | Source for `/backlog`                                    |
 | `.claude/skills/retro/SKILL.md`           | Source for `/retro`                                      |
 | `register/tapio_register/schema/term_register.yaml` | LinkML schema the register's Pydantic, JSON Schema, and SHACL artifacts are generated from |
-| `register/tapio_register/data/register.yaml` | The curated term register, hand-reviewed with per-concept provenance |
+| `register/tapio_register/data/` | The curated term register, one file per kind of concept, hand-reviewed with per-concept provenance |
 | `register/releases/<date>/`               | Dated, immutable editions, published as SKOS |
 | `mise.toml`                               | Task runner targets (`mise run <task>`)                  |
 

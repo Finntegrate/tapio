@@ -108,7 +108,7 @@ def as_candidate_file(candidates: list[Candidate], queries: list[str], vocabular
         "queries": queries,
         "note": (
             "Candidates only. Nothing here is part of the register until a person moves it into "
-            "tapio_register/data/register.yaml with its own observation provenance."
+            "the matching file under tapio_register/data/ with its own observation provenance."
         ),
         "candidates": [candidate.to_dict() for candidate in candidates],
     }

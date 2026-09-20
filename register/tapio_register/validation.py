@@ -3,8 +3,7 @@
 Three layers, cheapest first:
 
 1. the generated Pydantic classes, which enforce the shape of each concept;
-2. the generated JSON Schema and SHACL shapes, run through LinkML's validator,
-   which is what proves the generated artifacts are usable and not just present;
+2. the generated JSON Schema, the checked-in copy a consumer reads;
 3. the cross-concept rules below, which are what ADR 0007's "never delete,
    always supersede" and closed-world posture actually amount to in practice.
 
@@ -55,17 +54,13 @@ def normalize_label(label: str) -> str:
     return " ".join(label.lower().split())
 
 
-def check_schema(source_path: Path | None = None, schema_path: Path | None = None) -> list[Issue]:
-    """Validate the source against the generated JSON Schema and SHACL shapes.
+def check_schema(source_path: Path | None = None) -> list[Issue]:
+    """Validate the source against the checked-in JSON Schema.
 
-    Running both is what proves the generated artifacts are usable rather than
-    merely present: the JSON Schema and the shapes checked here are the
-    checked-in copies, the same files a consumer and the harness's own gates G3
-    to G5 will load, rather than ones generated for the occasion.
+    The committed artifact rather than one generated for the occasion, which is
+    what proves the file a consumer reads is the one the register satisfies.
     """
-    schema = str(schema_path or paths.SCHEMA_PATH)
-    source = read_source(source_path)
-    return [*_jsonschema_issues(source), *_shacl_issues(schema, source)]
+    return _jsonschema_issues(read_source(source_path))
 
 
 def _jsonschema_issues(source: dict[str, Any]) -> list[Issue]:
@@ -86,35 +81,6 @@ def _jsonschema_issues(source: dict[str, Any]) -> list[Issue]:
         Issue(None, f"{error.message} in /{'/'.join(str(part) for part in error.absolute_path)}")
         for error in sorted(validator.iter_errors(instance), key=lambda error: list(error.absolute_path))
     ]
-
-
-def _shacl_issues(schema: str, source: dict[str, Any]) -> list[Issue]:
-    """Validate the register as RDF against the checked-in SHACL shapes.
-
-    LinkML ships a SHACL validation plugin, but it drives pyshacl through an
-    API that pyshacl has since changed, so the conversion and the validate call
-    are done here instead.
-    """
-    import pyshacl
-    from linkml.generators import PythonGenerator
-    from linkml_runtime.dumpers import rdflib_dumper
-    from linkml_runtime.utils.schemaview import SchemaView
-    from rdflib import Graph
-
-    module = PythonGenerator(schema).compile_module()
-    try:
-        instance = module.TermRegister(**source)
-    except (ValueError, TypeError) as error:
-        return [Issue(None, f"could not be converted to RDF for shape validation: {error}")]
-
-    data_graph = rdflib_dumper.as_rdf_graph(instance, schemaview=SchemaView(schema))
-    shapes = Graph().parse(paths.SHACL_PATH, format="turtle")
-    conforms, _, report = pyshacl.validate(data_graph=data_graph, shacl_graph=shapes, inference="rdfs")
-    if conforms:
-        return []
-    # pyshacl's third return value is its human-readable report; the "Message:"
-    # lines are the individual constraint violations.
-    return [Issue(None, line.strip()) for line in str(report).splitlines() if line.strip().startswith("Message:")]
 
 
 def _check_identifiers(concepts: list[Concept]) -> list[Issue]:

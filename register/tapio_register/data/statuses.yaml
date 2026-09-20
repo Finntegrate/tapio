@@ -1,0 +1,392 @@
+# Status concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: status:foreign-national
+  kind: status
+  pref_label:
+    en: foreign national
+    fi: ulkomaalainen
+    sv: utlänning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person who is not a Finnish citizen. In legal language, also the word ‘alien’ is used. See Finnish
+      citizen.
+- id: status:third-country-national
+  kind: status
+  pref_label:
+    en: third-country national
+    fi: kolmannen maan kansalainen
+    sv: tredjelandsmedborgare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A foreign national who is not an EU citizen or a comparable person (a citizen of Iceland, Liechtenstein,
+      Norway or Switzerland). See EU citizen or a comparable person, European Union (EU).
+- id: status:eu-citizen
+  kind: status
+  pref_label:
+    en: EU citizen or a comparable person
+    fi: EU-kansalainen ja häneen rinnastettava
+    sv: EU-medborgare och en därmed jämförbar person
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A citizen of a member state in the European Union (EU) or in Iceland, Liechtenstein, Norway or
+      Switzerland. EU citizens have the right to move freely within the territory of the Union. The provisions
+      on free movement also apply to citizens of Iceland, Liechtenstein and Norway based on the EEA Agreement,
+      as well as to citizens of Switzerland based on a separate agreement with the EU. See European Union
+      (EU), European Economic Area (EAA).
+- id: status:immigrant
+  kind: status
+  pref_label:
+    en: immigrant
+    fi: maahanmuuttaja
+    sv: invandrare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person who moves into a country (Finland). Cf. emigrant; migrant.
+- id: status:emigrant
+  kind: status
+  pref_label:
+    en: emigrant
+    fi: maastamuuttaja
+    sv: utvandrare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person who moves from a country (Finland). Cf. immigrant; migrant.
+- id: status:finnish-citizen
+  kind: status
+  pref_label:
+    en: Finnish citizen
+    fi: Suomen kansalainen
+    sv: finsk medborgare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person who by birth, or later by some other means, has acquired Finnish citizenship. See also
+      naturalisation, citizenship.
+- id: status:finnish-citizen-by-birth
+  kind: status
+  pref_label:
+    en: Finnish citizen by birth
+    fi: syntyperäinen Suomen kansalainen
+    sv: infödd finsk medborgare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person who has acquired Finnish citizenship by birth. See citizenship.
+  broader:
+  - status:finnish-citizen
+- id: status:expatriate-finn
+  kind: status
+  pref_label:
+    en: expatriate Finn
+    fi: ulkosuomalainen
+    sv: utlandsfinländare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: An expatriate Finn is a Finnish citizen or a person of Finnish origin who lives permanently outside
+      Finland. See Finnish citizen, Finnish origin.
+- id: status:dual-citizenship
+  kind: status
+  pref_label:
+    en: dual or multiple citizenship
+    fi: kaksoiskansalaisuus/monikansalaisuus
+    sv: dubbelt/flerfaldigt medborgarskap
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person may be a citizen of two or several countries.
+- id: status:returnee
+  kind: status
+  pref_label:
+    en: returnee
+    fi: paluumuuttaja
+    sv: återflyttare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: In residence permit matters, a returnee refers to a person moving to Finland who is of Finnish
+      extraction or a person who otherwise has close ties to Finland (is a former Finnish citizen, a descendant
+      of a person who is a Finnish citizen by birth or is otherwise Finnish in origin, for example an
+      Ingrian Finn). See also Finnish citizen, Finnish citizen by birth, Finnish origin.
+- id: status:sponsor
+  kind: status
+  pref_label:
+    en: sponsor
+    fi: perheenkokoaja
+    sv: anknytningsperson
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person residing in Finland whose family member applies for a residence permit to Finland on
+      the basis of family ties in order to be together with the sponsor.
+  related:
+  - permit:family-ties-residence-permit
+- id: status:asylum-seeker
+  kind: status
+  pref_label:
+    en: asylum seeker
+    fi: turvapaikanhakija
+    sv: asylsökande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person who seeks protection and right of residence in a foreign state. An asylum seeker is granted
+      refugee status if he or she is granted asylum. See asylum, refugee.
+- id: status:refugee
+  kind: status
+  pref_label:
+    en: refugee
+    fi: pakolainen
+    sv: flykting
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p6458
+    observed_on: '2026-09-19'
+    note: 'YSO: refugees / pakolaiset / flyktingar'
+  definition:
+    en: A foreign national who has a well-founded fear of being persecuted for reasons of ethnic origin,
+      religion, nationality, membership in a particular social group or political opinion. Refugee status
+      is granted to a person who has been granted asylum by a state or who is considered a refugee by
+      UNHCR. See also quota refugee, asylum seeker, asylum.
+  close_match:
+  - yso:p6458
+- id: status:refugee-sur-place
+  kind: status
+  pref_label:
+    en: refugee sur place
+    fi: sur place -pakolainen
+    sv: flykting ”sur place”
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A refugee whose need of protection has arisen after he or she has left his or her home country.
+      See also refugee.
+  broader:
+  - status:refugee
+- id: status:quota-refugee
+  kind: status
+  pref_label:
+    en: quota refugee
+    fi: kiintiöpakolainen
+    sv: kvotflykting
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A person considered a refugee by the UN refugee agency UNHCR who has been granted a residence
+      permit under the refugee quota verified in the Finnish state budget. In recent years, the Finnish
+      refugee quota has been 750–1,050 people. See also emergency cases, refugee.
+  broader:
+  - status:refugee
+- id: status:international-protection
+  kind: status
+  pref_label:
+    en: international protection
+    fi: kansainvälinen suojelu
+    sv: internationellt skydd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: According to EU directives and the Finnish Aliens Act, international protection means refugee
+      status or subsidiary protection status. See also refugee, subsidiary protection, humanitarian protection.
+- id: status:subsidiary-protection
+  kind: status
+  pref_label:
+    en: subsidiary protection
+    fi: toissijainen suojelu
+    sv: alternativt skydd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Reason for granting a residence permit. A residence permit is issued on the basis of subsidiary
+      protection when the requirements for granting asylum are not met, but the applicant faces a risk
+      of being subjected to the death penalty, execution, torture or other inhuman or degrading treatment
+      or punishment in his or her home country or country of former habitual residence. A permit may also
+      be issued if the applicant is unable to return to his or her home country or country of former habitual
+      residence without being exposed to serious and individual threat as a result of armed conflicts.
+      See also asylum, international protection.
+  broader:
+  - status:international-protection
+- id: status:temporary-protection
+  kind: status
+  pref_label:
+    en: Temporary protection
+    fi: Tilapäinen suojelu
+    sv: Tillfälligt skydd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/temporary-protection
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tilapainen-suojelu
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/tillfalligt-skydd
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Temporary protection may be given to foreign nationals who need international protection and who
+      cannot return safely to their home country or country of permanent residence, because there has
+      been a massive displacement of people in the country or its neighbouring areas as a result of an
+      armed conflict, some other violent situation or an environmental disaster. Providing temporary protection
+      requires that the need for protection may be considered to be of short duration.
+- id: status:humanitarian-protection
+  kind: status
+  pref_label:
+    en: humanitarian protection
+    fi: humanitaarinen suojelu
+    sv: humanitärt skydd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Reason for granting a residence permit until 16 May 2016. It was possible to grant a residence
+      permit on the basis of humanitarian protection when the requirements for granting asylum or providing
+      subsidiary protection were not met, but the applicant could not return to his or her home country
+      or country of former habitual residence because of an environmental catastrophe. Another possible
+      reason was a poor security situation which might have been due to an armed conflict or a poor human
+      rights situation. See also asylum, subsidiary protection.
+  valid_until: '2016-05-16'
+  change_note: Ceased to be a ground for granting a residence permit on 16 May 2016; nothing replaced
+    it directly. Applicants are assessed for asylum and subsidiary protection instead.
+  related:
+  - status:subsidiary-protection
+- id: status:asylum
+  kind: status
+  pref_label:
+    en: asylum
+    fi: turvapaikka
+    sv: asyl
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A residence permit issued to a foreign national under the asylum procedure on the basis of his
+      or her refugee status. See refugee.
+- id: status:finnish-citizenship
+  kind: status
+  pref_label:
+    en: Finnish citizenship
+    fi: Suomen kansalaisuus
+    sv: Finskt medborgarskap
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/finnish-citizenship
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/suomen-kansalaisuus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/finskt-medborgarskap
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  related:
+  - law:citizenship-act

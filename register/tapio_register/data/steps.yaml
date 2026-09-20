@@ -1,0 +1,556 @@
+# Step concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: step:register-right-of-residence
+  kind: step
+  pref_label:
+    en: Registration of the right of residence of an EU citizen
+    fi: Oleskeluoikeuden rekisteröinti
+    sv: Registrering av uppehållsrätt
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/registration-of-right-of-residence
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskeluoikeuden-rekisterointi
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/registrering-av-uppehallsratt
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:renew-residence-permit-card
+  kind: step
+  pref_label:
+    en: Renewal of a residence permit card
+    fi: Oleskelulupakortin uusiminen
+    sv: Att förnya uppehållstillståndskortet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/renewal-of-a-residence-permit-card
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupakortin-uusiminen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/att-fornya-uppehallstillstandskortet
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  related:
+  - doc:residence-permit-card
+- id: step:application-processing
+  kind: step
+  pref_label:
+    en: Processing of applications
+    fi: Hakemuksen käsittelyvaiheet
+    sv: Så behandlas din ansökan
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/application-processing-stages
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/hakemuksen-kasittelyvaiheet
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/sa-behandlas-din-ansokan
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:identification
+  kind: step
+  pref_label:
+    en: Identification
+    fi: Tunnistautuminen
+    sv: Identifiering
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/identification
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tunnistautuminen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/identifiering
+    observed_on: '2026-09-19'
+  related:
+  - svc:enter-finland
+- id: step:establish-identity
+  kind: step
+  pref_label:
+    en: Establishment of identity
+    fi: Henkilöllisyyden selvittäminen
+    sv: Utredning av identitet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/establishment-of-identity
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/henkilollisyyden-selvittaminen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/utredning-av-identitet
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:book-appointment
+  kind: step
+  pref_label:
+    en: Booking an appointment at a service point
+    fi: Varaa aika palvelupisteeseen
+    sv: Boka tid vid vårt serviceställe
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/book-an-appointment
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/ajanvaraus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/boka-tid
+    observed_on: '2026-09-19'
+- id: step:visit-finnish-mission
+  kind: step
+  pref_label:
+    en: Handling your matters at a Finnish mission
+    fi: Asiointi Suomen edustustossa
+    sv: Att uträtta ärenden vid en finsk beskickning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/handling-your-matters-at-a-finnish-mission
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/asiointi-suomen-edustustossa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/att-utratta-arenden-vid-en-finsk-beskickning
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:finnish-mission
+- id: step:answer-supplement-request
+  kind: step
+  pref_label:
+    en: Answering a request for additional information
+    fi: Täydennyspyyntöön vastaaminen
+    sv: Svara på kompletteringsbegäran
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/answering-a-request-for-additional-information
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/taydennyspyyntoon-vastaaminen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/svara-pa-kompletteringsbegaran
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:decision-notification
+  kind: step
+  pref_label:
+    en: Notification of the decision
+    fi: Tieto päätöksestä
+    sv: Delgivande av beslut
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/informing-of-the-decision
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tieto-paatoksesta
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/delgivande-av-beslut
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:appeal-decision
+  kind: step
+  pref_label:
+    en: Appealing a decision
+    fi: Muutoksenhaku eli päätöksestä valittaminen
+    sv: Ändringssökande och överklagande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/appealing-a-decision
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/muutoksenhaku
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/andringssokande-och-overklagande
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:administrative-court
+- id: step:withdraw-permit
+  kind: step
+  pref_label:
+    en: Withdrawal of a residence permit
+    fi: Luvan peruuttaminen
+    sv: Återkallande av tillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/cancellation-of-a-permit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/luvan-peruuttaminen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/aterkallande-av-tillstand
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:mobility-notification
+  kind: step
+  pref_label:
+    en: Mobility notification to Finland
+    fi: Liikkumisilmoitus Suomeen
+    sv: Underrättelse om rörlighet till Finland
+  valid_from: '2018-01-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/mobility-notification-to-finland
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/liikkumisilmoitus-suomeen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/underrattelse-om-rorlighet-till-finland
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:citizenship-application
+  kind: step
+  pref_label:
+    en: Citizenship application
+    fi: Kansalaisuushakemus aikuiselle
+    sv: Medborgarskapsansökan för vuxna
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/citizenship-for-adults
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kansalaisuus-aikuiselle
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/medborgarskap-for-vuxna
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  definition:
+    en: A foreign national may be granted Finnish citizenship on application if the requirements laid
+      down in the Citizenship Act are met. Exceptions may be made as provided in the Act. Cf. citizenship
+      declaration.
+- id: step:citizenship-declaration
+  kind: step
+  pref_label:
+    en: Citizenship declaration
+    fi: Kansalaisuusilmoitus
+    sv: Medborgarskapsanmälan
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/citizenship-declaration
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kansalaisuusilmoitus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/medborgarskapsanmalan
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  definition:
+    en: Certain groups of people may acquire Finnish citizenship by declaration. These groups are specified
+      in the Citizenship Act. Cf. citizenship application.
+- id: step:determine-citizenship-status
+  kind: step
+  pref_label:
+    en: determination of citizenship status
+    fi: kansalaisuusaseman määrittäminen
+    sv: bestämmande av medborgarskapsstatus
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: In unclear situations, the Finnish Immigration Service establishes which citizenship a person
+      is considered to hold in Finland. See also citizenship.
+  handled_by:
+  - org:migri
+- id: step:apply-for-asylum
+  kind: step
+  pref_label:
+    en: Applying for asylum
+    fi: Turvapaikka Suomesta
+    sv: Asyl i Finland
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/asylum-in-finland
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/turvapaikka-suomesta
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/asyl-i-finland
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: step:asylum-interview
+  kind: step
+  pref_label:
+    en: asylum interview
+    fi: turvapaikkapuhuttelu
+    sv: asylsamtal
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: The purpose of an asylum interview is to establish the grounds for an asylum application. The
+      asylum interview is conducted by the Finnish Immigration Service.
+  handled_by:
+  - org:migri
+- id: step:asylum-examination
+  kind: step
+  pref_label:
+    en: asylum examination
+    fi: turvapaikkatutkinta
+    sv: asylutredning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A procedure in which the Finnish Immigration Service or the Border Guard first establishes the
+      identity and travel route of the asylum seeker and whether his or her application can be processed
+      in Finland. After that, the Finnish Immigration Service interviews the applicant in order to establish
+      the grounds for his or her asylum application. See asylum interview.
+  handled_by:
+  - org:migri
+- id: step:dublin-procedure
+  kind: step
+  pref_label:
+    en: Dublin procedure
+    fi: Dublin-menettely
+    sv: Dublinförfarande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: The Dublin procedure is based on the EU Dublin Regulation and is conducted to determine the state
+      responsible for examining an asylum application. The member states of the EU as well as Iceland,
+      Liechtenstein, Norway and Switzerland apply the Regulation. Another country can be responsible for
+      examining an application if the asylum seeker, for example, has family ties, a residence permit
+      or a visa in another country applying the Regulation. Another country is also responsible for examining
+      an application if the asylum seeker’s fingerprints have been entered in the Eurodac system after
+      an illegal crossing of the external border of the EU. The country where an asylum seeker has previously
+      sought asylum may also be responsible for examining the application. See European Union (EU), asylum.
+- id: step:consider-application-inadmissible
+  kind: step
+  pref_label:
+    en: considering an application inadmissible
+    fi: tutkimatta jättäminen
+    sv: avvisande av ansökan utan prövning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Considering an application inadmissible means that the application is not examined in substance.
+      However, the Finnish Immigration Service will always conduct a preliminary examination and decide
+      whether your application contains grounds for continuing the examination. If there are such grounds,
+      the application will be examined in substance. If there are no such grounds, you may get a decision
+      on your application being dismissed as inadmissible.
+- id: step:tracing
+  kind: step
+  pref_label:
+    en: tracing
+    fi: jäljittäminen
+    sv: spårande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Tracing means establishing the location of the parents or a guardian of an unaccompanied minor
+      or of a child victim of human trafficking who applies for international protection.
+- id: step:assisted-voluntary-return
+  kind: step
+  pref_label:
+    en: assisted voluntary return
+    fi: avustettu vapaaehtoinen paluu
+    sv: assisterad frivillig återresa
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Assisted voluntary return refers to an arrangement where a third-country national who has applied
+      for international protection, a beneficiary of temporary protection, a victim of human trafficking
+      or a person who has been granted a residence permit under section 51 of the Aliens Act can receive
+      assistance and compensation for travel and relocation costs to his or her home country or another
+      country. A further requirement is that the applicant must leave the country voluntarily and with
+      permanent intent after having cancelled his or her application or after the application has been
+      rejected. See international protection, third-country national, temporary protection. Cf. voluntary
+      return.
+- id: step:voluntary-return
+  kind: step
+  pref_label:
+    en: voluntary return
+    fi: vapaaehtoinen paluu
+    sv: frivillig återresa
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: In a decision on denial of admittance or stay or on deportation, which does not include an entry
+      ban, a third-country national is given a period of at least seven and a maximum of thirty days during
+      which he or she can leave the country voluntarily. See denial of admittance or stay, deportation,
+      entry ban, third-country national. See also assisted voluntary return.
+- id: step:detention
+  kind: step
+  pref_label:
+    en: detention
+    fi: säilöönotto
+    sv: tagande i förvar, förvarstagande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: An interim measure, means of monitoring. A foreign national may be held in detention if there
+      are grounds to believe that he or she will, for example, hide in order to avoid denial of admittance
+      or stay or deportation. An asylum seeker may be held in detention if it is necessary to establish
+      his or her identity.
+- id: step:denial-of-admittance-or-stay
+  kind: step
+  pref_label:
+    en: denial of admittance or stay
+    fi: käännyttäminen
+    sv: avvisning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Procedure for removing a person from the country. When a foreign national has not been issued
+      with a residence permit and a decision is made to remove the person from the country, he or she
+      is denied admittance or stay. Cf. deportation.
+  handled_by:
+  - org:migri
+- id: step:deportation
+  kind: step
+  pref_label:
+    en: deportation
+    fi: karkottaminen
+    sv: utvisning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Procedure for removing a person from the country. When a foreign national has been issued with
+      a residence permit but a decision is made to remove the person from the country, he or she will
+      be deported. Cf. refusal of entry.
+  handled_by:
+  - org:migri
+- id: step:labour-market-test
+  kind: step
+  pref_label:
+    en: Labour market test
+    fi: Saatavuusharkinta
+    sv: Prövning av tillgången på arbetskraft
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/labour-market-test
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/saatavuusharkinta
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/provning-av-tillgangen-pa-arbetskraft
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:municipal-employment-area

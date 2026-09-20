@@ -21,7 +21,7 @@ def source(tmp_path: Path, register_dict: dict) -> Path:
 
 
 def test_validate_accepts_the_shipped_register():
-    result = runner.invoke(app, ["validate", "--skip-shapes"])
+    result = runner.invoke(app, ["validate", "--skip-schema"])
     assert result.exit_code == 0, result.output
     assert "OK:" in result.output
 
@@ -30,7 +30,7 @@ def test_validate_reports_and_fails_on_a_broken_register(tmp_path, register_dict
     register_dict["concepts"][0]["related"] = ["permit:nope"]
     path = tmp_path / "broken.yaml"
     path.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
-    result = runner.invoke(app, ["validate", "--skip-shapes", "--source", str(path)])
+    result = runner.invoke(app, ["validate", "--skip-schema", "--source", str(path)])
     assert result.exit_code == 1
     assert "not in the register" in result.output
 

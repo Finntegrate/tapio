@@ -57,15 +57,10 @@ def test_checked_in_artifacts_match_the_schema():
     assert generation.check_generated_is_current() == []
 
 
-def test_render_produces_all_three_artifacts():
+def test_render_produces_both_artifacts():
     rendered = {artifact.path.name: artifact.content for artifact in generation.render_artifacts()}
-    assert set(rendered) == {
-        "term_register_model.py",
-        "term_register.schema.json",
-        "term_register.shapes.ttl",
-    }
+    assert set(rendered) == {"term_register_model.py", "term_register.schema.json"}
     assert "class Concept" in rendered["term_register_model.py"]
-    assert "sh:NodeShape" in rendered["term_register.shapes.ttl"]
     assert "Do not edit by hand" in rendered["term_register_model.py"]
 
 

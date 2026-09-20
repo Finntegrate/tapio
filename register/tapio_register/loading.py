@@ -44,14 +44,46 @@ TAPIO_NAMESPACE = "https://tapio.finntegrate.org/schema/"
 
 
 def read_source(source_path: Path | None = None) -> dict[str, Any]:
-    """Return the raw register source as a dict, without validating it."""
+    """Return the raw register source as a dict, without validating it.
+
+    Accepts either the data directory, where edition metadata and one file per
+    kind are assembled into a single register, or a single file holding a whole
+    register. The second form is what a released edition's snapshot is, and what
+    tests build.
+    """
     path = source_path or paths.SOURCE_PATH
-    with path.open(encoding="utf-8") as handle:
-        loaded = yaml.safe_load(handle)
+    loaded = _read_directory(path) if path.is_dir() else _read_file(path)
     if not isinstance(loaded, dict):
         message = f"{path} does not contain a register mapping"
         raise TypeError(message)
     return loaded
+
+
+def _read_file(path: Path) -> Any:
+    with path.open(encoding="utf-8") as handle:
+        return yaml.safe_load(handle)
+
+
+def _read_directory(path: Path) -> dict[str, Any]:
+    """Assemble the edition metadata and every kind's concepts into one register.
+
+    A concept in the wrong file is an error rather than a warning: the file a
+    concept lives in is derivable from its kind, so a mismatch means one of the
+    two is wrong and neither can be assumed.
+    """
+    register: dict[str, Any] = _read_file(path / paths.EDITION_NAME)
+    concepts: list[dict[str, Any]] = []
+    for kind, filename in paths.KIND_FILES.items():
+        part = path / filename
+        if not part.exists():
+            continue
+        for concept in (_read_file(part) or {}).get("concepts") or []:
+            if concept.get("kind") != kind:
+                message = f"{filename} holds '{concept.get('id')}', which is a {concept.get('kind')}"
+                raise ValueError(message)
+            concepts.append(concept)
+    register["concepts"] = concepts
+    return register
 
 
 def load_register(source_path: Path | None = None) -> TermRegister:

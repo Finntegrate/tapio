@@ -13,7 +13,7 @@ queries:
 - perheenyhdistäminen
 - henkilötunnus
 note: Candidates only. Nothing here is part of the register until a person moves it
-  into tapio_register/data/register.yaml with its own observation provenance.
+  into the matching file under tapio_register/data/ with its own observation provenance.
 candidates:
 - uri: http://www.yso.fi/onto/yso/p6463
   vocabulary: yso

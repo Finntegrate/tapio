@@ -208,25 +208,19 @@ def test_current_edition_check_catches_a_hand_edited_manifest(tmp_path, source, 
     assert any("does not match the digest recorded" in problem for problem in problems)
 
 
-def test_an_edition_whose_payload_is_not_built_is_recovered_from_git():
-    """Only manifests are committed, so an edition's source comes out of history.
-
-    In a fresh checkout the payload is genuinely absent and the git path is
-    taken directly; where it has been built, it is set aside first so this
-    tests the same thing either way.
-    """
+def test_an_edition_whose_payload_is_not_built_says_how_to_rebuild_it():
+    """Only manifests are committed; the payload is rebuilt rather than recovered."""
     version = releasing.latest_version()
     built = paths.release_dir(version) / releasing.SOURCE_NAME
     set_aside = built.with_suffix(".yaml.set-aside") if built.exists() else None
     if set_aside is not None:
         built.rename(set_aside)
     try:
-        source = releasing.edition_source(version)
+        with pytest.raises(FileNotFoundError, match="tapio-register release"):
+            releasing.edition_source(version)
     finally:
         if set_aside is not None:
             set_aside.rename(built)
-    assert source["register_version"] == version
-    assert len(source["concepts"]) > 100
 
 
 def test_an_unknown_edition_says_how_to_build_it(tmp_path):
