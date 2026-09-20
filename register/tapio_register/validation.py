@@ -3,8 +3,7 @@
 Three layers, cheapest first:
 
 1. the generated Pydantic classes, which enforce the shape of each concept;
-2. the generated JSON Schema and SHACL shapes, run through LinkML's validator,
-   which is what proves the generated artifacts are usable and not just present;
+2. the generated JSON Schema, the checked-in copy a consumer reads;
 3. the cross-concept rules below, which are what ADR 0007's "never delete,
    always supersede" and closed-world posture actually amount to in practice.
 
@@ -26,7 +25,7 @@ from tapio_register.loading import KIND_PREFIXES, enum_value, read_source
 #: Longest a label can be before it reads as a definition rather than a term.
 _LABEL_MAX = 120
 
-#: Two concepts sharing a surface form is the collision the ground node cannot resolve.
+#: Two concepts sharing a surface form is an ambiguity nothing downstream can resolve.
 _COLLISION = 2
 
 #: Slots whose values must resolve to a concept in this same register.
@@ -46,7 +45,7 @@ class Issue:
 
 
 def normalize_label(label: str) -> str:
-    """Fold a surface form the way the harness's ``ground`` node will.
+    """Fold a surface form for comparison against another.
 
     Case and surrounding whitespace are not meaningful; everything else is left
     alone, because the register carries Finnish and Swedish and stripping
@@ -55,17 +54,13 @@ def normalize_label(label: str) -> str:
     return " ".join(label.lower().split())
 
 
-def check_schema(source_path: Path | None = None, schema_path: Path | None = None) -> list[Issue]:
-    """Validate the source against the generated JSON Schema and SHACL shapes.
+def check_schema(source_path: Path | None = None) -> list[Issue]:
+    """Validate the source against the checked-in JSON Schema.
 
-    Running both is what proves the generated artifacts are usable rather than
-    merely present: the JSON Schema and the shapes checked here are the
-    checked-in copies, the same files a consumer and the harness's own gates G3
-    to G5 will load, rather than ones generated for the occasion.
+    The committed artifact rather than one generated for the occasion, which is
+    what proves the file a consumer reads is the one the register satisfies.
     """
-    schema = str(schema_path or paths.SCHEMA_PATH)
-    source = read_source(source_path)
-    return [*_jsonschema_issues(source), *_shacl_issues(schema, source)]
+    return _jsonschema_issues(read_source(source_path))
 
 
 def _jsonschema_issues(source: dict[str, Any]) -> list[Issue]:
@@ -86,35 +81,6 @@ def _jsonschema_issues(source: dict[str, Any]) -> list[Issue]:
         Issue(None, f"{error.message} in /{'/'.join(str(part) for part in error.absolute_path)}")
         for error in sorted(validator.iter_errors(instance), key=lambda error: list(error.absolute_path))
     ]
-
-
-def _shacl_issues(schema: str, source: dict[str, Any]) -> list[Issue]:
-    """Validate the register as RDF against the checked-in SHACL shapes.
-
-    LinkML ships a SHACL validation plugin, but it drives pyshacl through an
-    API that pyshacl has since changed, so the conversion and the validate call
-    are done here instead.
-    """
-    import pyshacl
-    from linkml.generators import PythonGenerator
-    from linkml_runtime.dumpers import rdflib_dumper
-    from linkml_runtime.utils.schemaview import SchemaView
-    from rdflib import Graph
-
-    module = PythonGenerator(schema).compile_module()
-    try:
-        instance = module.TermRegister(**source)
-    except (ValueError, TypeError) as error:
-        return [Issue(None, f"could not be converted to RDF for shape validation: {error}")]
-
-    data_graph = rdflib_dumper.as_rdf_graph(instance, schemaview=SchemaView(schema))
-    shapes = Graph().parse(paths.SHACL_PATH, format="turtle")
-    conforms, _, report = pyshacl.validate(data_graph=data_graph, shacl_graph=shapes, inference="rdfs")
-    if conforms:
-        return []
-    # pyshacl's third return value is its human-readable report; the "Message:"
-    # lines are the individual constraint violations.
-    return [Issue(None, line.strip()) for line in str(report).splitlines() if line.strip().startswith("Message:")]
 
 
 def _check_identifiers(concepts: list[Concept]) -> list[Issue]:
@@ -272,12 +238,11 @@ def _surface_forms(concept: Concept) -> list[tuple[str, str]]:
 def _check_label_collisions(concepts: list[Concept]) -> list[Issue]:
     """A surface form must not resolve to two concepts that are in force together.
 
-    The ``ground`` node maps spans of a user's message to IRIs by label alone,
-    across every language the register carries, because a question can be asked
-    in any of them and often mixes them. So the clash that matters is between
-    surface forms, not between surface forms within one language: an English
-    label on one concept and a Swedish label on another are just as ambiguous
-    to a span matcher as two English ones.
+    Resolution is the model's job, but a vocabulary that gives one term to two
+    live entities is ambiguous to everything that reads it: a model asked to
+    name a concept, a guide rendering an answer, and a person reading the
+    published SKOS. The clash is between surface forms rather than within one
+    language, since the register serves questions that mix languages freely.
     """
     by_form: dict[str, list[tuple[Concept, str]]] = defaultdict(list)
     for concept in concepts:
@@ -310,9 +275,10 @@ def _overlap_in_force(first: Concept, second: Concept) -> bool:
 def _check_label_shape(concepts: list[Concept]) -> list[Issue]:
     """A label is a term, not a sentence.
 
-    A gloss that lands in a label is published as ``skos:prefLabel`` and becomes
-    a surface form the ``ground`` node can match, so a parser that swept a
-    definition into a label has to fail here rather than reach the graph.
+    A gloss that lands in a label is published as ``skos:prefLabel``, where it
+    is what a consumer renders and what a model is shown as the entity's name,
+    so a parser that swept a definition into a label has to fail here rather
+    than reach the graph.
     """
     issues: list[Issue] = []
     for concept in concepts:

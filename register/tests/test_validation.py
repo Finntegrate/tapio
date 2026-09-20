@@ -181,7 +181,7 @@ def test_alt_label_colliding_with_a_pref_label_is_rejected(register_dict):
 
 
 def test_a_collision_across_two_languages_is_rejected(register_dict):
-    """`ground` matches a span against every language, so the clash is between forms."""
+    """The register serves questions that mix languages, so the clash is between forms."""
     register_dict["concepts"][1]["pref_label"]["sv"] = register_dict["concepts"][0]["pref_label"]["en"]
     assert any("is also" in message and "while both are in force" in message for message in messages(register_dict))
 
@@ -221,8 +221,8 @@ def test_summary_counts_what_the_register_covers(register):
     assert summary["observations_by_source"] == {"migri": 3}
 
 
-def test_shipped_schema_and_shapes_accept_a_well_formed_register(tmp_path, register_dict):
-    """Slow, and the point: it runs the checked-in JSON Schema and SHACL shapes."""
+def test_shipped_schema_accepts_a_well_formed_register(tmp_path, register_dict):
+    """The point: it runs the checked-in JSON Schema, not one generated here."""
     import yaml
 
     from tapio_register.validation import check_schema
@@ -255,7 +255,7 @@ def test_shipped_schema_rejects_a_concept_with_no_provenance(tmp_path, register_
     assert any("observations" in str(issue) for issue in check_schema(path))
 
 
-def test_shipped_schema_and_shapes_reject_an_unknown_kind(tmp_path, register_dict):
+def test_shipped_schema_rejects_an_unknown_kind(tmp_path, register_dict):
     import yaml
 
     from tapio_register.validation import check_schema
@@ -263,9 +263,7 @@ def test_shipped_schema_and_shapes_reject_an_unknown_kind(tmp_path, register_dic
     register_dict["concepts"][0]["kind"] = "not-a-kind"
     path = tmp_path / "register.yaml"
     path.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
-    issues = [str(issue) for issue in check_schema(path)]
-    assert any("is not one of" in issue for issue in issues)
-    assert any("could not be converted to RDF" in issue for issue in issues)
+    assert any("is not one of" in str(issue) for issue in check_schema(path))
 
 
 def test_a_whitespace_only_note_names_no_publisher(register_dict):

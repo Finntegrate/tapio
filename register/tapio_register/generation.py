@@ -1,6 +1,6 @@
-"""Derive the Pydantic classes, JSON Schema, and SHACL shapes from the LinkML schema.
+"""Derive the Pydantic classes and JSON Schema from the LinkML schema.
 
-One source, three generated artifacts, no drift between them. The artifacts are
+One source, two generated artifacts, no drift between them. The artifacts are
 checked in so that consumers (and CI) need not run LinkML to read them, and
 ``check_generated_is_current`` is what keeps the checked-in copies honest.
 """
@@ -11,7 +11,6 @@ from pathlib import Path
 
 from linkml.generators.jsonschemagen import JsonSchemaGenerator
 from linkml.generators.pydanticgen import PydanticGenerator
-from linkml.generators.shaclgen import ShaclGenerator
 
 from tapio_register import paths
 
@@ -55,12 +54,10 @@ def render_artifacts(schema_path: Path | None = None) -> list[GeneratedArtifact]
     schema = schema_path or paths.SCHEMA_PATH
     pydantic_source = _relative_to_service(PydanticGenerator(str(schema)).serialize(), schema)
     json_schema = JsonSchemaGenerator(str(schema), top_class="TermRegister", not_closed=False).serialize()
-    shapes = ShaclGenerator(str(schema), closed=True).serialize()
     return [
         GeneratedArtifact(paths.PYDANTIC_PATH, _ends_with_newline(_BANNER + pydantic_source)),
         # Reformatted so a diff on the checked-in copy is readable.
         GeneratedArtifact(paths.JSON_SCHEMA_PATH, json.dumps(json.loads(json_schema), indent=2) + "\n"),
-        GeneratedArtifact(paths.SHACL_PATH, _ends_with_newline(shapes)),
     ]
 
 
@@ -83,21 +80,7 @@ def generate(schema_path: Path | None = None) -> list[Path]:
 
 
 def _is_current(artifact: GeneratedArtifact) -> bool:
-    if not artifact.path.exists():
-        return False
-    on_disk = artifact.path.read_text(encoding="utf-8")
-    if artifact.path.suffix != ".ttl":
-        return on_disk == artifact.content
-    # rdflib does not order a shape's blank-node property lists deterministically,
-    # so two runs of the same schema differ byte for byte while saying the same
-    # thing. Compare the graphs instead, or the check fails at random.
-    from rdflib import Graph
-    from rdflib.compare import isomorphic
-
-    return isomorphic(
-        Graph().parse(data=on_disk, format="turtle"),
-        Graph().parse(data=artifact.content, format="turtle"),
-    )
+    return artifact.path.exists() and artifact.path.read_text(encoding="utf-8") == artifact.content
 
 
 def check_generated_is_current(schema_path: Path | None = None) -> list[Path]:

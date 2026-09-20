@@ -1,5 +1,7 @@
 """Loading the source, and keeping the generated artifacts honest."""
 
+import subprocess
+import sys
 from enum import StrEnum
 from pathlib import Path
 
@@ -7,7 +9,7 @@ import pytest
 import yaml
 from pydantic import ValidationError
 
-from tapio_register import generation, loading
+from tapio_register import generation, loading, paths
 
 
 def test_expand_turns_register_curies_into_iris():
@@ -57,15 +59,10 @@ def test_checked_in_artifacts_match_the_schema():
     assert generation.check_generated_is_current() == []
 
 
-def test_render_produces_all_three_artifacts():
+def test_render_produces_both_artifacts():
     rendered = {artifact.path.name: artifact.content for artifact in generation.render_artifacts()}
-    assert set(rendered) == {
-        "term_register_model.py",
-        "term_register.schema.json",
-        "term_register.shapes.ttl",
-    }
+    assert set(rendered) == {"term_register_model.py", "term_register.schema.json"}
     assert "class Concept" in rendered["term_register_model.py"]
-    assert "sh:NodeShape" in rendered["term_register.shapes.ttl"]
     assert "Do not edit by hand" in rendered["term_register_model.py"]
 
 
@@ -91,3 +88,60 @@ def test_generate_writes_every_artifact(tmp_path, monkeypatch):
     assert {path.name for path in written} == {a.path.name for a in artifacts}
     assert (tmp_path / "__init__.py").exists()
     assert all(path.read_text(encoding="utf-8") for path in written)
+
+
+def test_reading_the_register_pulls_in_no_authoring_dependencies():
+    """A consumer ships the data and reads it; it does not ship the toolchain.
+
+    LinkML, rdflib, jsonschema, typer and httpx are all authoring-time. One
+    convenience import in `loading.py` would quietly drag them into anything
+    that only wanted to read the register — an API image, a notebook, a script
+    — and nothing else would notice.
+    """
+    probe = (
+        "import sys, tapio_register.loading as loading, tapio_register.history as history,"
+        " tapio_register.projection as projection;"
+        "register = loading.load_register();"
+        "history.in_force_on(register, __import__('datetime').date.today());"
+        "projection.as_prompt_block(projection.facts(register, list(projection.options(register))[:3]));"
+        "print(','.join(m for m in ('linkml','linkml_runtime','rdflib','pyshacl','typer','httpx','jsonschema')"
+        " if m in sys.modules))"
+    )
+    result = subprocess.run(  # noqa: S603
+        [sys.executable, "-c", probe],
+        capture_output=True,
+        text=True,
+        check=True,
+        cwd=paths.SERVICE_DIR,
+    )
+    assert result.stdout.strip() == "", f"runtime import now pulls in: {result.stdout.strip()}"
+
+
+def test_a_duplicate_key_is_refused_rather_than_silently_overwritten(tmp_path):
+    """Last-write-wins would drop one of two labels before any rule could see it."""
+    path = tmp_path / "part.yaml"
+    path.write_text(
+        "concepts:\n- id: permit:x\n  pref_label:\n    en: first\n    fi: eka\n    sv: forsta\n    en: second\n",
+        encoding="utf-8",
+    )
+    with pytest.raises(ValueError, match="duplicate key 'en'"):
+        loading.load_yaml(path)
+
+
+def test_a_missing_kind_file_is_refused_rather_than_read_as_empty(tmp_path):
+    """A partial register is worse than none: the projections just stop offering a kind."""
+    for name in (paths.EDITION_NAME, *paths.KIND_FILES.values()):
+        (tmp_path / name).write_text("concepts: []\n", encoding="utf-8")
+    (tmp_path / paths.KIND_FILES["organization"]).unlink()
+    with pytest.raises(FileNotFoundError, match="without its organization concepts"):
+        loading.read_source(tmp_path)
+
+
+def test_an_id_that_disagrees_with_its_kind_is_refused_at_load(tmp_path):
+    """`expand` derives the IRI namespace from the prefix, so a mismatch denotes the wrong thing."""
+    source = tmp_path / "register.yaml"
+    base = loading.read_source()
+    base["concepts"] = [{**base["concepts"][0], "id": "org:mislabelled", "kind": "permit"}]
+    source.write_text(yaml.safe_dump(base, allow_unicode=True), encoding="utf-8")
+    with pytest.raises(ValueError, match="a permit must be identified as 'permit:something'"):
+        loading.load_register(source)

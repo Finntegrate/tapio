@@ -41,7 +41,7 @@ classes:
     description: >-
       One dated, immutable edition of the register. Concepts are never removed
       between editions: an entity that leaves force gains a ``valid_until`` and a
-      ``superseded_by`` pointer instead (ADR 0007, decision 5).
+      ``superseded_by`` pointer instead (ADR 0007: never delete, always supersede).
     attributes:
       register_version:
         description: >-
@@ -98,8 +98,8 @@ classes:
       alt_labels:
         description: >-
           Other surface forms the same entity is published under, including
-          abbreviations and superseded names. Read by the ``ground`` node, so a
-          user typing either form resolves to the same IRI.
+          abbreviations and superseded names. They are how a reader, and a model
+          asked to name the entity, recognise it under more than one name.
         range: AltLabels
         slot_uri: skos:altLabel
       definition:
@@ -197,8 +197,8 @@ classes:
     description: >-
       The preferred label in each of the three languages the corpus is grounded
       in. The pattern rejects an empty or whitespace-only label, which
-      ``required`` alone permits and which would publish a concept with no
-      surface form for the ``ground`` node to match.
+      ``required`` alone permits and which would publish a concept with no name
+      to render or resolve against.
     attributes:
       en: {description: English preferred label., required: true, pattern: '^\S(.*\S)?$'}
       fi: {description: Finnish preferred label., required: true, pattern: '^\S(.*\S)?$'}

@@ -7,7 +7,7 @@ import pytest
 import yaml
 from typer.testing import CliRunner
 
-from tapio_register import paths
+from tapio_register import paths, releasing
 from tapio_register.cli import app
 
 runner = CliRunner()
@@ -21,7 +21,7 @@ def source(tmp_path: Path, register_dict: dict) -> Path:
 
 
 def test_validate_accepts_the_shipped_register():
-    result = runner.invoke(app, ["validate", "--skip-shapes"])
+    result = runner.invoke(app, ["validate", "--skip-schema"])
     assert result.exit_code == 0, result.output
     assert "OK:" in result.output
 
@@ -30,7 +30,7 @@ def test_validate_reports_and_fails_on_a_broken_register(tmp_path, register_dict
     register_dict["concepts"][0]["related"] = ["permit:nope"]
     path = tmp_path / "broken.yaml"
     path.write_text(yaml.safe_dump(register_dict, allow_unicode=True), encoding="utf-8")
-    result = runner.invoke(app, ["validate", "--skip-shapes", "--source", str(path)])
+    result = runner.invoke(app, ["validate", "--skip-schema", "--source", str(path)])
     assert result.exit_code == 1
     assert "not in the register" in result.output
 
@@ -138,3 +138,9 @@ def test_a_second_harvest_on_the_same_day_does_not_overwrite_the_first(tmp_path,
     assert len(written) == 2, written
     queries = [yaml.safe_load((tmp_path / name).read_text(encoding="utf-8"))["queries"] for name in written]
     assert sorted(queries) == [["oleskelulupa"], ["viisumi"]]
+
+
+def test_diff_reports_a_missing_edition_without_a_traceback():
+    result = runner.invoke(app, ["diff", releasing.latest_version(), "2099-01-01"])
+    assert result.exit_code == 1
+    assert "Cannot compare those editions" in result.stdout

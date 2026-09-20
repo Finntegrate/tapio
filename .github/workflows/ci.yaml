@@ -59,8 +59,11 @@ jobs:
         with:
           python-version: "3.14"
 
+      # --all-extras because a service may keep optional dependencies out of its
+      # mandatory set (the register's authoring toolchain does) while still
+      # needing them to run its own checks.
       - name: Install locked dependencies
-        run: uv sync --locked --all-groups ${{ matrix.sync_args }} --no-install-project
+        run: uv sync --locked --all-groups --all-extras ${{ matrix.sync_args }} --no-install-project
 
       # Each check below is continue-on-error so a lint failure doesn't hide a
       # separate type-check or test failure -- the report job surfaces all of

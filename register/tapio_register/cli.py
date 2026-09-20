@@ -8,7 +8,7 @@ from typing import Annotated
 import typer
 import yaml
 
-from tapio_register import generation, loading, paths, releasing, skos, validation
+from tapio_register import generation, history, loading, paths, projection, releasing, validation
 from tapio_register.seeding import finto
 
 app = typer.Typer(help="Tapio's versioned term register.", no_args_is_help=True)
@@ -45,19 +45,19 @@ def _echo_issues(label: str, issues: list[str]) -> None:
 @app.command()
 def validate(
     source: Annotated[Path | None, typer.Option("--source", help="Register source to validate.")] = None,
-    skip_shapes: Annotated[
+    skip_schema: Annotated[
         bool,
-        typer.Option("--skip-shapes", help="Skip the JSON Schema and SHACL pass, which is the slow one."),
+        typer.Option("--skip-schema", help="Skip the JSON Schema pass."),
     ] = False,
 ) -> None:
-    """Check the register against the schema, the shapes, the integrity rules, and the published SKOS."""
+    """Check the register against the schema, the integrity rules, and the published SKOS."""
     register = loading.load_register(source)
-    schema_issues = [] if skip_shapes else [str(issue) for issue in validation.check_schema(source)]
+    schema_issues = [] if skip_schema else [str(issue) for issue in validation.check_schema(source)]
     integrity_issues = [str(issue) for issue in validation.check_integrity(register)]
     publication_issues = [str(issue) for issue in validation.check_publication(register)]
     continuity_issues = releasing.check_continuity(register)
-    if not skip_shapes:
-        _echo_issues("Schema and shape violations", schema_issues)
+    if not skip_schema:
+        _echo_issues("Schema violations", schema_issues)
     _echo_issues("Integrity violations", integrity_issues)
     _echo_issues("Publication violations", publication_issues)
     _echo_issues("Continuity violations", continuity_issues)
@@ -82,7 +82,7 @@ def generate(
         typer.Option("--check", help="Report whether the checked-in artifacts are current instead of rewriting them."),
     ] = False,
 ) -> None:
-    """Derive the Pydantic classes, JSON Schema, and SHACL shapes from the LinkML schema."""
+    """Derive the Pydantic classes and JSON Schema from the LinkML schema."""
     if check:
         stale = generation.check_generated_is_current()
         if stale:
@@ -146,7 +146,14 @@ def diff(
     later: Annotated[str, typer.Argument(help="The newer edition.")],
 ) -> None:
     """Show what changed between two editions."""
-    typer.echo(json.dumps(releasing.diff_releases(earlier, later), indent=2, ensure_ascii=False))
+    try:
+        comparison = releasing.diff_releases(earlier, later)
+    except FileNotFoundError as error:
+        # A missing edition or an unbuilt payload is an ordinary thing to hit in
+        # a fresh checkout, and the message says what to do about it.
+        typer.echo(f"Cannot compare those editions: {error}")
+        raise typer.Exit(code=1) from error
+    typer.echo(json.dumps(comparison, indent=2, ensure_ascii=False))
 
 
 @app.command("in-force")
@@ -156,8 +163,38 @@ def in_force(
 ) -> None:
     """List the concepts that were in force on a date."""
     register = loading.load_register(source)
-    for concept in skos.in_force_on(register, date.fromisoformat(reference)):
+    for concept in history.in_force_on(register, date.fromisoformat(reference)):
         typer.echo(f"{concept.id}\t{concept.pref_label.en}")
+
+
+@app.command()
+def options(
+    guide: Annotated[str | None, typer.Option("--guide", help="Scope to one guide, e.g. ilmarinen.")] = None,
+    kind: Annotated[list[str] | None, typer.Option("--kind", help="Limit to one or more kinds.")] = None,
+    current_only: Annotated[
+        bool,
+        typer.Option("--current-only", help="Leave out concepts that are no longer in force."),
+    ] = False,
+    source: Annotated[Path | None, typer.Option("--source", help="Register source to read.")] = None,
+) -> None:
+    """Print the concepts a classifier picks from, one per line."""
+    register = loading.load_register(source)
+    chosen = projection.options(
+        register, guide=guide, kinds=list(kind) if kind else None, include_lapsed=not current_only
+    )
+    for concept_id, label in chosen.items():
+        typer.echo(f"{concept_id}\t{label}")
+    typer.echo(f"\n{len(chosen)} concept(s), {sum(len(k) + len(v) for k, v in chosen.items())} characters", err=True)
+
+
+@app.command()
+def context(
+    concept_ids: Annotated[list[str], typer.Argument(help="Concept ids, e.g. permit:extended-permit.")],
+    source: Annotated[Path | None, typer.Option("--source", help="Register source to read.")] = None,
+) -> None:
+    """Print the facts a guide should generate against, for these concepts."""
+    register = loading.load_register(source)
+    typer.echo(projection.as_prompt_block(projection.facts(register, list(concept_ids))))
 
 
 @app.command("seed-finto")

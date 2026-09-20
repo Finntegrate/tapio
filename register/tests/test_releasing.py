@@ -208,25 +208,19 @@ def test_current_edition_check_catches_a_hand_edited_manifest(tmp_path, source, 
     assert any("does not match the digest recorded" in problem for problem in problems)
 
 
-def test_an_edition_whose_payload_is_not_built_is_recovered_from_git():
-    """Only manifests are committed, so an edition's source comes out of history.
-
-    In a fresh checkout the payload is genuinely absent and the git path is
-    taken directly; where it has been built, it is set aside first so this
-    tests the same thing either way.
-    """
+def test_an_edition_whose_payload_is_not_built_says_how_to_rebuild_it():
+    """Only manifests are committed; the payload is rebuilt rather than recovered."""
     version = releasing.latest_version()
     built = paths.release_dir(version) / releasing.SOURCE_NAME
     set_aside = built.with_suffix(".yaml.set-aside") if built.exists() else None
     if set_aside is not None:
         built.rename(set_aside)
     try:
-        source = releasing.edition_source(version)
+        with pytest.raises(FileNotFoundError, match="tapio-register release"):
+            releasing.edition_source(version)
     finally:
         if set_aside is not None:
             set_aside.rename(built)
-    assert source["register_version"] == version
-    assert len(source["concepts"]) > 100
 
 
 def test_an_unknown_edition_says_how_to_build_it(tmp_path):
@@ -296,3 +290,53 @@ def test_every_refusal_shares_one_base_so_a_caller_can_catch_them_together():
         releasing.InvalidRegisterError,
     ):
         assert issubclass(error, releasing.ReleaseRefusedError)
+
+
+def test_a_hand_edited_concept_id_list_is_caught(tmp_path, source, register):
+    """The list the next edition's continuity check reads has to be checked itself."""
+    result = release(tmp_path, source, register)
+    manifest_path = result.directory / "manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+    manifest["concept_ids"] = [i for i in manifest["concept_ids"] if i != "org:migri"]
+    manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+    problems = releasing.verify_current_edition(source, tmp_path / "releases")
+    assert any("org:migri is in the source and not in the manifest" in problem for problem in problems)
+
+
+def test_diff_falls_back_to_the_manifests_when_no_payload_is_built(tmp_path, source, register, register_dict):
+    """A clean checkout holds manifests and no payload, which is the ordinary case."""
+    later = {**register_dict, "register_version": "2026-12-01"}
+    later["concepts"] = [
+        *register_dict["concepts"],
+        {
+            **register_dict["concepts"][1],
+            "id": "permit:brand-new",
+            "pref_label": {"en": "brand new", "fi": "aivan uusi", "sv": "helt ny"},
+        },
+    ]
+    release(tmp_path, source, register)
+    source.write_text(yaml.safe_dump(later, allow_unicode=True), encoding="utf-8")
+    release(tmp_path, source, TermRegister.model_validate(later))
+
+    for version in ("2026-09-19", "2026-12-01"):
+        for path in (tmp_path / "releases" / version).iterdir():
+            if path.name != "manifest.json":
+                path.unlink()
+
+    diff = releasing.diff_releases("2026-09-19", "2026-12-01", tmp_path / "releases")
+    assert diff["added"] == ["permit:brand-new"]
+    assert diff["withdrawn"] == []
+    # Said, not silently implied: this comparison cannot see within a concept.
+    assert "lapsed" not in diff
+    assert "manifest concept ids only" in diff["compared"]
+
+
+def test_a_full_diff_says_that_is_what_it_did(tmp_path, source, register):
+    release(tmp_path, source, register)
+    assert releasing.diff_releases("2026-09-19", "2026-09-19", tmp_path / "releases")["compared"] == "sources"
+
+
+def test_diffing_an_edition_that_does_not_exist_says_so(tmp_path, source, register):
+    release(tmp_path, source, register)
+    with pytest.raises(FileNotFoundError, match="no 2099-01-01 edition"):
+        releasing.diff_releases("2026-09-19", "2099-01-01", tmp_path / "releases")

@@ -2,11 +2,11 @@
 
 from datetime import date
 
-from rdflib import Literal, URIRef
+from rdflib import URIRef
 from rdflib.namespace import DCTERMS, RDF, RDFS, SKOS
 
 from tapio_register.generated.term_register_model import TermRegister
-from tapio_register.skos import SDO, TAPIO, check_graph, in_force_on, to_graph
+from tapio_register.skos import SDO, TAPIO, to_graph
 
 PERMIT = URIRef("https://tapio.finntegrate.org/register/permit/first-residence-permit")
 BASE = URIRef("https://tapio.finntegrate.org/register/permit/residence-permit")
@@ -69,37 +69,3 @@ def test_register_curies_survive_serialization(register):
     turtle = to_graph(register).serialize(format="turtle")
     assert "org:migri" in turtle
     assert "org1:" not in turtle
-
-
-def test_in_force_on_slices_by_date(register_dict):
-    register_dict["concepts"][1]["valid_until"] = "2020-12-31"
-    register_dict["concepts"][1]["change_note"] = "Gone."
-    register = TermRegister.model_validate(register_dict)
-    live = {concept.id for concept in in_force_on(register, date(2026, 1, 1))}
-    historical = {concept.id for concept in in_force_on(register, date(2019, 1, 1))}
-    assert "permit:residence-permit" not in live
-    assert "permit:residence-permit" in historical
-
-
-def test_the_published_graph_passes_its_own_checks(register):
-    assert to_graph(register) is not None
-    assert check_graph(to_graph(register)) == []
-
-
-def test_a_missing_language_in_the_published_graph_is_caught(register):
-    """The shapes describe the register's own shape and cannot judge this projection."""
-    graph = to_graph(register)
-    graph.remove((PERMIT, SKOS.prefLabel, next(o for o in graph.objects(PERMIT, SKOS.prefLabel) if o.language == "sv")))
-    assert any("no skos:prefLabel in sv" in problem for problem in check_graph(graph))
-
-
-def test_two_preferred_labels_in_one_language_are_caught(register):
-    graph = to_graph(register)
-    graph.add((PERMIT, SKOS.prefLabel, Literal("a second English label", lang="en")))
-    assert any("more than one skos:prefLabel in en" in problem for problem in check_graph(graph))
-
-
-def test_a_relation_leaving_the_published_graph_is_caught(register):
-    graph = to_graph(register)
-    graph.add((PERMIT, SKOS.broader, URIRef("https://tapio.finntegrate.org/register/permit/not-published")))
-    assert any("skos:broader points outside" in problem for problem in check_graph(graph))

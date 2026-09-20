@@ -20,19 +20,32 @@ register rather than starting new ones.
 | Path | What it is |
 | --- | --- |
 | `tapio_register/schema/term_register.yaml` | The LinkML schema. The single source of truth. |
-| `tapio_register/data/register.yaml` | The curated register source, reviewed by a person. |
-| `tapio_register/generated/` | Pydantic classes, JSON Schema, and SHACL shapes, all derived from the schema. Never hand-edited. |
-| `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into `register.yaml`. |
+| `tapio_register/data/` | The curated register: `edition.yaml` for the edition's own metadata, and one file per kind of concept. A concept's id prefix says which file it belongs in, and the loader refuses a concept filed under the wrong kind. |
+| `tapio_register/generated/` | Pydantic classes and JSON Schema, both derived from the schema. Never hand-edited. |
+| `candidates/` | Seeding output awaiting review. Not part of the register until a person moves a term into the matching file under `tapio_register/data/`, with its own observation provenance. |
 | `releases/<date>/manifest.json` | One dated, immutable edition: its coverage summary and a SHA-256 digest per payload file. |
+| `evals/concept-resolution.yaml` | 30 real-shaped queries in Finnish, Swedish and English — inflected, misspelled, code-switched, obsolete, ambiguous — with the concepts each should resolve to. What a classifier has to get right before the register is worth feeding it. |
 
 ## Working with it
 
 ```bash
-mise run register:validate      # schema, SHACL, and integrity checks
+mise run register:validate      # schema, integrity, and publication checks
 mise run register:generate      # regenerate the derived artifacts after a schema change
 mise run register:release       # build the edition named by the source's register_version
 mise run test:register          # unit tests
 ```
+
+Two projections turn the register into what a model consumes:
+
+```bash
+uv run --directory register tapio-register options --guide ilmarinen   # what a classifier picks from
+uv run --directory register tapio-register context permit:extended-permit org:te-office
+```
+
+The first is one line per concept, scoped to a guide, small enough for a
+prompt. The second is the facts a guide should generate against for the
+concepts one turn is about — including, for something no longer in force, when
+it lapsed and what replaced it.
 
 ## How an edition is stored
 
@@ -48,7 +61,13 @@ re-emitted in canonical order), so `tapio-register verify-releases` rebuilds the
 edition the source names and checks it against the recorded digests. That one
 check catches a register edited without a version bump, a hand-edited manifest,
 and any change that breaks reproducibility. To reconstruct an older edition,
-read its `register.yaml` from the commit that added its manifest.
+check out the commit that wrote its manifest and run `register:release`.
+
+Two things do not need that, because each manifest records its own concept ids:
+the cross-edition continuity check, which proves nothing was dropped, and
+`tapio-register diff`, which falls back to comparing those ids when no payload
+is built. The fallback answers what came and went but not what changed inside a
+concept, and says which of the two comparisons it made.
 
 `--overwrite` is the one way an edition can change identity while keeping its
 version. It exists for correcting an edition that has not been merged, it names
@@ -64,6 +83,27 @@ CI:
 ```bash
 uv run --directory register tapio-register seed-finto oleskelulupa viisumi
 ```
+
+## What a consumer needs
+
+Reading the register needs the data, the generated Pydantic module, and
+`loading.py` — so pydantic and pyyaml, and nothing else. Those are the package's
+only mandatory dependencies. LinkML, rdflib, jsonschema, typer and httpx are
+authoring-time only — they generate artifacts, publish SKOS, validate, and seed
+candidates — and live in the `authoring` extra, which is what the
+`tapio-register` command and the test suite need:
+
+```bash
+uv sync --all-extras
+```
+
+So a service that only reads the register does not install the toolchain that
+builds it, and a test fails if a convenience import ever puts one of those
+libraries back on the read path.
+
+Nothing in the read path reaches outside the package — no network, no
+subprocess, no repository history — so it behaves the same in a container with
+no `.git` as it does in a checkout.
 
 ## The rules this artifact lives by
 

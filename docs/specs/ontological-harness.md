@@ -6,23 +6,25 @@
 
 **Owner:** Finntegrate
 
-**Related:** [ADR 0007: constrain guide answers with an ontological harness](../ADRs/0007-ontological-harness.md), [PRD §7.2 proactive guidance](../PRD.md#72-proactive-guidance), [PRD §7.3 grounded answers and sources](../PRD.md#73-grounded-answers-and-sources), [PRD §6 the guide network](../PRD.md#6-the-guide-network), [guardrails policy](guardrails.md), [guide network grounding sources](../research/guide-network-grounding-sources.md), issues [#15](https://github.com/Finntegrate/tapio/issues/15), [#26](https://github.com/Finntegrate/tapio/issues/26), [#27](https://github.com/Finntegrate/tapio/issues/27), [#33](https://github.com/Finntegrate/tapio/issues/33), [#119](https://github.com/Finntegrate/tapio/issues/119)
+**Related:** [ADR 0007: constrain guide answers with a deterministic harness](../ADRs/0007-ontological-harness.md), [PRD §7.2 proactive guidance](../PRD.md#72-proactive-guidance), [PRD §7.3 grounded answers and sources](../PRD.md#73-grounded-answers-and-sources), [PRD §6 the guide network](../PRD.md#6-the-guide-network), [guardrails policy](guardrails.md), [guide network grounding sources](../research/guide-network-grounding-sources.md), issues [#15](https://github.com/Finntegrate/tapio/issues/15), [#26](https://github.com/Finntegrate/tapio/issues/26), [#27](https://github.com/Finntegrate/tapio/issues/27), [#33](https://github.com/Finntegrate/tapio/issues/33), [#119](https://github.com/Finntegrate/tapio/issues/119)
 
 ---
 
 ## 1. Summary
 
-Tapio's guides currently produce free prose. Retrieval gives that prose grounding, and the system prompt asks for citations, but nothing in the pipeline can *check* whether a given answer named a real permit, attributed it to the right authority, cited a source that was actually retrieved, or stayed inside the answering guide's remit. Those are all properties a machine can verify, and today none of them are verified.
+Tapio's guides answer in free prose, grounded by retrieval. Nothing in the pipeline knows which permits exist, who administers them, or which office closed last January, so a correctly retrieved page from 2018 yields a fluent answer that sends someone to a dissolved agency.
 
-This proposes a deterministic layer around the existing LangGraph flow. The central move is small and worth stating on its own, because everything else follows from it:
+This adds a world model: a small, curated, declarative register of the entities a guide can talk about, each carrying the dates it was in force and what replaced it. The model goes on doing what it is good at — reading a confused, misspelled, code-switched question and answering it warmly in the reader's language — while generating against current facts rather than against whatever the corpus happened to contain.
 
-> **The model keeps the words. The harness owns the commitments.**
+It arrives in two increments, in this order.
 
-A guide turn contains two different kinds of output. One is language: plain, warm, in the user's own language, calibrated to someone who is confused and under time pressure. That is what an LLM is genuinely good at and we should not constrain it. The other is a set of factual commitments: *this permit type*, *this authority*, *this next step*, *this source*, *this guide answered*. Those are not language. They are references into a finite, knowable set of entities, and a model that emits them as free text will occasionally emit one that does not exist.
+**First, better input and better context.** Classify what is being asked, select the concepts it concerns, and put those facts in front of the answering guide. This prevents the failure rather than detecting it, and it is small: the register exists, and what it still needs is a projection of itself that fits in a prompt.
 
-So we separate them. The model emits a small structured **answer plan** whose entity slots must resolve against a published **term register**, and whose citation slots must resolve against the chunks actually retrieved this turn. The prose rides inside that plan and stays unconstrained. A plan that fails validation gets one targeted repair attempt, then degrades to an honest fallback.
+**Second, and only if measurement says it is needed, checking what an answer committed to.** Sections 3.3 and 3.4 describe one route to that, through a typed plan the model emits before its prose, which is where most of the machinery would live. §3.5 describes a cheaper one. ADR 0007's principle 10 is why either waits.
 
-This is an information retrieval and information science problem, not a formal verification one. The cut taken here reflects that: closed-world vocabulary gate, deterministic entity resolution, shape validation, and a repair loop. Section 4 says what is deliberately left out. Section 7 covers a second output the register produces almost for free, which is a time-indexed record of how the Finnish immigration system itself changes. Section 8 covers what the harness makes possible at the interface, which is showing the user what Tapio currently believes about their situation and letting them correct it.
+What keeps the first increment honest is measurement rather than a gate. Record which concepts were supplied and check offline whether answers stayed inside them ([#27](https://github.com/Finntegrate/tapio/issues/27)); record what could not be placed, in the words people actually used, so the register's gaps are visible rather than silent.
+
+The harness is a safeguard, not the final say. It removes a class of failure that is cheap to detect and expensive to leave in. It does not make answers correct, and nothing downstream should be built as though it did.
 
 ## 2. What this fixes that better retrieval does not
 
@@ -76,7 +78,7 @@ START -> route -> retrieve -> generate -> END
 
 ### 3.2 Proposed flow
 
-`route` and `retrieve` are unchanged. One node is added ahead of them, and the existing `generate` node splits: the commitments it used to make implicitly in prose become `plan`, the prose itself becomes `render`, and `validate` sits between the two with `repair` and `degrade` on the failure edge.
+`route` and `retrieve` are unchanged. The existing `generate` node splits: the commitments it used to make implicitly in prose become `plan`, the prose itself becomes `render`, and `validate` sits between the two with `repair` and `degrade` on the failure edge.
 
 ```text
 (guardrail classification, existing, in streaming.py)
@@ -84,33 +86,46 @@ START -> route -> retrieve -> generate -> END
   `-- no match --> the graph below
 
 START
-  -> ground        (deterministic: surface forms in the query -> concept IRIs)
-  -> route         (existing keyword scorer, plus concept-set scoring)
-  -> retrieve      (existing, plus concept-expanded query terms)
-  -> plan          (constrained generation of the answer plan)
+  -> route         (existing scorer, plus concept-set scoring)
+  -> retrieve      (existing)
+  -> plan          (constrained generation of the answer plan, resolving concepts)
   -> validate      (vocabulary, citation, scope, type, currency)
        |-- conforms --> render (stream prose) --> END
        `-- violates --> repair (bounded, one attempt) --> validate
                             `-- still violates --> degrade --> END
 ```
 
-The guardrail layer keeps its current behavior exactly: it runs before the graph, and a crisis, legal-sensitive, or out-of-scope match short-circuits the turn so nothing is retrieved and none of the nodes below execute. The harness wraps the whole ground-through-degrade flow and does not move, weaken, or depend on that check. If the guardrail checks are later folded into the graph as an input-classifier node, as the guardrails policy anticipates, they belong ahead of `ground`.
+The guardrail layer keeps its current behavior exactly: it runs before the graph, and a crisis, legal-sensitive, or out-of-scope match short-circuits the turn so nothing is retrieved and none of the nodes below execute. The harness wraps the whole route-through-degrade flow and does not move, weaken, or depend on that check. If the guardrail checks are later folded into the graph as an input-classifier node, as the guardrails policy anticipates, they belong ahead of `route`.
 
-**ground** runs before routing and uses no model. It normalizes the query and matches spans against the register's labels across every language the register carries. A Finnish user typing `toimeentulotuki` and an English user typing `social assistance` resolve to the same IRI, which is what makes concept-based routing and concept-expanded retrieval work without a translation step. Unmatched spans are left alone rather than guessed at.
+**Resolution is the model's job, validation is the harness's.** Mapping what a person wrote to a concept is a language problem: Finnish is heavily inflected, Swedish compounds, and a real question mixes languages and misspells things. The model already reads all of that, so it names the concept and the harness checks the name. `plan` emits IRIs; `validate` decides whether they exist, are in scope, and are in force.
 
-This is the query-side half of the SPIRES pattern with the expensive half removed. SPIRES uses a model to extract surface forms because it is reading arbitrary documents. We are reading one short user message and we already have the labels, so string matching is sufficient and costs nothing. That matters given the latency budget (§9.3).
+This is the division the whole design rests on, and it is worth stating negatively too. A deterministic matcher over the register's labels would be a bigger, better-curated version of the keyword list §2.3 exists to replace: to survive contact with `oleskeluluvan` it would need stems and inflected forms for every term in every language served, which is a combinatorial lexicon to hand-maintain and a linguist's job to get right. Nothing in the harness's guarantees needs it. A model that proposes a concept that does not exist is caught by G1 exactly as a model that proposes one it hallucinated, because closed-world membership is a set operation over identifiers and does not care how the identifier was arrived at.
+
+What the register therefore is: an authority over which entities may be asserted, and a record of when each was in force. What it is not: a lexicon for matching strings.
+
+The graph itself is unchanged in kind. Resolved concepts and `situation` live in the LangGraph state exactly as they would have; what differs is which node writes them, and that differs by increment. **In the first increment, classification is the producer**: it writes the resolved concept ids to state, and context assembly reads them back to build the facts block. **In the second, `plan` additionally writes `situation` and the claims** — the model mutates that state inside `plan`, the deterministic nodes read it, and `validate` decides whether what was written may stand. `plan` does not own the concept write in the first increment, because in the first increment there is no `plan`. Keeping any of it in the state rather than recomputing it per turn is what lets a correction from the user (§8.3) or a concept resolved on an earlier turn feed forward as an IRI, instead of being re-derived from text every time.
+
+**What the first increment is, concretely.** Three small pieces, none of which needs the answer plan:
+
+1. **Two projections of the register.** One for classification: each concept as an option a model can pick, `id` and a short label, scoped to a guide. One for context: the handful of concepts a turn is actually about, with their labels in all three languages, validity, supersession, handling authority, and definition. The first is a list; the second is what goes in the prompt.
+2. **Classification of the input.** Which guide should answer, whether the question is in any guide's remit at all, and which concepts it concerns. One request with several questions rather than a node per question.
+3. **Context assembly.** The resolved concepts' facts, in front of the answering guide, before it writes.
+
+Everything after that — the typed plan, the gates, repair, degrade — is the second increment and is described below so the shape is known, not so it is built next.
 
 **plan** replaces the free-prose generation call with a schema-constrained one. Critically, this needs no new dependency: `guardrails/llm_classifier.py` already binds Pydantic schemas through `BaseChatModel.with_structured_output` on the shared model that `app.services.chat_model.build_chat_model` constructs. That rung of the ladder is already in the codebase and already load-bearing for safety. We are extending an established pattern, not introducing one.
 
 The provider abstraction added in #143 helps here rather than complicating it. Because the pipeline depends on `BaseChatModel` rather than a specific client, `with_structured_output` is available uniformly across the configured providers, so the plan node does not become provider-specific. What does differ is the mechanism underneath: Ollama constrains generation with a JSON-schema grammar, while the hosted providers use their own structured-output paths. The guarantee is comparable, the failure behavior on an awkward schema is not, which is one more reason to keep the plan schema flat (§9.3) and to validate it against whichever provider a deployment actually uses rather than only against the default.
 
-**validate** is pure Python plus pySHACL, no model call, and therefore deterministic and fast.
+**validate** is pure Python, no model call, and therefore deterministic and fast.
 
 **repair** gets exactly one attempt. See §5.
 
 ### 3.3 The answer plan
 
-Sketched as LinkML, which compiles to the Pydantic classes the codebase already uses, the JSON Schema that constrains the Ollama call, and the SHACL shapes the validator runs. One source, three generated artifacts, no drift between them.
+*Second increment, and the more expensive of the two routes to it — see §3.5. Not built until measurement shows that supplying context is not enough on its own, per ADR 0007, principle 10.*
+
+Sketched as LinkML, which compiles to the Pydantic classes the codebase already uses and the JSON Schema that constrains generation. One source, two generated artifacts, no drift between them.
 
 ```yaml
 id: https://tapio.finntegrate.org/schema/answer-plan
@@ -219,19 +234,21 @@ Note also `situation`. It is the state §8 surfaces, it is what the process grap
 
 ### 3.4 The gates
 
+*Second increment, and it depends on the answer plan above.*
+
 Seven checks, ordered cheapest first, all deterministic.
 
 | Gate | Checks | Mechanism | Failure is |
 | --- | --- | --- | --- |
 | G1 Vocabulary | Every IRI in `about`, `authority`, `step`, `because`, `concept` exists in the register | Set membership against the loaded register | Repairable |
 | G2 Citation | Every `cites` value is a chunk id from this turn's retrieval set; every `Claim` has at least one | Set membership against graph state | Repairable |
-| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | SHACL, one shape per guide, generated from the register | Repairable |
-| G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | SHACL `sh:class` and path constraints | Repairable |
+| G3 Scope | Every concept is within the answering guide's scope, or within `handoff.to_guide`'s scope | Subset check against the union of the permitted guides' concept sets | Repairable |
+| G4 Type soundness | An `authority` is an organization, a `step` is a process, a benefit is not attributed to Migri | Lookup of each concept's `kind`, and of the relations the register records | Repairable |
 | G5 Currency | Every concept is in force at the claim's reference date, per the rules below | Date comparison plus `supersededBy` lookup | Repairable, often auto-repairable |
-| G6 Prose binding | `Claim.text` names no entity or URL absent from that claim's validated slots | Label and URL scan against the claim's allowed set | Repairable |
+| G6 Citation binding | `Claim.text` contains no URL absent from the source URLs of that claim's `cites` | Resolve each cited chunk id to its canonical source URL, then scan the prose against that set | Repairable |
 | G7 Stated evidence | Every `SituationItem` with `basis: stated` carries an `evidence` span resolving to text the person actually wrote | Offset lookup against conversation history | Not repairable by the model; demote to `inferred` |
 
-G1, G2, G6, and G7 are plain Python operations and belong in Python, not SHACL. G2 and G6 in particular are parameterized by the turn, so expressing them as SHACL would mean generating a shape per request for no benefit. G3, G4, and G5 are static per guide and per register version, so they compile once at startup and belong in SHACL where they are declarative and reviewable.
+Every gate is a plain Python operation over the register and the turn's state: set membership, a subset test, a lookup of a concept's kind, a date comparison, and for G2 and G6 a scan of a closed set the turn itself produced. None of them needs a shape language, and a register small enough to hold in memory does not need a graph store to query.
 
 **G3 and handoffs.** A `handoff` is a narrow licence, not a blanket one. A concept outside the answering guide's scope is permitted only when a handoff is present *and* that concept falls within `handoff.to_guide`'s own scope set. Otherwise emitting a handoff would let a guide assert anything at all, which is the opposite of what the gate is for: Otso handing off to Rauni may say that housing benefit is Kela's, not that a residence permit works a particular way. The handoff's `reason` and target guide are unaffected and still shown to the user; only what may be asserted alongside it is bounded.
 
@@ -239,9 +256,27 @@ G1, G2, G6, and G7 are plain Python operations and belong in Python, not SHACL. 
 
 G5 is the one that earns its keep in this domain specifically. When a present-tense claim asserts `org:te-office`, the register knows that entity has a `validUntil` of 2025-01-01 and a `supersededBy` pointing at `org:municipal-employment-area`. That is enough to rewrite the assertion deterministically and tell the model what changed, without another generation round.
 
-**G6 and why prose needs a gate at all.** The premise of this design is that the model keeps the words while the harness owns the commitments, but prose can smuggle a commitment past every structural check: a claim whose slots are impeccable can still contain a sentence naming a permit that does not exist, or an invented URL. The primary defense is rendering rather than checking. Names of concepts, authorities, and sources are emitted into the prose from the validated slots, through the register's labels in the user's language, rather than written freehand by the model. G6 is the backstop for what slips through: a scan of `Claim.text` for register labels and for URLs, rejecting any that do not appear in that claim's own `about`, `authority`, or `cites`. It is deliberately narrow. It matches known labels and URL shapes, not meaning, and it will not catch a wrong statement built entirely from correct names. That is §9.5's limit, restated: the harness bounds what an answer can refer to, not whether what it says about those things is true.
+**G6 and what it can honestly check.** The premise of this design is that the model keeps the words while the harness owns the commitments, and prose can still smuggle a commitment past the structural checks: a claim whose slots are impeccable can contain an invented URL. The primary defence is rendering rather than checking — names of concepts, authorities, and sources are emitted into the prose from the validated slots, through the register's labels in the user's language, rather than written freehand.
+
+G6 is the backstop for the part of that which is mechanically checkable. `cites` holds chunk ids, not URLs, so the check first resolves each cited chunk to the canonical URL of the page it came from — the same normalisation the corpus already applies, so a trailing slash or a tracking parameter does not read as a different source. Scanning the prose against that resolved set is then exact, because a URL is a string. An entity name is not: prose says `oleskeluluvan`, the register says `oleskelulupa`, and a label scan either misses it or needs the inflection lexicon §3.2 rejects. Checking entity names in prose is therefore left to rendering, which avoids the problem rather than detecting it.
+
+This is deliberately narrow, and §9.5's limit restated: the harness bounds what an answer can cite, not whether what it says about those sources is true.
 
 **G7 and the panel's honesty.** A `SituationItem` with `basis: stated` asserts that the person said something, and §8.2 displays it differently on that basis. The claim is only as good as its evidence, so `stated` requires an `evidence` span that resolves to text in the conversation history. A model that promotes its own guess to "you told me" makes the panel in §8 lie, which is worse than having no panel. Failure here is not sent back for repair, because a model that has already fabricated an attribution is the wrong party to ask for a better one: the item is silently demoted to `inferred`, where the interface presents it as an assumption open to correction, and the demotion is logged.
+
+### 3.5 Classification as a capability, not a component
+
+Several decisions in this pipeline have the same shape: a small judgment over text the system already holds, returning a typed value that code branches on. Which guide should answer. Whether a question is in any guide's remit. Which concepts it concerns. Which retrieved chunks actually bear on it. Whether an answer stayed inside the sources it was given. None of these needs slow reasoning, and `guardrails/llm_classifier.py` already does one of them.
+
+Treating this as a capability rather than a component has three consequences worth stating.
+
+**The register is what makes the judgments specific.** A classifier with no world model can only sort into generic categories. Given the register, it sorts into Tapio's own: this permit, that authority, in force or superseded, inside this guide's remit. That is the difference between "this looks like a permit question" and "this concerns `permit:extended-permit`, which Ilmarinen owns and which is in force today."
+
+**Checking an answer need not mean the answer plan.** §3.3 and §3.4 describe output validation through a typed plan the model emits before its prose. That is one route to it, and the most expensive: a schema-constrained generation, a second pass, and a repair loop. A judgment over the answer and the sources it was given — "is every claim here supported by these?" — is another, and it costs one classification. Which route the second increment takes is open, and should be settled by what the measurement shows rather than decided here.
+
+**What must not be classified.** A classifier returns a judgment with a probability attached; a lookup returns a fact. Asking a model whether the TE Office is still in force reintroduces exactly the uncertainty the register exists to remove, because that is a date comparison against a row we own. The rule is narrow: if the answer is already in the register, look it up, and classify only what requires reading language. A capable classification API makes breaking this rule easy and tempting.
+
+Where a classifier reports calibrated confidence, that confidence is an input to the branch rather than a second opinion about the answer: assert above a threshold, ask near it, record a coverage gap below it. Where it does not, the coverage measurement in §9.1 is the stand-in — it shows where reading failed, without a number to threshold on.
 
 ## 4. What we are leaving out, and why
 
@@ -253,8 +288,9 @@ The research document that prompted this is written for regulated enterprise aut
 | Gate 2, policy engine (OPA, Cedar) | Authorization, delegation limits, separation of duties | **Cut.** There is no actor, no privilege, and no write. The nearest analogue is guide scope, which is a semantic question and belongs in G3. |
 | Signed evidence bundles (Ed25519) | Non-repudiation under audit | **Cut, and it is worth saying why loudly.** A cryptographically signed, per-turn record binding a prompt to an answer is an accumulating artifact about a person asking about asylum or deportation. PRD §5 treats a data exposure for those users as a physical-safety risk, not a compliance incident. Building tamper-evident records of their questions runs directly against that. See §6 for what to build instead. |
 | Separate constrained-decoding runtime (llama.cpp GBNF, Outlines) | Grammar-constrained generation | **Already have it.** Ollama's JSON-schema mode, used today in `llm_classifier.py`, is this. No new dependency. |
-| SPIRES model-driven extraction | Grounding entities out of arbitrary documents | **Half.** Keep deterministic resolution against the register. Drop the model-based extraction on the query side, where string matching over known labels is enough and free. |
-| Ontology Access Kit | Cross-ontology term mapping | **Defer.** A normalized label index in memory is faster and simpler for a register of this size. Revisit if mapping to external vocabularies becomes routine. |
+| SPIRES model-driven extraction | Grounding entities out of arbitrary documents | **Adapted.** The model names concepts, as SPIRES does, but against a closed register rather than an open ontology, and the result is validated by set membership rather than trusted. |
+| SHACL | Shape validation over an RDF graph | **Cut.** Every check is set membership, set intersection, a `kind` lookup, or a date comparison over a register small enough to hold in memory. Shapes were a second schema language describing what the Pydantic classes and the JSON Schema already describe. |
+| Ontology Access Kit | Cross-ontology term mapping | **Defer.** The register records its own alignments (`exactMatch`, `closeMatch`) as data. Revisit if mapping to external vocabularies becomes routine. |
 
 The honest summary: about half of that architecture applies here, and the half that applies is the half that is cheap.
 
@@ -357,6 +393,8 @@ For a project with no formal organizational backing, this is also the most legib
 
 ## 8. Surfacing the worldview
 
+*Depends on the second increment: the panel shows what the plan committed to, so there is nothing to surface until a plan exists.*
+
 The harness makes Tapio's internal state into data. That opens a product surface that the current architecture cannot support at all, and it is arguably the most useful thing the milestone produces for an ordinary user.
 
 ### 8.1 The invisible input
@@ -395,7 +433,7 @@ Empty states matter. Most first turns will have little or nothing worth showing,
 
 A read-only panel is transparency. An editable one is a repair loop with the user inside it, and that is a materially better feature.
 
-When someone changes "student residence permit" to "work-based residence permit," Tapio receives a concept IRI. Not a sentence to parse, not an intent to classify. A precise, already-resolved, language-independent correction that `ground`, `route`, and `retrieve` can consume directly on the next turn.
+When someone changes "student residence permit" to "work-based residence permit," Tapio receives a concept IRI. Not a sentence to parse, not an intent to classify. A precise, already-resolved, language-independent correction that `route`, `retrieve`, and `plan` can consume directly on the next turn.
 
 That is a better input than a clarifying question, and it is better in a way that speaks to the PRD's central observation that newcomers often do not know what to ask. Noticing that something on screen is wrong is a much lower bar than formulating the right question. The panel converts a skill the user may not have into one they certainly do.
 
@@ -451,6 +489,8 @@ This section exists because the proposal is more attractive than it is safe, and
 
 ### 9.1 The register will drift, and openness is the mitigation
 
+**What makes drift visible.** A register that only rejects degrades silently as the world moves. Recording what could not be placed — in the words the person used, ranked by how often it comes up — turns the gaps into a queue someone can work through, and turns "is the register good enough" into a number. That is ADR 0007's principle 5, and it is the mechanism this section's openness argument depends on rather than an alternative to it.
+
 The register is a curated artifact. Unmaintained, it becomes worse than nothing: it rejects correct answers about entities nobody has registered yet, and the whole benefit of §2.1 inverts.
 
 Tapio is a beta project on an open-source development flow with no formal organizational backing, so the mitigation cannot be a named owner and a review cadence. It has to be structural, which is arguably more robust anyway:
@@ -477,7 +517,7 @@ Those figures are the local-CPU Ollama case. Since #143 the provider is configur
 
 Two responses, and they work on different parts of the problem.
 
-**Reduce the actual wait.** The `ground` node uses no model. The `validate` node uses no model. The plan schema is deliberately flat and small, because small local models degrade badly on deeply nested schemas. Only `plan` and a possible single `repair` add model calls, and `plan` replaces work the `generate` node was doing anyway rather than adding to it. This still needs benchmarking against the deployment target, not a developer laptop, before the gates ship.
+**Reduce the actual wait.** The `validate` node uses no model. The plan schema is deliberately flat and small, because small local models degrade badly on deeply nested schemas. Only `plan` and a possible single `repair` add model calls, and `plan` replaces work the `generate` node was doing anyway rather than adding to it. This still needs benchmarking against the deployment target, not a developer laptop, before the gates ship.
 
 **Make the remaining wait legible.** A silent 30 seconds reads as a broken page. The same 30 seconds with honest progress reads as work being done, and the harness is what makes honest progress possible: the graph's nodes are discrete, named, and sequential, so each transition is a real event to report. Free prose generation has nothing comparable to show, because it is one opaque call.
 
@@ -485,7 +525,7 @@ The SSE stream already carries typed events and `stream_chat_turn` already emits
 
 | Node | Event | Shown to the user |
 | --- | --- | --- |
-| `ground` | `progress` | "Working out what you are asking about" |
+| `route` | `progress` | "Working out what you are asking about" |
 | `route` | `routing` (exists) | "Bringing in Ilmarinen, who handles permits and paperwork" |
 | `retrieve` | `progress` | "Looking through official sources" |
 | `plan` | `progress` | "Putting together an answer" |
@@ -531,51 +571,37 @@ Two constraints to check before committing. YSO is a general-purpose ontology an
 
 ### 11.1 What 2.1.0 should establish
 
-Rather than a phase count, 2.1.0 is best defined by the invariant it makes true, since that is what determines whether later guide work builds on it or around it:
+2.1.0 is best defined by the invariant it makes true, since that is what determines whether later guide work builds on it or around it:
 
-> **No guide ships without a register-backed scope, and no answer ships without register-validated commitments.**
-
-The two halves of that sentence land at different times, and conflating them would contradict the shadow-mode rule in §9.2.
-
-The scope half is immediate and unconditional. A guide's scope is a register concept set from the moment the register exists, and a guide without one does not ship. Nothing is staged about this, because it constrains what the team writes rather than what a user sees.
-
-The validation half is staged, because enforcing an incomplete register on real users is the failure mode §9.2 exists to prevent. 2.1.0 delivers the mechanism in shadow mode: every gate runs on every turn, every result is logged, and no response changes. Enforcement is a later switch, thrown per gate rather than all at once, and only against measured evidence.
-
-**Exit criteria for enforcing a gate.** A gate moves from shadow to enforcing when all of the following hold for it:
-
-1. At least four weeks of shadow data across real traffic, not synthetic queries.
-2. A false-rejection rate below an agreed threshold, measured by sampling rejected turns and judging by hand whether the answer was in fact correct. The threshold is per gate and must be set before the data is looked at, not after.
-3. The register gaps the shadow data exposed are closed, or explicitly accepted as out of scope for that gate.
-4. The repair path resolves a substantial share of failures without a second model call, so enforcement does not simply convert rejections into degraded answers.
-5. The degrade path has been reviewed as a user-facing experience by someone who did not build it, since it is what users will actually see when the gate bites.
-
-Expect these to be met at very different times. G2, the citation gate, has an unambiguous closed set and no register dependency, so it should clear the bar quickly and can enforce well before the others. G6 depends on nothing but the register's labels and should follow. G1 and G3 depend on register coverage and should be assumed slowest. G7 is a special case with no shadow period, because its failure mode is a demotion rather than a rejection: showing an unevidenced claim as "you told me" is the harm, and demoting it to "inferred" costs the user nothing.
-
-Everything needed to make the scope half true, and to run the validation half in shadow, belongs in 2.1.0. Enforcement itself does not, and neither does anything that improves answers without being a precondition for the next guide.
+> **No guide ships without a register-backed scope, and no guide generates without the register's current facts in front of it.**
 
 | In 2.1.0 | Why it has to be here |
 | --- | --- |
-| **Citation gate** (no ontology needed) | Independent, cheap, and makes a PRD-committed property true by construction. Land it first. |
-| **Term register**, Ilmarinen's domain, roughly 100 to 150 concepts, en/fi/sv, with the §7.4 time fields from day one | The artifact everything else reads. The time fields are cheap now and expensive later. |
-| **Answer plan and gates** G1 and G3 through G7, plus the repair and degrade paths, in shadow mode | The validation layer itself. Shadow mode means it can ship without user-visible risk; enforcement follows the §11.1 exit criteria, per gate. G7 is the exception and enforces on arrival, since its failure demotes a label rather than rejecting an answer. |
-| **Guide scope as concept sets** | This is the actual reason to do the milestone before more guides. Scope stops being a hand-written English sentence and becomes the thing G3 checks. |
-| **Progress events** (§9.3) | The latency mitigation. Shipping the gates without it means shipping a slower product with nothing to show for the wait. |
-| **Situation panel, read-only** (§8.1 to §8.6) | Buildable as soon as `ground` populates `situation`, and it is the milestone's only surface an ordinary user can see. Read-only first keeps the scope small and the §8.5 question testable. |
-| **Register in CI**, dated releases | The maintenance mechanism from §9.1. Without it the register rots from the first week. |
+| **Term register**, Ilmarinen's domain, with the §7.4 time fields (landed, [#150](https://github.com/Finntegrate/tapio/issues/150)) | The artifact everything else reads. |
+| **Register projections**, one for classification and one for context | Nothing can use the register until it fits in a prompt. This is the smallest piece that turns a curated file into something a model consumes. |
+| **Input classification**: routing, remit, and which concepts a question concerns | The first increment's substance, and the first user-visible change. |
+| **Guide scope as concept sets** ([#154](https://github.com/Finntegrate/tapio/issues/154)) | Scope stops being a hand-written English sentence and becomes a set the classifier and the register agree on. |
+| **Coverage measurement** ([#27](https://github.com/Finntegrate/tapio/issues/27)) | Record what was supplied, what could not be placed, and whether answers stayed inside their context. Without it the second increment is a guess. |
+| **Register in CI**, dated releases (landed, [#157](https://github.com/Finntegrate/tapio/issues/157)) | The maintenance mechanism from §9.1. Without it the register rots from the first week. |
 
 | After 2.1.0 | Why it can wait |
 | --- | --- |
-| Situation panel corrections (§8.3) | Needs the read-only version tested first, and the §8.4 persistence boundary decided. Interacts with [#16](https://github.com/Finntegrate/tapio/issues/16) and [#35](https://github.com/Finntegrate/tapio/issues/35). |
+| Answer plan, gates, repair and degrade (§3.3, §3.4, §5) | The second increment. Justified by measurement rather than by §2's plausibility, per ADR 0007 principle 10. |
+| Situation panel (§8) | Shows what the plan committed to, so it needs the plan. The §8.5 question belongs in user research first ([#33](https://github.com/Finntegrate/tapio/issues/33), [#36](https://github.com/Finntegrate/tapio/issues/36)). |
+| Progress events (§9.3) | They mitigate the wait the plan step introduces. Nothing to mitigate until it exists. |
 | Concept-expanded retrieval, Annif tagging at ingest | Answer-quality improvement, not a precondition. Relates to [#26](https://github.com/Finntegrate/tapio/issues/26). |
-| Register coverage for Sampo, Rauni, Otso, then the seven planned guides | Each new guide extends the register as part of its own work, which is the point of the invariant. Relates to [#15](https://github.com/Finntegrate/tapio/issues/15), [#96](https://github.com/Finntegrate/tapio/issues/96), [#121](https://github.com/Finntegrate/tapio/issues/121). |
-| Process graph for proactive guidance | Needs the register to exist first. PRD §7.2. |
-| Developing-understanding and paths-ahead views (§8.7) | Need the process graph and a tested panel. |
+| Register coverage for Sampo, Rauni, Otso ([#161](https://github.com/Finntegrate/tapio/issues/161), [#162](https://github.com/Finntegrate/tapio/issues/162), [#163](https://github.com/Finntegrate/tapio/issues/163)) | Each guide extends the register as part of its own work, and per ADR 0007 principle 9 the register grows on evidence of use rather than ahead of it. |
+| Process graph for proactive guidance | Needs the register and the plan. PRD §7.2. |
 | Provenance record and register-derived eval set | Needs the gates to exist first. [#27](https://github.com/Finntegrate/tapio/issues/27). |
-| First public dataset release | Should follow at least a year of dated releases, so the first published version has a time dimension worth reading. §7. |
+| First public dataset release | Should follow at least a year of dated releases, so the first published version has a time dimension worth reading. §7, [#168](https://github.com/Finntegrate/tapio/issues/168). |
 
 ### 11.2 Ordering within the milestone
 
-The citation gate ships alone and first, because it depends on nothing and proves out the shadow-mode pattern on the cheapest possible check. Register and LinkML schema come next and can proceed in parallel with it. Gates, repair, and scope-as-concepts follow the register. Progress events and the read-only situation panel can be built any time after the graph gains its new nodes, and should not be left until last, since together they are what makes the milestone demoable to someone who does not read code.
+The register landed first, because everything else reads it. The projections come next, because a curated file nothing can consume is not yet useful, and because they are what a classification spike needs as input. Classification and context assembly follow, and together they are the first change an ordinary user would notice.
+
+Measurement runs alongside from the start rather than at the end. It is what turns "should we add the gates" from an architectural preference into a question with an answer, and it is cheap while the volumes are small.
+
+The gates follow only if that measurement asks for them.
 
 ### 11.3 Before filing issues
 
@@ -585,16 +611,16 @@ Per `CLAUDE.md`, scan the open backlog before creating anything: several of thes
 
 | Role | Choice | Note |
 | --- | --- | --- |
-| Schema source of truth | **LinkML** | One YAML generates Pydantic, JSON Schema, SHACL, and OWL. Python-native, fits the existing uv and Pydantic setup. |
+| Schema source of truth | **LinkML** | One YAML generates the Pydantic classes and the JSON Schema. It earns its place only while that is true; if it stops being true, the schema becomes a plain Pydantic module and the data is untouched. |
 | Constrained generation | **`BaseChatModel.with_structured_output`** | Already in `guardrails/llm_classifier.py`, and provider-independent since #143. No new dependency. |
 | Graph handling | **rdflib** | In-memory is fine at this size. Do not reach for a triplestore before the register outgrows a dict. |
-| Shape validation | **pySHACL** | Compile shapes once at startup, not per request. |
-| Entity resolution | Normalized label index, plain Python | An `sqlite` FTS table if fuzzy matching is ever needed. |
+| Input classification | **A model behind a provider-neutral interface** | `guardrails/llm_classifier.py` is the existing instance. One request carrying several questions, not a node per judgment. |
+| Entity resolution | **The model, in `plan`** | A concept is named by the model and checked by G1. No matcher, no lexicon of inflected forms. |
 | Graph store | **Not yet.** pyoxigraph if the register outgrows memory | Deliberately deferred. |
 | DL reasoner | **None** | See §4. |
 | Policy engine | **None** | See §4. |
 
-The one deliberate dependency addition is LinkML plus pySHACL plus rdflib. Everything else is already present or explicitly declined.
+The deliberate dependency additions are LinkML and rdflib. Everything else is already present or explicitly declined.
 
 ## 13. Open questions
 
@@ -602,8 +628,8 @@ The one deliberate dependency addition is LinkML plus pySHACL plus rdflib. Every
 | --- | --- |
 | Does showing the working picture (§8) invite correction and lower false trust, or does a tidy structured panel make Tapio read as more authoritative? The whole feature rests on this and it is untested. Belongs in [#33](https://github.com/Finntegrate/tapio/issues/33) / [#36](https://github.com/Finntegrate/tapio/issues/36), with people who are genuinely unsure of their status. | Yes, before corrections are built on top |
 | What is the persistence boundary for the situation panel? Turn, session, or explicitly pinned by the user? §8.4 argues for turn-scoped with visible clearing, but this collides with durable conversations ([#16](https://github.com/Finntegrate/tapio/issues/16), [#35](https://github.com/Finntegrate/tapio/issues/35)) and should be settled jointly rather than twice. | Yes, for the panel |
-| Does the plan-then-stream latency (§9.4) produce an acceptable first-token wait on the deployment target, with progress events in place? Needs a benchmark, not an opinion. | Yes, before the gates leave shadow mode |
-| Where do Tapio-local concept IRIs live, and what is the policy for minting one rather than reusing a YSO or PTV identifier? This also determines whether the published dataset has stable, resolvable identifiers. | Yes, for the register |
+| Does the plan-then-stream latency (§9.4) produce an acceptable first-token wait on the deployment target, with progress events in place? Needs a benchmark, not an opinion. | Yes, before the second increment ships |
+| Where do Tapio-local concept IRIs live, and what makes them resolvable rather than opaque strings? Minting policy is settled — anchor where a published vocabulary has a match, mint otherwise, and record the alignment as data — but nothing serves the IRIs yet. | Yes, before publication ([#168](https://github.com/Finntegrate/tapio/issues/168)) |
 | Does importing terms from the sources in §10 raise licensing questions the grounding-sources research did not cover, given it assessed citation-with-link rather than reuse and republication under CC BY? | Yes, before first publication, not before first use |
 | Is a concept-level situational context (permit type, stage, applicant category) sufficient for useful proactive guidance, and does it satisfy the no-PII posture? This proposal argues yes but has not tested it. | Yes, for the process graph |
 | Should the register cover all 12 languages InfoFinland publishes in, or the three the corpus is grounded in? | No, three is a fine start |
