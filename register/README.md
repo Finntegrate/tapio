@@ -50,6 +50,14 @@ check catches a register edited without a version bump, a hand-edited manifest,
 and any change that breaks reproducibility. To reconstruct an older edition,
 read its `register.yaml` from the commit that added its manifest.
 
+`--overwrite` is the one way an edition can change identity while keeping its
+version. It exists for correcting an edition that has not been merged, it names
+what it changed when it is used, and a manifest is never marked as generated —
+so an edition changing identity always shows up as a reviewable diff. Once an
+edition is on `main`, treat it as published: bump `register_version` instead.
+Enforcing that boundary needs a home for published editions outside this
+repository, which is [#168](https://github.com/Finntegrate/tapio/issues/168).
+
 Seeding candidates from Finto reaches the network and is run by hand, not in
 CI:
 

@@ -369,6 +369,8 @@ uv run --directory ingest mypy tapio_ingest
 uv run --directory ingest pyrefly check
 uv run --directory backend mypy --config-file mypy.ini app
 uv run --directory backend pyrefly check
+uv run --directory register mypy --config-file mypy.ini tapio_register
+uv run --directory register pyrefly check tapio_register
 ```
 
 ### Pre-commit Hooks (prek)
