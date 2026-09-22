@@ -24,6 +24,15 @@ from evals.metrics import RetrievalSummary, first_hit_rank, retrieved_urls, summ
 Retrieve = Callable[[str, int], list[Any]]
 
 
+def _positive_int(raw: str) -> int:
+    """Parse an ``argparse`` value, rejecting zero and negative integers."""
+    value = int(raw)
+    if value < 1:
+        msg = f"must be a positive integer, got {value}"
+        raise argparse.ArgumentTypeError(msg)
+    return value
+
+
 @dataclass(frozen=True)
 class RetrievalCaseResult:
     """Outcome of retrieval for one golden question."""
@@ -83,7 +92,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     parser = argparse.ArgumentParser(description="Evaluate Tapio retrieval quality.")
     parser.add_argument("--golden-set", type=Path, default=DEFAULT_GOLDEN_SET)
-    parser.add_argument("--k", type=int, default=5, help="documents retrieved per question")
+    parser.add_argument("--k", type=_positive_int, default=5, help="documents retrieved per question")
     parser.add_argument("--collection", help="Chroma collection name")
     parser.add_argument("--persist-directory", help="Chroma directory")
     parser.add_argument("--embedding-model", help="embedding model the collection was built with")

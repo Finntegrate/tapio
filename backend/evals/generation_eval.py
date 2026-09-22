@@ -105,7 +105,7 @@ def parse_verdict(raw: str, fact_count: int) -> Verdict | None:
         facts_covered = data["facts_covered"]
         grounded = data["grounded"]
         safe = data["safe"]
-    except (json.JSONDecodeError, KeyError, TypeError):
+    except json.JSONDecodeError, KeyError, TypeError:
         return None
     # Validate types: facts_covered must be a list of JSON booleans, grounded/safe must be booleans.
     # Use `type(x) is bool` to reject integer 0/1 (isinstance(True, int) is True in Python).
@@ -124,10 +124,11 @@ def parse_verdict(raw: str, fact_count: int) -> Verdict | None:
 
 
 def _judge_prompt(case: GoldenCase, answer: str, context: str) -> str:
+    """Build the judge's user message from a case, its answer, and the retrieved context."""
     facts = "\n".join(f"{index}. {fact}" for index, fact in enumerate(case.key_facts, start=1)) or "(none)"
     return (
         f"Question:\n{case.question}\n\nAnswer:\n{answer}\n\n"
-        f"Source context:\n{context}\n\nKey facts:\n{facts}"
+        f"Source context:\n{context[:MAX_CONTEXT_CHARS]}\n\nKey facts:\n{facts}"
     )
 
 
@@ -138,6 +139,7 @@ def judge_answer(judge: BaseChatModel, case: GoldenCase, answer: str, context: s
 
 
 def _rate(values: list[bool]) -> float | None:
+    """Share of ``values`` that are True, or None when there are none to score."""
     return sum(values) / len(values) if values else None
 
 
@@ -187,6 +189,7 @@ def evaluate_generation(
 
 
 def _show(value: float | bool | None) -> str:  # noqa: FBT001
+    """Render a score for the plain-text report: 2 decimals for floats, else as-is."""
     if value is None:
         return "n/a"
     return f"{value:.2f}" if isinstance(value, float) else str(value)

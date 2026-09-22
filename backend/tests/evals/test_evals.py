@@ -1,5 +1,7 @@
 """Tests for the offline retrieval and generation evaluation harness."""
 
+import argparse
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -57,19 +59,27 @@ class TestDataset:
         assert len({case.id for case in cases}) == len(cases)
         assert all(case.expected_source_urls for case in cases)
 
-    def test_missing_field_is_rejected(self, tmp_path) -> None:
+    def test_missing_field_is_rejected(self, tmp_path: Path) -> None:
         path = tmp_path / "bad.jsonl"
         path.write_text('{"id": "a", "question": "q"}\n', encoding="utf-8")
 
         with pytest.raises(ValueError, match="missing fields"):
             load_golden_set(path)
 
-    def test_repeated_id_is_rejected(self, tmp_path) -> None:
+    def test_repeated_id_is_rejected(self, tmp_path: Path) -> None:
         line = '{"id": "a", "question": "q", "language": "en", "expected_source_urls": ["u"]}\n'
         path = tmp_path / "dup.jsonl"
         path.write_text(line * 2, encoding="utf-8")
 
         with pytest.raises(ValueError, match="repeats id"):
+            load_golden_set(path)
+
+    @pytest.mark.parametrize("raw_line", ['"just a string"', "42", '["a", "list"]'])
+    def test_non_object_line_is_rejected(self, tmp_path: Path, raw_line: str) -> None:
+        path = tmp_path / "scalar.jsonl"
+        path.write_text(raw_line + "\n", encoding="utf-8")
+
+        with pytest.raises(TypeError, match="must be a JSON object"):
             load_golden_set(path)
 
 
@@ -87,6 +97,18 @@ class TestRetrievalEval:
         assert [result.rank for result in report.results] == [2, None]
         assert report.summary.hit_rate == 0.5
         assert "MISS" in format_report(report, k=5)
+
+    @pytest.mark.parametrize("raw_value", ["0", "-1"])
+    def test_cli_rejects_non_positive_k(self, raw_value: str) -> None:
+        from evals.retrieval_eval import _positive_int
+
+        with pytest.raises(argparse.ArgumentTypeError, match="positive integer"):
+            _positive_int(raw_value)
+
+    def test_cli_accepts_positive_k(self) -> None:
+        from evals.retrieval_eval import _positive_int
+
+        assert _positive_int("3") == 3
 
 
 class TestGenerationEval:

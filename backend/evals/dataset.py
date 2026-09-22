@@ -38,6 +38,8 @@ def load_golden_set(path: Path = DEFAULT_GOLDEN_SET) -> list[GoldenCase]:
 
     Raises:
         ValueError: If a line is missing a required field or ids repeat.
+        TypeError: If a line is valid JSON but not an object (e.g. a bare
+            string, number, or array).
     """
     cases: list[GoldenCase] = []
     seen_ids: set[str] = set()
@@ -45,6 +47,9 @@ def load_golden_set(path: Path = DEFAULT_GOLDEN_SET) -> list[GoldenCase]:
         if not line.strip():
             continue
         raw = json.loads(line)
+        if not isinstance(raw, dict):
+            msg = f"{path.name}:{line_number} must be a JSON object, got {type(raw).__name__}"
+            raise TypeError(msg)
         missing = {"id", "question", "language", "expected_source_urls"} - raw.keys()
         if missing:
             msg = f"{path.name}:{line_number} is missing fields: {sorted(missing)}"
