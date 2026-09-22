@@ -3,13 +3,22 @@
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 _URL_KEYS = ("citation_url", "source_url", "url")
 
 
 def normalize_url(url: str) -> str:
-    """Reduce a URL to a comparable form (no fragment, no trailing slash, lower case)."""
-    return url.strip().split("#", maxsplit=1)[0].rstrip("/").lower()
+    """Reduce a URL to a comparable form.
+
+    Lowercases only the scheme and host, since those are case-insensitive by
+    spec; the path keeps its original case, since paths can be
+    case-sensitive on the server. Drops the fragment and any trailing slash
+    on the path.
+    """
+    parts = urlsplit(url.strip())
+    path = parts.path.rstrip("/")
+    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, parts.query, ""))
 
 
 def retrieved_urls(documents: Iterable[Any]) -> list[str]:

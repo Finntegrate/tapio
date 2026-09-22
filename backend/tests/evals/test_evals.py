@@ -22,8 +22,11 @@ def _case(case_id: str = "c1", facts: tuple[str, ...] = ()) -> GoldenCase:
 
 
 class TestMetrics:
-    def test_normalize_url_ignores_case_slash_and_fragment(self) -> None:
-        assert normalize_url(" https://Migri.fi/Page/#top ") == "https://migri.fi/page"
+    def test_normalize_url_lowercases_host_but_not_path(self) -> None:
+        assert normalize_url(" https://Migri.fi/Page/#top ") == "https://migri.fi/Page"
+
+    def test_normalize_url_treats_different_path_case_as_different_pages(self) -> None:
+        assert normalize_url("https://migri.fi/Page") != normalize_url("https://migri.fi/page")
 
     def test_retrieved_urls_prefers_citation_url_and_keeps_alignment(self) -> None:
         docs = [
