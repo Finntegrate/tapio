@@ -1,0 +1,355 @@
+# Organization concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: org:migri
+  kind: organization
+  pref_label:
+    en: Finnish Immigration Service
+    fi: Maahanmuuttovirasto
+    sv: Migrationsverket
+  valid_from: '2008-01-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  - rauni
+  - otso
+  observations:
+  - source: migri
+    url: https://migri.fi/en/about-us
+    observed_on: '2026-09-19'
+    note: Organisation page; the name in each language is the site's own.
+  - source: migri
+    url: https://migri.fi/tietoa-meista
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/om-oss
+    observed_on: '2026-09-19'
+  alt_labels:
+    en:
+    - Migri
+    fi:
+    - Migri
+    sv:
+    - Migri
+- id: org:finnish-mission
+  kind: organization
+  pref_label:
+    en: Finnish mission
+    fi: edustusto
+    sv: beskickning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: On the website Migri.fi, the word ‘mission’ usually refers to Finnish embassies and consulates.
+  alt_labels:
+    en:
+    - embassy
+    - consulate
+    fi:
+    - Suomen edustusto
+    - suurlähetystö
+    sv:
+    - ambassad
+- id: org:ministry-for-foreign-affairs
+  kind: organization
+  pref_label:
+    en: Ministry for Foreign Affairs
+    fi: Ulkoministeriö
+    sv: Utrikesministeriet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://um.fi/frontpage
+    observed_on: '2026-09-19'
+    note: Ministry that runs the Finnish missions and decides on visas.
+  related:
+  - org:finnish-mission
+- id: org:dvv
+  kind: organization
+  pref_label:
+    en: Digital and Population Data Services Agency
+    fi: Digi- ja väestötietovirasto
+    sv: Myndigheten för digitalisering och befolkningsdata
+  valid_from: '2020-01-01'
+  in_scope_of:
+  - ilmarinen
+  - otso
+  observations:
+  - source: dvv
+    url: https://dvv.fi/en/moving-to-finland
+    observed_on: '2026-09-19'
+  - source: dvv
+    url: https://dvv.fi/en/municipality-of-residence
+    observed_on: '2026-09-19'
+  alt_labels:
+    en:
+    - DVV
+    fi:
+    - DVV
+    sv:
+    - MDB
+- id: org:kela
+  kind: organization
+  pref_label:
+    en: Social Insurance Institution of Finland
+    fi: Kansaneläkelaitos
+    sv: Folkpensionsanstalten
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - rauni
+  - otso
+  observations:
+  - source: kela
+    url: https://www.kela.fi/moving-to-finland
+    observed_on: '2026-09-19'
+  alt_labels:
+    en:
+    - Kela
+    fi:
+    - Kela
+    sv:
+    - FPA
+- id: org:police
+  kind: organization
+  pref_label:
+    en: Finnish Police
+    fi: Poliisi
+    sv: Polisen
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - otso
+  observations:
+  - source: police
+    url: https://poliisi.fi/en/frontpage
+    observed_on: '2026-09-19'
+- id: org:administrative-court
+  kind: organization
+  pref_label:
+    en: Administrative Court
+    fi: hallinto-oikeus
+    sv: förvaltningsdomstolen
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/appealing-a-decision
+    observed_on: '2026-09-19'
+    note: Named as the appeal body in all three languages.
+  - source: migri
+    url: https://migri.fi/muutoksenhaku
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/andringssokande-och-overklagande
+    observed_on: '2026-09-19'
+- id: org:supreme-administrative-court
+  kind: organization
+  pref_label:
+    en: Supreme Administrative Court
+    fi: korkein hallinto-oikeus
+    sv: högsta förvaltningsdomstolen
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/appealing-a-decision
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/muutoksenhaku
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/andringssokande-och-overklagande
+    observed_on: '2026-09-19'
+  broader:
+  - org:administrative-court
+- id: org:unhcr
+  kind: organization
+  pref_label:
+    en: UNHCR
+    fi: UNHCR
+    sv: UNHCR
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: United Nations High Commissioner for Refugees. The UN refugee agency.
+- id: org:te-office
+  kind: organization
+  pref_label:
+    en: Employment and Economic Development Office
+    fi: työ- ja elinkeinotoimisto
+    sv: arbets- och näringsbyrån
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: other
+    url: https://tem.fi/en/employment-areas
+    observed_on: '2026-09-19'
+    note: TE Offices were dissolved and their services transferred to municipal employment areas on 1
+      January 2025.
+  alt_labels:
+    en:
+    - TE Office
+    fi:
+    - TE-toimisto
+    sv:
+    - TE-byrån
+  valid_until: '2024-12-31'
+  superseded_by:
+  - org:municipal-employment-area
+  change_note: Dissolved on 1 January 2025; employment services transferred to municipal employment areas.
+- id: org:municipal-employment-area
+  kind: organization
+  pref_label:
+    en: employment area
+    fi: työllisyysalue
+    sv: sysselsättningsområde
+  valid_from: '2025-01-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: other
+    url: https://tem.fi/en/employment-areas
+    observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
+  - source: other
+    url: https://tem.fi/tyollisyysalueet
+    observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
+  - source: other
+    url: https://tem.fi/sv/sysselsattningsomradena
+    observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
+  alt_labels:
+    en:
+    - municipal employment area
+- id: org:ely-centre
+  kind: organization
+  pref_label:
+    en: Centre for Economic Development, Transport and the Environment
+    fi: elinkeino-, liikenne- ja ympäristökeskus
+    sv: närings-, trafik- och miljöcentralen
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://elinvoimakeskus.fi/web/english
+    observed_on: '2026-09-19'
+    note: Replaced by the Economic Development Centres, which started operating on 1 January 2026.
+  alt_labels:
+    en:
+    - ELY Centre
+    fi:
+    - ELY-keskus
+    sv:
+    - NTM-centralen
+  valid_until: '2025-12-31'
+  superseded_by:
+  - org:economic-development-centre
+  change_note: Reorganised into the Economic Development Centres on 1 January 2026.
+- id: org:economic-development-centre
+  kind: organization
+  pref_label:
+    en: Economic Development Centre
+    fi: elinvoimakeskus
+    sv: livskraftscentral
+  valid_from: '2026-01-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://elinvoimakeskus.fi/web/english
+    observed_on: '2026-09-19'
+    note: The Economic Development Centres' own site.
+  - source: other
+    url: https://elinvoimakeskus.fi/etusivu
+    observed_on: '2026-09-19'
+    note: The Economic Development Centres' own site.
+  - source: other
+    url: https://tem.fi/sv/livskraftscentralerna
+    observed_on: '2026-09-19'
+    note: Ministry of Economic Affairs and Employment.
+- id: org:municipal-health-and-social-services
+  kind: organization
+  pref_label:
+    en: municipal health and social services
+    fi: kunnan sosiaali- ja terveyspalvelut
+    sv: kommunens social- och hälsovårdstjänster
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://vm.fi/en/wellbeing-services-counties
+    observed_on: '2026-09-19'
+    note: Responsibility for organising health, social, and rescue services transferred from municipalities
+      and joint municipal authorities to the wellbeing services counties on 1 January 2023.
+  valid_until: '2022-12-31'
+  superseded_by:
+  - org:wellbeing-services-county
+  change_note: Service organisation transferred to the wellbeing services counties on 1 January 2023.
+- id: org:wellbeing-services-county
+  kind: organization
+  pref_label:
+    en: wellbeing services county
+    fi: hyvinvointialue
+    sv: välfärdsområde
+  valid_from: '2023-01-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://vm.fi/en/wellbeing-services-counties
+    observed_on: '2026-09-19'
+    note: Ministry of Finance.
+  - source: other
+    url: https://vm.fi/hyvinvointialueet
+    observed_on: '2026-09-19'
+    note: Ministry of Finance.
+  - source: other
+    url: https://vm.fi/sv/valfardsomradena
+    observed_on: '2026-09-19'
+    note: Ministry of Finance.
+- id: org:border-guard
+  kind: organization
+  pref_label:
+    en: The Finnish Border Guard
+    fi: Rajavartiolaitos
+    sv: Gränsbevakningsväsendet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: other
+    url: https://raja.fi/en/frontpage
+    observed_on: '2026-09-20'
+    note: The Finnish Border Guard's own site, English front page.
+  - source: other
+    url: https://raja.fi/etusivu
+    observed_on: '2026-09-20'
+    note: The Finnish Border Guard's own site, Finnish front page.
+  - source: other
+    url: https://raja.fi/sv/startsida
+    observed_on: '2026-09-20'
+    note: The Finnish Border Guard's own site, Swedish front page.
+  - source: migri
+    url: https://migri.fi/en/asylum-in-finland
+    observed_on: '2026-09-19'
+    note: Named as one of the authorities an asylum application is made to.

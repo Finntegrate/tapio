@@ -1,0 +1,124 @@
+# Service concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: svc:enter-finland
+  kind: service
+  pref_label:
+    en: Enter Finland
+    fi: Enter Finland -verkkopalvelu
+    sv: E-tjänsten Enter Finland
+  valid_from: '2012-01-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/submit-your-application-in-the-e-service
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sahkoinen-asiointi
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/lamna-in-en-ansokan-i-e-tjansten
+    observed_on: '2026-09-19'
+  - source: enter_finland
+    url: https://enterfinland.fi/
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: svc:migri-service-point
+  kind: service
+  pref_label:
+    en: Service point
+    fi: Palvelupisteet
+    sv: Serviceställen
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/service-points
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/palvelupisteet
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/servicestallen
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: svc:incomes-register
+  kind: service
+  pref_label:
+    en: Incomes Register
+    fi: Tulorekisteri
+    sv: Inkomstregistret
+  valid_from: '2019-01-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/incomes-register
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tulorekisteri
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/inkomstregistret
+    observed_on: '2026-09-19'
+- id: svc:reception-centre
+  kind: service
+  pref_label:
+    en: reception centre
+    fi: vastaanottokeskus
+    sv: förläggning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A facility where persons applying for international protection and beneficiaries of temporary
+      protection are accommodated and that provides the reception services for them. Group homes and supported
+      housing units intended for children are reception centres, too. See also international protection,
+      temporary protection.
+  handled_by:
+  - org:migri
+- id: svc:reception-unit
+  kind: service
+  pref_label:
+    en: reception unit
+    fi: vastaanottoyksikkö
+    sv: mottagningsenhet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Reception unit is a generic concept that covers all premises where asylum seekers are accommodated.
+      A reception unit can refer to, for example, reception centres and temporary accommodation units.
+      See also reception centre.
+  handled_by:
+  - org:migri
+- id: svc:registration-centre
+  kind: service
+  pref_label:
+    en: registration centre
+    fi: järjestelykeskus
+    sv: flyktingsluss
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A registration centre is a unit for the reception and registration of newly arrived asylum seekers.
+      After being registered, the asylum seekers move to reception centres. See also reception centre.
+  handled_by:
+  - org:migri

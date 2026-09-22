@@ -1,0 +1,647 @@
+# Permit concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: permit:residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit
+    fi: Oleskelulupa
+    sv: Uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallstillstand
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p6463
+    observed_on: '2026-09-19'
+    note: 'YSO: residence permits / oleskeluluvat / uppehållstillstånd'
+  handled_by:
+  - org:migri
+  related:
+  - law:aliens-act
+  definition:
+    en: A permit issued to a foreign national for a purpose other than tourism or a comparable short-term
+      residence that entitles the holder to enter the country repeatedly and stay in the country. Residence
+      permits are either fixed-term or permanent. A residence permit can be issued on the basis of, for
+      example, work, self-employment, studies or family ties. See fixed-term residence permit, permanent
+      residence permit. See also visa.
+  close_match:
+  - yso:p6463
+- id: permit:first-residence-permit
+  kind: permit
+  pref_label:
+    en: First residence permit
+    fi: Ensimmäinen oleskelulupa
+    sv: Första uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/first-residence-permit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/ensimmainen-oleskelulupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/forsta-uppehallstillstand
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:extended-permit
+  kind: permit
+  pref_label:
+    en: Extended permit
+    fi: Jatkolupa
+    sv: Fortsatt tillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/extended-permit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/jatkolupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/fortsatt-tillstand
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+  alt_labels:
+    en:
+    - new fixed-term residence permit
+- id: permit:permanent-residence-permit
+  kind: permit
+  pref_label:
+    en: Permanent residence permit
+    fi: Pysyvä oleskelulupa
+    sv: Permanent uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/permanent-residence-permit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/pysyva-oleskelulupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/permanent-uppehallstillstand
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:p-eu-residence-permit
+  kind: permit
+  pref_label:
+    en: P-EU permit
+    fi: P-EU-oleskelulupa
+    sv: P-EU-uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/p-eu-residence-permit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/p-eu-oleskelulupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/p-eu-uppehallstillstand
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+  alt_labels:
+    en:
+    - long-term resident's EU residence permit
+    - EU residence permit
+  definition:
+    en: A long-term resident’s EU residence permit that can be issued to a third-country national after
+      he or she has resided within the territory of the European Union for a continuous period of five
+      years. The permit is valid until further notice. An EU residence permit bears the letters P-EU.
+      See third-country national.
+- id: permit:continuous-residence-permit
+  kind: permit
+  pref_label:
+    en: continuous residence permit
+    fi: jatkuva oleskelulupa
+    sv: kontinuerligt uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A fixed-term residence permit. The permit is issued to a foreign national who has arrived in Finland
+      with the intention of permanent immigration. The permit must be renewed before the permit expires.
+      A continuous residence permit bears the letter A. Cf. temporary residence permit.
+  broader:
+  - permit:residence-permit
+  notation: A
+- id: permit:temporary-residence-permit
+  kind: permit
+  pref_label:
+    en: temporary residence permit
+    fi: tilapäinen oleskelulupa
+    sv: tillfälligt uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A fixed-term residence permit. The permit is issued to a foreign national who does not intend
+      to stay in Finland permanently. The permit must be renewed before it expires. A temporary residence
+      permit bears the letter B. Cf. continuous residence permit.
+  broader:
+  - permit:residence-permit
+  notation: B
+- id: permit:fixed-term-residence-permit
+  kind: permit
+  pref_label:
+    en: fixed-term residence permit
+    fi: määräaikainen oleskelulupa
+    sv: tidsbegränsat uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A residence permit that is valid for a certain time period. Fixed-term residence permits are issued
+      for a continuous or temporary residence. See continuous residence permit, temporary residence permit.
+      Cf. permanent residence permit.
+  broader:
+  - permit:residence-permit
+- id: permit:d-visa
+  kind: permit
+  pref_label:
+    en: D visa
+    fi: D-viisumi
+    sv: D-visum
+  valid_from: '2022-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/d-visa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/d-viisumi
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/d-visum
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: permit:visa
+  kind: permit
+  pref_label:
+    en: visa
+    fi: viisumi
+    sv: visum, visering
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p16593
+    observed_on: '2026-09-19'
+    note: 'YSO: visas / viisumit / visum'
+  definition:
+    en: A permit to enter the country, which is issued for a short and temporary stay of up to 90 days.
+      The Finnish missions make decisions on issuing visas. See mission.
+  handled_by:
+  - org:finnish-mission
+  close_match:
+  - yso:p16593
+- id: permit:right-of-permanent-residence
+  kind: permit
+  pref_label:
+    en: Right of permanent residence of an EU citizen
+    fi: EU-kansalaisen pysyvä oleskeluoikeus
+    sv: Permanent uppehållsrätt
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/right-of-permanent-residence
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/pysyva-oleskeluoikeus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/permanent-uppehallsratt
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: permit:residence-card
+  kind: permit
+  pref_label:
+    en: Residence card of a family member of an EU citizen
+    fi: Perheenjäsenen oleskelukortti
+    sv: Uppehållskort för familjemedlem
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-card-for-family-members
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/perheenjasenen-oleskelukortti
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallskort-for-familjemedlem
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  definition:
+    en: A card issued by the Finnish Immigration Service, with which non-EU citizens who are family members
+      of EU citizens can prove their right of residence in Finland. Biometric identifiers stored on the
+      card’s chip include a facial image and two fingerprints. The residence card is not an official identity
+      document. Cf. residence permit card. See EU citizen.
+- id: permit:employed-person-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for an employed person
+    fi: Työntekijän oleskelulupa
+    sv: Uppehållstillstånd för arbetstagare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-for-an-employed-person
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tyontekijan-oleskelulupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallstillstand-for-arbetstagare
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p10321
+    observed_on: '2026-09-19'
+    note: 'YSO: work permits / työluvat / arbetstillstånd'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+  alt_labels:
+    en:
+    - TTOL
+    fi:
+    - TTOL
+  close_match:
+  - yso:p10321
+- id: permit:specialist-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for a specialist
+    fi: Erityisasiantuntija
+    sv: Specialsakkunnig
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/specialist
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/erityisasiantuntija
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/specialsakkunnig
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:eu-blue-card
+  kind: permit
+  pref_label:
+    en: EU Blue Card
+    fi: Erityisasiantuntija, EU:n sininen kortti
+    sv: EU-blåkort
+  valid_from: '2012-01-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/eu-blue-card
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/eu-n-sininen-kortti
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/eu-blakort
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+  definition:
+    en: A residence permit intended for a third-country national who comes to an EU member state for highly
+      qualified employment. See third-country national.
+- id: permit:startup-entrepreneur-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for a start-up entrepreneur
+    fi: Startup-yrittäjä
+    sv: Tillväxtföretagare
+  valid_from: '2018-04-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/start-up-entrepreneur
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/startup-yrittaja
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/tillvaxtforetagare
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:entrepreneur-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for an entrepreneur
+    fi: Yrittäjä
+    sv: Företagare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/entrepreneur
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/yrittaja
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/foretagare
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:seasonal-work-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for seasonal work
+    fi: Kausityöoleskelulupa
+    sv: Uppehållstillstånd för säsongsarbete
+  valid_from: '2018-01-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-for-seasonal-work
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kausityooleskelulupa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallstillstand-for-sasongsarbete
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:ict-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for an intra-corporate transfer (Mobile ICT)
+    fi: Yrityksen sisäinen siirto (liikkuva ICT-oleskelulupa)
+    sv: Rörlighet för längre vistelse (Mobile ICT)
+  valid_from: '2018-01-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/intra-corporate-transfer-mobile-ict-
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/yrityksen-sisainen-siirto-liikkuva-ict
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/rorlighet-for-langre-vistelse-mobile-ict-
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:student-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for studies
+    fi: Opiskelijan oleskelulupahakemus
+    sv: Ansökan om uppehållstillstånd för studier
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-application-for-studies
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/opiskelijan-oleskelulupahakemus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/ansokan-om-uppehallstillstand-for-studier
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:researcher-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for a researcher
+    fi: Tutkijan oleskelulupa
+    sv: Uppehållstillstånd för forskare
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/researcher
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tutkija
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/forskare
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:job-seeking-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit to look for work or to start a business
+    fi: Oleskelulupahakemus opiskelijoille ja tutkijoille työnhakua varten
+    sv: 'Ansökan för studerande och forskare: uppehållstillstånd för att söka arbete'
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-to-look-for-work
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupahakemus-tyonhakua-varten
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallstillstand-for-att-soka-arbete
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:internship-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for an internship
+    fi: Harjoittelu
+    sv: Praktik
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/internship
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/harjoittelu
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/praktik
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:family-ties-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit on the basis of family ties
+    fi: Perheenjäsenen luokse Suomeen
+    sv: Flytta till en familjemedlem i Finland
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/moving-to-finland-to-be-with-a-family-member
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/perheenjasenen-luokse-suomeen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/flytta-till-en-familjemedlem-i-finland
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p24177
+    observed_on: '2026-09-19'
+    note: 'YSO: family reunification / perheenyhdistäminen / familjeåterförening'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+  close_match:
+  - yso:p24177
+- id: permit:other-grounds-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit on other grounds
+    fi: Oleskelulupa muulla perusteella
+    sv: Ansökan om uppehållstillstånd på andra grunder
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-on-other-grounds
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupa-muulla-perusteella
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/ansokan-om-uppehallstillstand-pa-andra-grunder
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri
+- id: permit:human-trafficking-victim-residence-permit
+  kind: permit
+  pref_label:
+    en: Residence permit for a victim of human trafficking
+    fi: Oleskelulupa ihmiskaupan uhrille
+    sv: Uppehållstillstånd för offer för människohandel
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-for-a-victim-of-human-trafficking
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupa-ihmiskaupan-uhrille
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallstillstand-for-offer-for-manniskohandel
+    observed_on: '2026-09-19'
+  broader:
+  - permit:residence-permit
+  handled_by:
+  - org:migri

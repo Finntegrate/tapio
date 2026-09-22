@@ -1,0 +1,10 @@
+# Generated and locked files. Marking them keeps them collapsed in GitHub's
+# diff view and skipped by review tooling, so a pull request shows the change a
+# person made rather than the build output that followed from it.
+#
+# `register/releases/` is deliberately NOT marked. A dated edition's payload is
+# git-ignored, so the only committed file there is its `manifest.json` -- and a
+# change to one of those is an edition changing identity, which is exactly what
+# a reviewer has to see rather than have folded away.
+*.lock linguist-generated=true
+register/tapio_register/generated/** linguist-generated=true

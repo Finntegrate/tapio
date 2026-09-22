@@ -1,0 +1,34 @@
+# Legal Act concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: law:aliens-act
+  kind: legal_act
+  pref_label:
+    en: Aliens Act (301/2004)
+    fi: Ulkomaalaislaki (301/2004)
+    sv: Utlänningslag (301/2004)
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: finlex
+    url: https://www.finlex.fi/fi/lainsaadanto/2004/301
+    observed_on: '2026-09-19'
+  notation: 301/2004
+  definition:
+    en: The act governing entry, residence, and removal from the country for foreign nationals.
+- id: law:citizenship-act
+  kind: legal_act
+  pref_label:
+    en: Citizenship Act (359/2003)
+    fi: Kansalaisuuslaki (359/2003)
+    sv: Medborgarskapslag (359/2003)
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: finlex
+    url: https://www.finlex.fi/fi/lainsaadanto/2003/359
+    observed_on: '2026-09-19'
+  notation: 359/2003

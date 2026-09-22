@@ -1,0 +1,119 @@
+# Document concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: doc:seasonal-work-certificate
+  kind: document
+  pref_label:
+    en: Certificate for seasonal work
+    fi: Kausityötodistus
+    sv: Intyg för säsongsarbete
+  valid_from: '2018-01-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/seasonal-work-certificate
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kausityotodistus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/intyg-for-sasongsarbete
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  related:
+  - permit:seasonal-work-residence-permit
+- id: doc:passport
+  kind: document
+  pref_label:
+    en: passport
+    fi: passi
+    sv: pass
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A travel document issued by the authorities of a person's home country or country of residence,
+      which a foreign national must hold when entering Finland and while residing in Finland (excluding
+      citizens of the Nordic countries, among others).
+- id: doc:aliens-passport
+  kind: document
+  pref_label:
+    en: Alien's passport
+    fi: Muukalaispassi
+    sv: Främlingspass
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/alien-s-passport
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/muukalaispassi
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/framlingspass
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  definition:
+    en: A travel document that can be issued to a foreign national if he or she cannot obtain a passport
+      from the authorities of his or her home country, or if he or she is stateless, or if there are other
+      special reasons for issuing an alien’s passport to him or her. Foreign nationals who have been granted
+      a residence permit on the basis of subsidiary protection are issued with an alien’s passport. An
+      alien’s passport is not an official identity document. See subsidiary protection. Cf. refugee travel
+      document.
+- id: doc:refugee-travel-document
+  kind: document
+  pref_label:
+    en: Refugee travel document
+    fi: Pakolaisen matkustusasiakirja
+    sv: Resedokument för flykting
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/refugee-travel-document
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/pakolaisen-matkustusasiakirja
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/resedokument-for-flykting
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  definition:
+    en: A travel document issued to a foreign national who has been granted refugee status. A refugee
+      travel document is not an official identity document. See refugee. Cf. alien’s passport.
+- id: doc:residence-permit-card
+  kind: document
+  pref_label:
+    en: Residence permit card
+    fi: Oleskelulupakortti
+    sv: Uppehållstillståndskort
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-card
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupakortti
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/uppehallstillstandskort
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+  related:
+  - permit:residence-permit
