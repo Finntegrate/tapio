@@ -1,0 +1,525 @@
+# Term concepts. Reviewed by hand against the sources
+# named in each concept's observations. See ../README.md.
+concepts:
+- id: term:immigration-legislation
+  kind: term
+  pref_label:
+    en: Legislation
+    fi: Lainsäädäntö
+    sv: Lagstiftning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/legislation
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/lainsaadanto
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/lagstiftning
+    observed_on: '2026-09-19'
+  related:
+  - law:aliens-act
+  - law:citizenship-act
+- id: term:residence-permit-types
+  kind: term
+  pref_label:
+    en: Residence permit types
+    fi: Oleskelulupatyypit
+    sv: Olika typer av uppehållstillstånd
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/residence-permit-types
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/oleskelulupatyypit
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/olika-typer-av-uppehallstillstand
+    observed_on: '2026-09-19'
+  related:
+  - permit:residence-permit
+- id: term:schengen-area
+  kind: term
+  pref_label:
+    en: Schengen area
+    fi: Schengen-alue
+    sv: Schengenområdet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: The Schengen area refers to the area of states applying the Schengen acquis. These states include
+      Austria, Belgium, Bulgaria, Czechia, Croatia, Denmark, Estonia, Finland, France, Germany, Greece,
+      Hungary, Iceland, Italy, Latvia, Liechtenstein, Lithuania, Luxembourg, Malta, the Netherlands, Norway,
+      Poland, Portugal, Romania, Slovakia, Slovenia, Spain, Sweden and Switzerland.
+- id: term:finnish-origin
+  kind: term
+  pref_label:
+    en: Finnish origin
+    fi: suomalainen syntyperä
+    sv: finländsk härkomst
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Finnish origin refers to Finnish citizens, former Finnish citizens, descendants of persons who
+      have acquired Finnish citizenship by birth and, in residence permit matters, also persons of Finnish
+      ethnic origin. See also Finnish citizen, Finnish citizen by birth, citizenship, (ethnic) nationality,
+      ethnic origin.
+- id: term:legal-residence
+  kind: term
+  pref_label:
+    en: legal residence
+    fi: laillinen oleskelu
+    sv: laglig vistelse
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Legal stay means that a foreign national is residing in the country with appropriate and valid
+      permits. The stay is legal on the basis of a valid visa, exemption from the visa requirement or
+      a valid residence permit. A foreign national may reside legally in the country also while his or
+      her residence permit or asylum application is being processed.
+- id: term:registered-partnership
+  kind: term
+  pref_label:
+    en: registered partnership
+    fi: rekisteröity parisuhde
+    sv: registrerat partnerskap
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: An official relationship between two persons of the same sex. A registered partnership is in many
+      ways comparable to a marriage.
+- id: term:ethnic-nationality
+  kind: term
+  pref_label:
+    en: ethnic nationality
+    fi: kansallisuus
+    sv: nationalitet
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Ethnic background. Belonging to a specific nation or a group of people (e.g. Ingrian Finns, Kurds,
+      Roma). Ethnic nationality has a different meaning than citizenship. For instance, a person of Kurdish
+      ethnic origin may hold Finnish citizenship. Cf. citizenship.
+- id: term:country-of-nationality
+  kind: term
+  pref_label:
+    en: country of nationality
+    fi: kansalaisuusvaltio
+    sv: medborgarskapsland
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: The country of which a person holds citizenship. See citizenship.
+- id: term:citizenship
+  kind: term
+  pref_label:
+    en: citizenship
+    fi: kansalaisuus
+    sv: medborgarskap
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p2736
+    observed_on: '2026-09-19'
+    note: 'YSO: citizenship / kansalaisuus / medborgarskap'
+  definition:
+    en: Citizenship means a legislative bond between an individual and a state determining the individual’s
+      status in the state as well as the basic rights and duties existing between the individual and the
+      state.
+  related:
+  - law:citizenship-act
+  exact_match:
+  - yso:p2736
+- id: term:processing-time
+  kind: term
+  pref_label:
+    en: Processing time
+    fi: Käsittelyajat
+    sv: Behandlingstider
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/processing-times
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kasittelyajat
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/behandlingstider
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: term:processing-fee
+  kind: term
+  pref_label:
+    en: Processing fee
+    fi: Käsittelymaksut ja maksaminen
+    sv: Behandlingsavgifter och betalningssätt
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/processing-fees-and-payment-methods
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kasittelymaksut-ja-maksaminen
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/behandlingsavgifter-och-betalningssatt
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:migri
+- id: term:customer-number
+  kind: term
+  pref_label:
+    en: Customer number
+    fi: Asiakasnumero
+    sv: Kundnummer
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/customer-number-and-diary-number
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/asiakasnumero-ja-diaarinumero
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/kundnummer-och-diarienummer
+    observed_on: '2026-09-19'
+- id: term:diary-number
+  kind: term
+  pref_label:
+    en: Diary number
+    fi: Diaarinumero
+    sv: Diarienummer
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/customer-number-and-diary-number
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/asiakasnumero-ja-diaarinumero
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/kundnummer-och-diarienummer
+    observed_on: '2026-09-19'
+- id: term:manifestly-unfounded-application
+  kind: term
+  pref_label:
+    en: manifestly unfounded application
+    fi: ilmeisen perusteeton hakemus
+    sv: uppenbart ogrundad ansökan
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: An asylum application can be considered manifestly unfounded if 1) no serious violations of human
+      rights or other grounds that are related to non-refoulement have been presented, or if the claims
+      presented are clearly implausible, 2) the applicant obviously intends to abuse the asylum procedure
+      or 3) the applicant comes from a safe country of origin where he or she may be returned. See also
+      non-refoulement.
+- id: term:emergency-cases
+  kind: term
+  pref_label:
+    en: emergency cases
+    fi: hätätapaukset
+    sv: akuta fall
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: Persons who the UN refugee agency UNHCR considers to be refugees in need of urgent resettlement,
+      often due to their personal safety or health. These persons are admitted into the country on the
+      basis of UNHCR’s documents without being interviewed by the Finnish authorities. The emergency cases
+      that are admitted into Finland are a part of the yearly refugee quota. In recent years, the yearly
+      number of emergency cases admitted into Finland has been 100. See also quota refugee.
+  related:
+  - status:quota-refugee
+- id: term:non-refoulement
+  kind: term
+  pref_label:
+    en: non-refoulement
+    fi: palautuskielto (non-refoulement)
+    sv: förbud mot tillbakasändning, förbud mot återsändande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: According to the principle of non-refoulement, no one may be sent back to an area where he or
+      she could be subject to the death penalty, torture, persecution or other inhuman treatment or other
+      treatment violating human dignity.
+- id: term:entry-ban
+  kind: term
+  pref_label:
+    en: entry ban
+    fi: maahantulokielto
+    sv: inreseförbud
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: In a decision on denial of admittance or stay or on deportation, a foreign national may be prohibited
+      from entering Finland. The entry ban may be valid for a fixed term or until further notice, and
+      it applies either in the entire Schengen area or only in Finland. See also Schengen area.
+  handled_by:
+  - org:migri
+- id: term:removal-from-the-country
+  kind: term
+  pref_label:
+    en: Removal from the country
+    fi: Käännyttäminen, karkottaminen ja maahantulokielto
+    sv: Avvisning, utvisning och meddelande av inreseförbud
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/denial-of-admittance-or-stay-deportation-entry-ban
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/kaannyttaminen-karkottaminen-ja-maahantulokielto
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/avvisning-utvisning-och-meddelande-av-inreseforbud
+    observed_on: '2026-09-19'
+  related:
+  - step:denial-of-admittance-or-stay
+  - step:deportation
+  - term:entry-ban
+- id: term:income-requirement
+  kind: term
+  pref_label:
+    en: Income requirement
+    fi: Toimeentuloedellytys
+    sv: Försörjningsförutsättning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/income-requirement
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/toimeentulo
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/forsorjningsforutsattning
+    observed_on: '2026-09-19'
+- id: term:student-insurance-requirement
+  kind: term
+  pref_label:
+    en: Insurance requirement for students
+    fi: Opiskelijan vakuutusvaatimus
+    sv: Försäkringskrav för studerande
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/insurance
+    observed_on: '2026-09-19'
+    note: Labels shortened from the page's own heading, which is a sentence.
+  - source: migri
+    url: https://migri.fi/vakuutukset
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/forsakringar
+    observed_on: '2026-09-19'
+- id: term:right-to-work
+  kind: term
+  pref_label:
+    en: Right to work
+    fi: Työnteko Suomessa
+    sv: Arbete i Finland
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - sampo
+  observations:
+  - source: migri
+    url: https://migri.fi/en/work-in-finland
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/tyonteko-suomessa
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/arbete-i-finland
+    observed_on: '2026-09-19'
+- id: term:personal-identity-code
+  kind: term
+  pref_label:
+    en: Personal identity code
+    fi: Henkilötunnus
+    sv: Personbeteckning
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - otso
+  observations:
+  - source: migri
+    url: https://migri.fi/en/personal-identity-code
+    observed_on: '2026-09-19'
+    note: Labels taken from the term the page is about, not its full heading.
+  - source: migri
+    url: https://migri.fi/henkilotunnus
+    observed_on: '2026-09-19'
+  - source: migri
+    url: https://migri.fi/sv/personbeteckning
+    observed_on: '2026-09-19'
+  - source: yso
+    url: http://www.yso.fi/onto/yso/p16456
+    observed_on: '2026-09-19'
+    note: 'YSO: personal identification numbers / henkilötunnukset / personbeteckningar'
+  handled_by:
+  - org:dvv
+  - org:migri
+  close_match:
+  - yso:p16456
+- id: term:municipality-of-residence
+  kind: term
+  pref_label:
+    en: municipality of residence
+    fi: kotikunta
+    sv: hemkommun
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  - otso
+  observations:
+  - source: dvv
+    url: https://dvv.fi/en/municipality-of-residence
+    observed_on: '2026-09-19'
+  handled_by:
+  - org:dvv
+- id: term:european-union
+  kind: term
+  pref_label:
+    en: European Union
+    fi: Euroopan unioni (EU)
+    sv: Europeiska unionen (EU)
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: 'The European Union is a political and economic union that has 27 European member states: Austria,
+      Belgium, Bulgaria, Croatia, Cyprus, Czechia, Denmark, Estonia, Finland, France, Germany, Greece,
+      Hungary, Ireland, Italy, Latvia, Lithuania, Luxembourg, Malta, the Netherlands, Poland, Portugal,
+      Romania, Slovakia, Slovenia, Spain and Sweden.'
+- id: term:european-economic-area
+  kind: term
+  pref_label:
+    en: European Economic Area
+    fi: Euroopan talousalue (ETA)
+    sv: Europeiska ekonomiska samarbetsområdet (EES)
+  valid_from: '2004-05-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: The European Economic Area is a common market. Member states of the European Union as well as
+      Iceland, Liechtenstein and Norway belong to the European Economic Area. See European Union (EU).
+- id: term:birthplace-principle
+  kind: term
+  pref_label:
+    en: birthplace principle
+    fi: syntymämaaperiaate
+    sv: territorialprincipen, födelselandsprincipen
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A principle according to which a child acquires citizenship on the basis of the place of birth
+      (ius soli). The birthplace principle is a secondary principle in the Finnish Citizenship Act. Cf.
+      parentage principle, inheritance principle.
+- id: term:parentage-principle
+  kind: term
+  pref_label:
+    en: parentage principle
+    fi: periytymisperiaate
+    sv: härstamningsprincipen
+  valid_from: '2003-06-01'
+  in_scope_of:
+  - ilmarinen
+  observations:
+  - source: migri
+    url: https://migri.fi/en/glossary
+    observed_on: '2026-09-19'
+  definition:
+    en: A principle according to which a child acquires the citizenship of his or her parent (ius sanguinis).
+      The inheritance principle is a primary principle in the Finnish Citizenship Act. Cf. birthplace
+      principle.

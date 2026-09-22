@@ -1,0 +1,11 @@
+# A dated edition's payload is built from tapio_register/data/register.yaml by
+# `tapio-register release`, not stored. Only the manifest is kept, and it
+# carries the digests the rebuilt payload is checked against -- committing the
+# payload would bury a three-line concept change in a fourteen-thousand-line
+# diff. See register/README.md.
+releases/*/register.yaml
+releases/*/register.ttl
+releases/*/register.jsonld
+
+# `tapio-register seed-finto` output is a review queue, and a harvest is
+# committed only when it is the one a register change was reviewed from.

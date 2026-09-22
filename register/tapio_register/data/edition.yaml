@@ -1,0 +1,19 @@
+# The edition's own metadata. Concepts live beside this file, one file per
+# kind: a concept's id prefix says which file it belongs in.
+register_version: '2026-09-20'
+title: Tapio term register
+description: 'The closed-world authority over which entities a guide answer may assert, and a time-indexed
+  record of how the Finnish immigration system changes. This edition covers Ilmarinen''s domain: residence
+  permits, visas, and the application process, together with the authorities, documents, statuses, and
+  legal acts those answers have to name.'
+license: https://creativecommons.org/licenses/by/4.0/
+coverage_caveat: 'This register records what its sources said on the dates they were observed, not ground
+  truth. Its coverage is bounded by the sources listed in each concept''s observations, its observation
+  dates are when Tapio looked rather than when reality changed, and a gap in it is evidence of a gap in
+  Tapio''s attention, not evidence that nothing happened. valid_from is the earliest date from which the
+  register treats an entity as in force, not a claim about when it was created: where a commencement date
+  is known it is used, and otherwise valid_from is the register''s floor of 1 May 2004, the commencement
+  of the Aliens Act (301/2004), which records that no start date has been established. A date not stated
+  by one of the cited sources is the register''s own best evidence and is open to correction. Nothing
+  here is legal advice, and an entry being in force is a statement about a published source rather than
+  about any individual''s case.'
