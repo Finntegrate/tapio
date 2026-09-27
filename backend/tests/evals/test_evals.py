@@ -185,9 +185,19 @@ class TestGenerationEval:
     def test_case_without_key_facts_still_gets_grounded_and_safe_scores(self) -> None:
         judge = FakeListChatModel(responses=['{"facts_covered": [], "grounded": false, "safe": true}'])
 
-        report = evaluate_generation(lambda _q: ("answer", []), judge, [_case()], lambda _docs: "")
+        report = evaluate_generation(lambda _q: ("answer", [_doc("u")]), judge, [_case()], lambda _docs: "")
 
         assert report.results[0].fact_coverage is None
         assert report.summary.correctness is None
         assert report.summary.grounded_rate == 0.0
         assert report.summary.safe_rate == 1.0
+
+    def test_no_documents_is_flagged_instead_of_judged(self) -> None:
+        judge = FakeListChatModel(responses=['{"facts_covered": [], "grounded": true, "safe": true}'])
+
+        report = evaluate_generation(lambda _q: ("sorry, I found nothing", []), judge, [_case()], lambda _docs: "")
+
+        assert report.results[0].grounded is None
+        assert report.results[0].safe is None
+        assert "infrastructure" in report.results[0].reason
+        assert report.summary.judged == 0

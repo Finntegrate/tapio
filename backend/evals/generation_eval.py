@@ -175,6 +175,23 @@ def evaluate_generation(
     results: list[GenerationCaseResult] = []
     for case in cases:
         response, documents = answer(case.question)
+        if not documents:
+            # Retrieval never returns zero documents for a healthy store, so this
+            # almost always means the vector store or embeddings failed rather
+            # than that nothing relevant exists. Flag it instead of letting the
+            # judge silently grade an answer built on no context as a normal,
+            # if poor, result.
+            results.append(
+                GenerationCaseResult(
+                    case.id,
+                    response,
+                    None,
+                    None,
+                    None,
+                    reason="no documents retrieved; possible infrastructure failure",
+                )
+            )
+            continue
         verdict = judge_answer(judge, case, response, format_context(documents))
         if verdict is None:
             results.append(

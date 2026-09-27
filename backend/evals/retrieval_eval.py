@@ -108,7 +108,9 @@ def main(argv: Sequence[str] | None = None) -> int:
     retriever = RAGOrchestratorFactory(config).create_retriever()
 
     report = evaluate_retrieval(
-        lambda query, n: retriever.query(query, n_results=n), load_golden_set(args.golden_set), args.k
+        lambda query, n: retriever.query(query, n_results=n, raise_on_error=True),
+        load_golden_set(args.golden_set),
+        args.k,
     )
     sys.stdout.write(format_report(report, args.k) + "\n")
     if args.output:
