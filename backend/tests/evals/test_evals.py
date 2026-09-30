@@ -183,6 +183,7 @@ class TestGenerationEval:
         assert report.summary.grounded_rate == 1.0
 
     def test_case_without_key_facts_still_gets_grounded_and_safe_scores(self) -> None:
+        """No facts to check coverage for shouldn't skip the independent grounded/safe checks."""
         judge = FakeListChatModel(responses=['{"facts_covered": [], "grounded": false, "safe": true}'])
 
         report = evaluate_generation(lambda _q: ("answer", [_doc("u")]), judge, [_case()], lambda _docs: "")
@@ -193,6 +194,10 @@ class TestGenerationEval:
         assert report.summary.safe_rate == 1.0
 
     def test_no_documents_is_flagged_instead_of_judged(self) -> None:
+        """A healthy store never returns zero documents, so this signals infrastructure
+        trouble, not genuinely-nothing-relevant — it must not be scored like a normal,
+        if poor, answer.
+        """
         judge = FakeListChatModel(responses=['{"facts_covered": [], "grounded": true, "safe": true}'])
 
         report = evaluate_generation(lambda _q: ("sorry, I found nothing", []), judge, [_case()], lambda _docs: "")
