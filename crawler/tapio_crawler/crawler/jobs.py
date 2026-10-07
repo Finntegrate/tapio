@@ -74,24 +74,33 @@ class ResourcePeak:
     cpu_percent: float = 0.0
     active_jobs: int = 0
     samples: int = 0
+    # Kept across samples: psutil's cpu_percent() measures since the same
+    # Process object's previous call, so fresh objects would always read 0.
+    processes: dict[int, psutil.Process] = field(default_factory=dict, repr=False)
 
 
-def _sample_tree(root: psutil.Process) -> tuple[int, float]:
-    """Return total RSS and CPU percent for ``root`` and its descendants."""
+def _sample_tree(root: psutil.Process, cache: dict[int, psutil.Process]) -> tuple[int, float]:
+    """Return total RSS and CPU percent for ``root`` and its descendants.
+
+    ``cache`` holds the ``Process`` objects between calls so each CPU reading
+    covers the interval since the previous sample. A process seen for the first
+    time is primed and contributes 0% CPU until the next sample.
+    """
     rss = 0
     cpu = 0.0
-    for process in [root, *root.children(recursive=True)]:
+    for found in [root, *root.children(recursive=True)]:
+        process = cache.setdefault(found.pid, found)
         try:
             rss += process.memory_info().rss
             cpu += process.cpu_percent(interval=None)
         except psutil.NoSuchProcess, psutil.AccessDenied:
-            continue
+            cache.pop(found.pid, None)
     return rss, cpu
 
 
 def sample_resources(jobs: Iterable[SiteJob], peak: ResourcePeak) -> None:
     """Take one sample of the process tree and fold it into ``peak``."""
-    rss, cpu = _sample_tree(psutil.Process(os.getpid()))
+    rss, cpu = _sample_tree(psutil.Process(os.getpid()), peak.processes)
     active = sum(1 for job in jobs if job.progress.phase in ("discovery", "render"))
     peak.rss_bytes = max(peak.rss_bytes, rss)
     peak.cpu_percent = max(peak.cpu_percent, cpu)
@@ -111,7 +120,7 @@ async def monitor_resources(
     ``--max-concurrent-sites`` set to 1, 2, ... and compare the reported peaks.
     """
     job_list = list(jobs)
-    _sample_tree(psutil.Process(os.getpid()))  # prime cpu_percent, whose first reading is always 0
+    _sample_tree(psutil.Process(os.getpid()), peak.processes)  # prime cpu_percent
     while True:
         await asyncio.sleep(interval)
         sample_resources(job_list, peak)
@@ -128,7 +137,7 @@ async def report_progress(
     while True:
         await asyncio.sleep(interval)
         for job in job_list:
-            if job.progress.phase not in ("done", "cancelled", "failed"):
+            if job.progress.phase not in ("done", "incomplete", "cancelled", "failed"):
                 emit(job.progress.describe(paused=job.control.paused))
 
 
@@ -179,7 +188,12 @@ async def _run_job(  # noqa: PLR0913
             control=job.control,
             progress=job.progress,
         )
-        job.progress.phase = "cancelled" if job.render.cancelled else "done"
+        if job.render.cancelled:
+            job.progress.phase = "cancelled"
+        elif not job.render.complete or (job.discovery is not None and not job.discovery.complete):
+            job.progress.phase = "incomplete"
+        else:
+            job.progress.phase = "done"
     except Exception as error:
         logger.exception("Job for %s failed", job.site_name)
         job.error = error

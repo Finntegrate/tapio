@@ -241,3 +241,10 @@ def test_run_all_rejects_non_positive_batch_size_and_interval() -> None:
     """Zero or negative values are rejected at the CLI boundary."""
     assert CliRunner().invoke(app, ["run-all", "--batch-size", "0"]).exit_code != 0
     assert CliRunner().invoke(app, ["retry", "--progress-interval", "0"]).exit_code != 0
+
+
+def test_run_all_exits_nonzero_when_a_job_is_incomplete() -> None:
+    """An incomplete run (for example robots.txt unreachable) must not exit 0."""
+    result, _ = _invoke_with_fake(["run-all"], phase="incomplete")
+
+    assert result.exit_code == 1

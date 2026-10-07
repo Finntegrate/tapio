@@ -13,7 +13,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Literal, Protocol
 
-JobPhase = Literal["pending", "discovery", "render", "done", "cancelled", "failed"]
+JobPhase = Literal["pending", "discovery", "render", "done", "incomplete", "cancelled", "failed"]
 
 
 class RenderCounts(Protocol):
@@ -111,7 +111,7 @@ class SiteProgress:
         label = f"{self.phase} (paused)" if paused and self.phase in ("discovery", "render") else self.phase
         parts = [f"[{self.site_name}] {label}"]
         summary = self.render_summary
-        if summary is not None and self.phase in ("render", "done", "cancelled"):
+        if summary is not None and self.phase in ("render", "done", "incomplete", "cancelled"):
             parts.append(
                 f"rendered {summary.rendered}/{self.due_total}; saved {summary.saved}; "
                 f"failed {summary.failed}; retried {summary.retried}",

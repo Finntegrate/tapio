@@ -214,7 +214,7 @@ def _run_site_jobs(  # noqa: PLR0913
             f"(100% = one core) across the process tree, with up to {peak.active_jobs} site job(s) active "
             f"({peak.samples} samples).",
         )
-    if any(job.error is not None for job in jobs):
+    if any(job.error is not None or job.progress.phase == "incomplete" for job in jobs):
         raise typer.Exit(code=1)
     if any(job.progress.phase == "cancelled" for job in jobs):
         raise typer.Exit(code=130)

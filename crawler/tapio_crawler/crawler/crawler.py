@@ -186,6 +186,7 @@ class Crawl4AICrawler:
         except OperatorCancelledError:
             summary.cancelled = True
             summary.complete = False
+            self._finalize_coverage(summary)
             return summary
         if not robots.reachable and self.config.robots_policy == "require":
             summary.complete = False

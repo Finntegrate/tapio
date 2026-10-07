@@ -247,3 +247,44 @@ async def test_jobs_sharing_a_host_run_one_after_another(tmp_path: Path) -> None
 
     assert peak == 1
     assert all(job.progress.phase == "done" for job in same_host)
+
+
+@pytest.mark.asyncio
+async def test_incomplete_render_marks_job_incomplete(tmp_path: Path) -> None:
+    discovery = AsyncMock(side_effect=lambda name, _cfg, **_k: DiscoveryRunSummary(run_id="d", site_name=name))
+    render = AsyncMock(return_value=RenderRunSummary(run_id="r", site_name="a", complete=False))
+    job = _job("a")
+    discovery_patch, render_patch = _patch_runners(discovery, render)
+
+    with discovery_patch, render_patch:
+        await run_jobs([job], max_urls=10, batch_size=5, store_factory=_factory(tmp_path))
+
+    assert job.progress.phase == "incomplete"
+
+
+@pytest.mark.asyncio
+async def test_incomplete_discovery_marks_job_incomplete_but_still_renders(tmp_path: Path) -> None:
+    discovery = AsyncMock(
+        side_effect=lambda name, _cfg, **_k: DiscoveryRunSummary(run_id="d", site_name=name, complete=False),
+    )
+    render = AsyncMock(return_value=RenderRunSummary(run_id="r", site_name="a"))
+    job = _job("a")
+    discovery_patch, render_patch = _patch_runners(discovery, render)
+
+    with discovery_patch, render_patch:
+        await run_jobs([job], max_urls=10, batch_size=5, store_factory=_factory(tmp_path))
+
+    assert job.progress.phase == "incomplete"
+    render.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_monitor_resources_reuses_process_objects_between_samples() -> None:
+    job = _job("a")
+    peak = ResourcePeak()
+
+    task = asyncio.ensure_future(monitor_resources([job], peak, interval=0.01))
+    await asyncio.sleep(0.08)
+    task.cancel()
+
+    assert peak.processes
