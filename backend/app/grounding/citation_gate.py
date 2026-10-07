@@ -101,6 +101,7 @@ def check_citations(claims: Iterable[Claim], retrieved: Iterable[RetrievedChunk]
             continue
 
         new_cites: list[str] = []
+        claim_repairs: list[CitationRepair] = []
         rejected = False
         for citation in claim.cites:
             if citation in chunk_ids:
@@ -108,14 +109,21 @@ def check_citations(claims: Iterable[Claim], retrieved: Iterable[RetrievedChunk]
                 continue
             near_miss = id_by_url.get(_canonical_url(citation))
             if near_miss is not None:
-                repairs.append(CitationRepair(index, citation, near_miss))
+                claim_repairs.append(CitationRepair(index, citation, near_miss))
                 new_cites.append(near_miss)
                 continue
             failures.append(CitationFailure(index, claim.text, citation, "not_retrieved"))
             rejected = True
             break
 
-        repaired_claims.append(Claim(text=claim.text, cites=tuple(new_cites)) if not rejected else claim)
+        # A claim's repairs only take effect if the whole claim is accepted — a repair
+        # recorded for a claim that still ends up rejected would contradict the claim's
+        # unchanged `cites`, since a rejected claim keeps its original form below.
+        if rejected:
+            repaired_claims.append(claim)
+        else:
+            repairs.extend(claim_repairs)
+            repaired_claims.append(Claim(text=claim.text, cites=tuple(new_cites)))
 
     return CitationReport(
         claims=tuple(repaired_claims),

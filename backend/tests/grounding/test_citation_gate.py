@@ -63,6 +63,20 @@ def test_rejects_a_url_that_maps_to_no_retrieved_chunk() -> None:
     assert report.failures[0].reason == "not_retrieved"
 
 
+def test_a_rejected_claim_does_not_record_a_repair_for_its_other_citation() -> None:
+    """A citation repaired earlier in the same claim must not survive into the report
+    if a later citation in that same claim gets the whole claim rejected — otherwise the
+    report would claim a repair happened to a claim whose cites were never actually changed.
+    """
+    claims = [Claim(text="Mixed claim.", cites=("https://migri.fi/ajanvaraus", "chunk-invented-9"))]
+
+    report = check_citations(claims, RETRIEVED)
+
+    assert not report.passed
+    assert report.repairs == ()
+    assert report.claims[0].cites == claims[0].cites
+
+
 def test_mixed_claims_report_only_the_failing_ones_and_keep_repairs() -> None:
     claims = [
         Claim(text="Good claim.", cites=("chunk-kotikunta-1",)),
