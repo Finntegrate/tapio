@@ -133,3 +133,97 @@ def test_discover_exits_with_error_on_misconfiguration() -> None:
     assert result.exit_code == 1
     assert "no way to discover" in result.stdout
     manifest_store_type.return_value.close.assert_called_once()
+
+
+def _fake_run_jobs(recorder: dict[str, object], *, phase: str = "done", fail: bool = False) -> AsyncMock:
+    async def fake(jobs: list, **kwargs: object) -> None:
+        recorder["kwargs"] = kwargs
+        recorder["sites"] = [job.site_name for job in jobs]
+        for job in jobs:
+            job.progress.phase = phase
+            if fail:
+                job.error = RuntimeError("boom")
+            else:
+                job.render = RenderRunSummary(
+                    run_id="r",
+                    site_name=job.site_name,
+                    saved=1,
+                    eligible_total=2,
+                    current_total=1,
+                )
+
+    return AsyncMock(side_effect=fake)
+
+
+def _invoke_with_fake(args: list[str], **fake_options: object) -> tuple[object, dict[str, object]]:
+    recorder: dict[str, object] = {}
+    with (
+        patch("tapio_crawler.cli.ConfigManager") as config_manager_type,
+        patch("tapio_crawler.cli.run_jobs", _fake_run_jobs(recorder, **fake_options)),
+    ):
+        config_manager_type.return_value.list_available_sites.return_value = ["a", "b"]
+        config_manager_type.return_value.get_site_config.return_value = SiteConfig(base_url="https://example.com")
+        result = CliRunner().invoke(app, args)
+    return result, recorder
+
+
+def test_run_all_defaults_to_every_configured_site() -> None:
+    """``run-all`` with no sites runs every configured site as a full job."""
+    result, recorder = _invoke_with_fake(["run-all", "--max-concurrent-sites", "2"])
+
+    assert result.exit_code == 0
+    assert recorder["sites"] == ["a", "b"]
+    assert recorder["kwargs"]["mode"] == "full"
+    assert recorder["kwargs"]["max_concurrent_sites"] == 2
+    assert "[a] done" in result.stdout
+    assert "[b] done" in result.stdout
+
+
+def test_run_all_accepts_an_explicit_site_subset() -> None:
+    """Named sites narrow the run."""
+    result, recorder = _invoke_with_fake(["run-all", "b"])
+
+    assert result.exit_code == 0
+    assert recorder["sites"] == ["b"]
+
+
+def test_run_all_exits_nonzero_when_a_site_job_fails() -> None:
+    """A failed job is reported and makes the invocation fail."""
+    result, _ = _invoke_with_fake(["run-all"], phase="failed", fail=True)
+
+    assert result.exit_code == 1
+    assert "[a] FAILED: boom" in result.stdout
+
+
+def test_run_all_exits_130_when_cancelled() -> None:
+    """A cancelled run exits with the conventional interrupt status."""
+    result, _ = _invoke_with_fake(["run-all"], phase="cancelled")
+
+    assert result.exit_code == 130
+
+
+def test_run_all_reports_resource_peak_when_asked() -> None:
+    """``--report-resources`` appends a peak memory/CPU line."""
+    result, _ = _invoke_with_fake(["run-all", "--report-resources"])
+
+    assert result.exit_code == 0
+    assert "Resources: peak" in result.stdout
+
+
+def test_retry_runs_in_retry_mode_without_discovery() -> None:
+    """``retry`` selects retry mode and forwards ``--include-inactive``."""
+    result, recorder = _invoke_with_fake(["retry", "a", "--include-inactive"])
+
+    assert result.exit_code == 0
+    assert recorder["kwargs"]["mode"] == "retry"
+    assert recorder["kwargs"]["include_inactive"] is True
+
+
+def test_run_all_with_no_configured_sites_exits_with_error() -> None:
+    """An empty site list is an error rather than a silent no-op."""
+    with patch("tapio_crawler.cli.ConfigManager") as config_manager_type:
+        config_manager_type.return_value.list_available_sites.return_value = []
+        result = CliRunner().invoke(app, ["run-all"])
+
+    assert result.exit_code == 1
+    assert "No crawler sites are configured." in result.stdout
