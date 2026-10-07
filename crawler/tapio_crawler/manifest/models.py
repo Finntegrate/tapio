@@ -18,6 +18,8 @@ ScopeStatus = Literal[
     "out_of_scope",
     "excluded",
     "unsupported_content_type",
+    # Absent from a later sitemap; retained rather than dropped (see the spec).
+    "inactive_candidate",
 ]
 
 DiscoverySource = Literal["sitemap", "deep_crawl", "operator"]

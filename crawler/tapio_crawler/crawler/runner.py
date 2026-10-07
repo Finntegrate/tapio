@@ -4,6 +4,7 @@ import asyncio
 
 from tapio_crawler.config.config_models import SiteConfig
 from tapio_crawler.crawler.crawler import Crawl4AICrawler, RenderRunSummary
+from tapio_crawler.crawler.job_control import JobControl, SiteProgress
 from tapio_crawler.manifest.store import ManifestStore
 
 
@@ -18,7 +19,7 @@ class CrawlerRunner:
         """
         self._manifest_store = manifest_store
 
-    async def run_async(
+    async def run_async(  # noqa: PLR0913
         self,
         site_name: str,
         site_config: SiteConfig,
@@ -26,6 +27,10 @@ class CrawlerRunner:
         max_urls: int,
         batch_size: int,
         force: bool = False,
+        retry: bool = False,
+        include_inactive: bool = False,
+        control: JobControl | None = None,
+        progress: SiteProgress | None = None,
     ) -> RenderRunSummary:
         """Render one site's due manifest records asynchronously.
 
@@ -36,12 +41,26 @@ class CrawlerRunner:
             batch_size: Manifest page size used while selecting due records.
             force: Ignore each record's refresh schedule and render every
                 eligible record.
+            retry: Re-select failed records instead of following the refresh
+                schedule.
+            include_inactive: With ``retry``, also re-select
+                ``inactive_candidate`` records.
+            control: Optional pause/cancel control for the run.
+            progress: Optional live progress object for the run.
 
         Returns:
             A summary of counts and completeness for this run.
         """
         crawler = Crawl4AICrawler(site_name, site_config, self._manifest_store)
-        return await crawler.crawl(max_urls=max_urls, batch_size=batch_size, force=force)
+        return await crawler.crawl(
+            max_urls=max_urls,
+            batch_size=batch_size,
+            force=force,
+            retry=retry,
+            include_inactive=include_inactive,
+            control=control,
+            progress=progress,
+        )
 
     def run(
         self,

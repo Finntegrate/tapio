@@ -11,6 +11,50 @@ directory. Locally this defaults to the repository's `content/` directory; in
 deployment, mount the same directory into both services and set
 `TAPIO_CONTENT_DIR` to its mount path.
 
+## Running several sites at once, and operator controls
+
+`run-all` runs discovery then rendering for every configured site (or the sites
+you name) as independent concurrent jobs. Each job has its own manifest
+connection, its own politeness delay, and its own progress line:
+
+```bash
+uv run tapio-crawler run-all                          # every configured site
+uv run tapio-crawler run-all migri kela               # a subset
+uv run tapio-crawler run-all --max-concurrent-sites 2 # cap simultaneous browsers
+```
+
+`retry` re-renders records whose last fetch failed, without a new `discover` +
+`crawl` cycle. It ignores retry backoff and the per-URL retry cap, because you
+are asking for the attempt now. Add `--include-inactive` to also retry
+`inactive_candidate` records:
+
+```bash
+uv run tapio-crawler retry migri --include-inactive
+```
+
+While either command runs, signals steer every job. In-flight requests are
+never interrupted, so the manifest stays consistent and resumable:
+
+| Signal              | Effect                                                         |
+| ------------------- | -------------------------------------------------------------- |
+| `SIGUSR1`           | Pause: no new requests start.                                  |
+| `SIGUSR2`           | Resume.                                                        |
+| `SIGINT`/`SIGTERM`  | Cancel gracefully (exit code 130); a second `SIGINT` forces it. |
+
+Each site renders in its own Crawl4AI browser, which costs memory and CPU.
+Before defaulting to all sites at once on a constrained host (CI, a small
+deployment box), measure it: run with `--report-resources` at
+`--max-concurrent-sites 1`, `2`, ... and compare the reported peak RSS/CPU of
+the process tree.
+
+A measurement on a developer Mac (2026-10-07; 2 URLs per site rendered live from
+a temporary manifest, so it captures browser cost, not sustained-crawl cost)
+found peak memory of about 1.7 GiB with one site job at a time and about
+5.9 GiB with all five at once, roughly 1.2 GiB per concurrent browser, at
+10-22% of one core (rendering is bound by the per-host delays, not CPU). RSS
+summed across processes double-counts shared pages, so treat these as an upper
+bound. On a host with under ~8 GiB free, use `--max-concurrent-sites 2` or 3.
+
 ## URL discovery and the manifest
 
 `discover` builds a site's URL inventory and records it in a durable,
