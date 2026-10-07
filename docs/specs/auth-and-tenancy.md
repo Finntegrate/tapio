@@ -4,19 +4,19 @@
 
 **Owner:** Finntegrate
 
-**Related architecture:** [ADR 0008](../ADRs/0008-auth-and-tenancy.md)
+**Related architecture:** [ADR 0008](../ADRs/0008-auth-and-tenancy.md), [ADR 0010](../ADRs/0010-server-held-conversation-history.md)
 
 ## Problem statement
 
-Saved conversations, usage quotas, and partner reporting all depend on knowing who a request is from and what may be remembered about them. Tapio's users include people for whom an identity record is a hazard (PRD §5), so the design has to give them the useful parts of an account without the record. This specification defines the identity model, sign-in, partner affiliation, conversation ownership, quota scoping, and retention. Which of these is a decision and why is in [ADR 0008](../ADRs/0008-auth-and-tenancy.md); this document is the mechanism and is revised as implementation proceeds.
+Saved conversations, usage quotas, and partner reporting all depend on knowing who a request is from and what may be remembered about them. Tapio's users include people for whom an identity record is a hazard (PRD §5), and people whose device or inbox may be shared with someone they fear, so the design has to give them the useful parts of an account without the record. This specification defines the identity model, sign-in, sessions, partner affiliation, and conversation ownership. How conversations themselves are stored, encrypted, deleted, and expired is in [conversation history](conversation-history.md). Which of these is a decision and why is in [ADR 0008](../ADRs/0008-auth-and-tenancy.md); this document is the mechanism and is revised as implementation proceeds.
 
 ## Goals
 
 1. Everything needed to get a sourced answer works with no account.
-2. An account holds the least data that lets a person return to a conversation.
+2. An account holds the least data that lets a person return to a conversation, and nothing readable that could contact them.
 3. Partners can be counted and budgeted without holding or requesting any individual record.
 4. Conversation access is checked on every request, not implied by knowing an identifier.
-5. The identity model survives a change of storage engine.
+5. Sign-in cannot be completed in a browser other than the one that started it.
 
 ## Non-goals
 
@@ -24,17 +24,16 @@ Saved conversations, usage quotas, and partner reporting all depend on knowing w
 - **Case data.** Tapio does not hold case numbers, application status, or family details (PRD §5, §7.5).
 - **Billing or paid tiers.** Quota tiers exist for cost control, not monetization.
 - **A partner-facing user directory.** Partners never receive a list of people.
-- **Choosing the production database.** Storage is embedded first; see [Storage](#storage).
 
 ## Principals
 
 | Principal | How established | Can do | Holds |
 | --- | --- | --- | --- |
-| **Anonymous** | A random session secret issued on admission and kept by the browser | Chat; keep a conversation until it expires | Session secret hash; its conversations |
-| **Registered** | Passwordless sign-in link to an email address | Everything anonymous can; resume conversations across devices; name and delete conversations | Account id; email; its conversations |
-| **Partner administrator** | A registered account granted administration of one organization by a Finntegrate operator | Everything registered can; read that organization's aggregate report and quota usage | A role grant on one organization |
+| **Anonymous** | A random session secret issued on admission and kept by the browser for the browser session | Chat; keep a conversation until it expires | Session id; its conversations |
+| **Registered** | A one-time code emailed to an address and entered in the same browser | Everything anonymous can; resume conversations across devices; name and delete conversations | Account id; email hash; its conversations |
+| **Partner administrator** | A registered account granted administration of one organization by a Finntegrate operator | Everything registered can; read that organization's reports and quota usage | A role grant on one organization |
 
-A partner administrator has no read access to any user's conversation, whether or not that user is affiliated with the administrator's organization. The role is granted and revoked only by a Finntegrate operator through an operator tool, never through the public API.
+A partner administrator has no read access to any user's conversation, whether or not that user is affiliated with the administrator's organization. The role is granted and revoked only by a Finntegrate operator through an operator tool, never through the public API. The role rests on control of an inbox, which is adequate for reading aggregates; passkeys are the upgrade path if the role ever carries more.
 
 Roles are checked server-side from the authenticated principal. A client-supplied role, organization, or account id is never trusted.
 
@@ -45,49 +44,74 @@ An account record contains exactly:
 | Field | Purpose |
 | --- | --- |
 | `account_id` | Random, non-derivable identifier; the only key other tables use |
-| `email` | Sending sign-in links; nothing else |
-| `created_at`, `last_seen_at` | Retention |
+| `email_hash` | HMAC-SHA-256 of the normalized address, with the [key](#keys) version it was made with; used only to find the account when the address is typed again |
+| `created_at`, `last_sign_in_at` | Account expiry |
 | `partner_affiliation` | Optional; see [Partner affiliation](#partner-affiliation) |
 
-No name, nationality, phone number, password, or third-party identity is collected. The email address is never written to a log, an analytics event, a checkpoint, or a partner report. Looking up an account by email uses a keyed hash of the address; the plain address is retained only to send mail and is deleted with the account.
+The service does not store the email address. It holds the typed address in memory only for as long as it takes to hand one message to the mail processor. No name, nationality, phone number, password, or third-party identity is collected. Neither the address nor its hash is ever written to a log, an analytics event, a checkpoint, or a partner report.
 
-An account is deleted on request. Deletion removes the account record, every conversation it owns, and its affiliation, and is not recoverable.
+An account with no sign-in for 180 days is deleted, with any conversations it still owns. The interface states this rule, since the service has no way to warn the person.
+
+A signed-in person can delete their account at any time. Deletion removes the account record, its sessions, every conversation it owns ([conversation history](conversation-history.md#deletion)), and its affiliation, and is not recoverable.
 
 ## Sign-in
 
-Sign-in is a single-use link sent to the address the person gives.
+1. The person types an email address. The server sets a short-lived, random sign-in cookie on that browser and creates a pending sign-in holding a hash of that cookie, the email hash, a hash of a fresh 6-digit code, an expiry of 10 minutes, and an attempt count.
+2. The server sends the code to the typed address and discards the address.
+3. The person types the code into the same browser. The server accepts it only if the request carries the sign-in cookie of that pending sign-in, the code matches, the sign-in has not expired, and fewer than 5 attempts have been made. Otherwise the pending sign-in is discarded after the fifth wrong code.
+4. On success the server finds the account by email hash, creating one if none exists, and issues a registered session. The pending sign-in is deleted.
 
-- The link carries a random token. Only a hash of the token is stored.
-- Tokens are single-use and expire after 15 minutes.
-- Requesting a link for an address that has no account creates one on use of the link, so the response to a request never reveals whether an address is registered.
-- Link requests are rate limited per address and per network bucket.
-- A successful sign-in issues an opaque session cookie, `HttpOnly`, `Secure`, `SameSite=Lax`, with a sliding idle expiry and a fixed absolute expiry. Signing out revokes the session server-side.
-- Sign-in mail contains only the link and a plain-language line saying someone requested it. It names the product only as much as is needed for the recipient to recognize it, because a shared inbox may be read by someone the person fears.
-- Email is sent through a processor operating in the EU under a data-processing agreement.
+The response to step 1 is the same whether or not the address has an account. Requests are rate limited per email hash (5 per hour) and per network bucket ([abuse and cost controls](abuse-and-cost-controls.md#rate-limits)).
 
-There is no social login and no password. Passkeys are a candidate later addition that would add a sign-in method without adding a stored identity attribute.
+A code cannot be completed in a browser that did not request it, so a forwarded code or a mail scanner cannot complete sign-in, and nothing in the mail is a link to follow. The mail contains the code and a plain-language line saying someone asked to sign in. It names the product only as much as is needed for the recipient to recognize it, because a shared inbox may be read by someone the person fears. Email is sent through a processor operating in the EU under a data-processing agreement.
 
-## Anonymous sessions
+There is no social login and no password.
 
-Admission issues a random session secret, stored as a cookie. The server keeps only its hash. An anonymous principal's id is derived from that hash and is not stable across devices.
+## Sessions
+
+Every session is an opaque random secret in a cookie. The server stores only a value derived from it.
+
+| Session | Cookie lifetime | Server-side lifetime |
+| --- | --- | --- |
+| Anonymous | Browser session; no stored expiry | Conversations and session deleted after 24 hours idle or 7 days, per [retention](conversation-history.md#retention) |
+| Registered | 7 days idle, 30 days absolute | The same, revoked on sign-out |
+
+Session cookies use the `__Host-` prefix and are `HttpOnly`, `Secure`, and `SameSite=Lax`.
+
+A registered person can see their active sessions, each by when it signed in and was last used, and can sign out of any of them or all of them at once.
+
+### Anonymous sessions
+
+Admission issues a random session secret. From it the server derives the session id it stores and the key that encrypts the session's conversations ([conversation history](conversation-history.md#anonymous-conversations)).
 
 During the beta, admission requires redeeming an access code distributed by a partner organization. The code admits; it does not identify. Codes are shared by many people, and how they are generated, stored, redeemed, and protected against guessing is specified in [abuse and cost controls](abuse-and-cost-controls.md#access-codes). Once the beta gate is lifted, admission happens on first use.
 
-An anonymous conversation expires after a short idle period and a fixed maximum age, whichever comes first. The interface says so before the person invests in a long conversation.
+The interface always shows a control to end the session. Ending it deletes the session's conversations and clears the browser's state ([conversation history](conversation-history.md#deletion)).
 
 ### Claiming conversations on sign-in
 
-When an anonymous person signs in, the interface offers to move their current anonymous conversations into the account. This is an explicit action. Nothing is migrated silently, and declining leaves them to expire.
+When an anonymous person signs in, the interface offers to move their current anonymous conversations into the account, showing the address they have just typed so they can see whose account it is. The address is shown from what the browser already has; the server cannot show it later. This is an explicit action. Nothing is migrated silently, and declining leaves the conversations to expire.
+
+### Shared devices and inboxes
+
+- The interface tells people on a shared computer to end the session when they leave, and the end-session control is always visible.
+- Whoever can read a person's inbox can sign in as them. The sign-in screen advises using an address no one else reads. There is no sign-in alert by email, both because the service keeps no address and because the alert would itself disclose Tapio use to whoever reads the inbox.
+
+## Web security
+
+- The web app and the API are served from one origin through the hosting edge, so session cookies are first-party and the API needs no cross-origin credentials.
+- State-changing requests must carry an `Origin` header matching the service's origin and a JSON body.
+- Pages are served with a Content Security Policy that allows scripts only from the service's own origin, and with `Referrer-Policy: no-referrer`. No third-party script runs on any page, since a script on the page can read an access code from the URL fragment and the conversation from the document.
 
 ## Partner affiliation
 
-A partner organization is a record with an id, a display name, and one or more codes. It is not a container for users.
+A partner organization is a record with an id, a display name, a type (for example NGO, municipality, or employer), and one or more codes. It is not a container for users.
 
-During the beta, a partner's access code is also its referral code: the code that admits a person is what lets the interface offer affiliation. Redeeming it does not create an affiliation. The session holds which code admitted it only so that the code can be revoked and its usage limited; that is not reported to the partner unless the person accepts affiliation.
+During the beta, a partner's access code is also its referral code. Redeeming it does not create an affiliation. The session records which code admitted it only so that the code can be revoked and its usage limited ([abuse and cost controls](abuse-and-cost-controls.md#redemption)). Per-code figures are operator-only and are never shared with a partner, including informally.
 
 ### How affiliation is established
 
-A partner distributes its code, or a link carrying it. On arrival the interface states, in plain language, that the visit was referred by that organization and that Tapio will count it in the organization's aggregate figures, and offers to turn that off. Affiliation is stored only if the person does not decline.
+On arrival through a partner's code, the interface states, in plain language, which organization referred the visit, and asks whether the person wants to be counted in that organization's aggregate figures. The choice is off until the person turns it on. Affiliation is stored only when they do.
 
 - An anonymous principal's affiliation is held on the session and expires with it.
 - A registered principal's affiliation is held on the account.
@@ -97,17 +121,15 @@ A partner distributes its code, or a link carrying it. On arrival the interface 
 
 ### What a partner can see
 
-A partner administrator sees, for their organization only:
+A partner administrator sees a fixed set of reports for their organization, computed per calendar month at organization level, never per code:
 
-- counts of affiliated sessions and returning sessions over time,
-- counts by guide and by topic category,
-- quota consumption for the organization.
+- affiliated sessions and returning sessions,
+- sessions by guide and by topic category,
+- quota consumption.
 
-The report is built from aggregate counts, never from rows keyed to a person or conversation, and contains no message content.
+There are no ad-hoc filters, custom date ranges, or per-code breakdowns, so no two reports can be subtracted to isolate a person. Any figure below a minimum cell size (initially 10) is withheld and reported as "fewer than 10". Guardrail categories (`crisis`, `legal_sensitive`) are never reported to partners. For employer partners, topic breakdowns are withheld entirely, since an employer holds power over the people it refers. Reports are built from aggregate counts, never from rows keyed to a person or conversation, and contain no message content.
 
-A count below a minimum cell size (initially 10) is withheld and reported as "fewer than 10". The threshold applies to every breakdown and to the difference between any two cuts a partner can request, so that two permitted reports cannot be subtracted to isolate a person. The threshold is configuration, reviewed against real pilot volumes.
-
-Which events feed these counts, and the consent that covers collecting them, is decided in [#101](https://github.com/Finntegrate/tapio/issues/101) and [#45](https://github.com/Finntegrate/tapio/issues/45); this specification only fixes the boundary that they must produce aggregates and nothing finer.
+Which events feed these counts, and the consent that covers collecting them, is decided in [#101](https://github.com/Finntegrate/tapio/issues/101) and [#45](https://github.com/Finntegrate/tapio/issues/45); this specification only fixes the boundary that they must produce these aggregates and nothing finer.
 
 ## Conversation ownership
 
@@ -119,88 +141,68 @@ A new conversation is created by the server, which mints the `thread_id`; the cl
 
 Conversations are listed only for the calling principal. An anonymous principal lists the conversations of its own session.
 
-### The server holds the history
+History, turns, encryption, deletion, and retention are specified in [conversation history](conversation-history.md).
 
-The server is the only source of a conversation's history, for every principal, anonymous included. A turn request carries the `thread_id` and the new message, nothing else from the conversation. The server loads prior turns from the checkpointer, decides how much of them to send to the model, runs the turn, and persists both the person's message and the guide's answer before acknowledging it.
+## Keys
 
-The API accepts no client-supplied history. A request that carries one is rejected, not silently ignored, so a client bug is visible rather than masked. This removes two attacks at once: fabricated earlier turns, including forged guide answers written to steer the model, and inflated input that the project pays for on every request.
+Every server-held key — the email-hash key, the access-code hash key, and the key-encryption key for registered conversations — lives in the deployment's secret store, never in the repository or the database. Every hash or wrapped key records the version of the key that made it.
 
-The client hydrates from the server and renders optimistically:
-
-- On opening a conversation, the client fetches its turns from the server and renders them.
-- On sending, the client shows the person's message immediately as pending. The server's first stream event acknowledges it with a server-assigned message id, and the client marks it sent.
-- Streamed answer text is rendered as it arrives and replaced by the persisted answer when the turn completes.
-- If the turn fails or is refused, the pending message is marked as not sent and its text stays in the input for retry; nothing is persisted for a turn the server did not accept.
-- After a reconnect, or when a stream ends without a completion event, the client refetches the conversation rather than trusting what it rendered.
-
-The client's copy is a cache. Where it and the server disagree, the server wins.
-
-### Deletion
-
-Deleting a conversation removes its checkpoints and its ownership record. There is no soft delete and no archive. Deletion is idempotent.
-
-### Retention
-
-| Principal | Default retention |
-| --- | --- |
-| Anonymous | Expires after 24 hours idle, 7 days absolute |
-| Registered | Expires after 90 days idle unless deleted sooner |
-
-A scheduled job deletes expired conversations and expired anonymous sessions. Retention values are configuration. Registered users are warned by email before expiry only if they opted in; the default is to expire without notice, because mail about an immigration assistant can itself expose someone.
-
-Free-text content in a conversation can include anything the person typed. Account minimization does not reduce that, so the guidance to avoid sharing identifying details (PRD §7.5) and the retention bound are the controls that apply to it.
+Rotation adds a new version. Lookups try every active version; an email hash is rewritten with the newest version when the person next signs in, and an access code hashed with an old version stays valid until the code expires or is reissued. A version is retired once nothing references it. The network-bucket key is not stored at all; see [abuse and cost controls](abuse-and-cost-controls.md#rate-limits).
 
 ## Quotas and abuse controls
 
-Budgets, edge limits, the global spend ceiling, and the controls that keep an anonymous endpoint from being used to spend the project's money are specified in [abuse and cost controls](abuse-and-cost-controls.md), under [ADR 0009](../ADRs/0009-abuse-and-cost-controls.md). This specification fixes only what they must not do: any network-derived value is an abuse signal held briefly and never joined to an account, a conversation, or a partner report.
+Budgets, admission, rate limits, the spend ceiling, and the controls that keep an anonymous endpoint from being used to spend the project's money are specified in [abuse and cost controls](abuse-and-cost-controls.md), under [ADR 0009](../ADRs/0009-abuse-and-cost-controls.md). This specification fixes only what they must not do: any network-derived value is an abuse signal held briefly and never joined to an account, a conversation, or a partner report.
 
 ## Storage
 
-Every conversation, including an anonymous one for its short lifetime, is held in a LangGraph checkpointer ([#16](https://github.com/Finntegrate/tapio/issues/16)). The first implementation uses an embedded SQLite-backed checkpointer, consistent with the project having no operating budget for a persistent managed database. In-memory storage is used for local development and tests only.
+Accounts, sessions, pending sign-ins, ownership, affiliation, access codes, and conversation data keys are held in one embedded SQLite store, separate from the checkpoint store, behind an interface that does not expose the engine. Moving it off embedded storage changes the implementation behind that interface and no identifiers, ownership rules, or retention behaviour.
 
-Account, session, ownership, affiliation, and quota records are stored in a separate store from the checkpoints, behind an interface that does not expose the engine. Moving either store off embedded storage changes the implementation behind that interface and no identifiers, ownership rules, or retention behaviour.
-
-Embedded storage is single-writer. The deployment runs as one process until a move is warranted; running more than one worker against the same embedded store is not supported.
-
-Both stores are encrypted at rest. Backups follow the same retention as live data, so a deleted conversation does not survive in a backup past the backup window, which is stated in the privacy notice.
+Embedded storage is single-writer. The deployment runs as one process until a move is warranted.
 
 ## Operator tooling
 
-Finntegrate operators, not the public API, can create and retire partner organizations, issue and revoke access codes, grant and revoke partner administration, and delete an account on a person's request. Operator actions are logged with the operator and action but never the content of any conversation. There is no operator capability to read a user's conversation.
+Finntegrate operators, not the public API, can create and retire partner organizations, issue and revoke access codes, and grant and revoke partner administration. Operator actions are logged with the operator and action, never with conversation content or an email address.
+
+There is no operator tool to read a conversation. Anonymous conversations are unreadable at rest without the person's browser. Registered conversations are encrypted with keys the service holds, so someone with access to both the host and its secrets could read them; the privacy notice says exactly that rather than claiming otherwise.
+
+Account deletion is self-service after sign-in, which is the proof that the account is the requester's. Operators do not delete an account on an unverified request, since doing so would let anyone erase someone else's history; an account no one can sign in to expires on its own.
 
 ## Failure modes
 
 | Case | Behaviour |
 | --- | --- |
-| Sign-in link expired or reused | Generic message offering a new link |
+| Sign-in code wrong, expired, or entered in another browser | Generic message offering a new code; the fifth wrong code ends that sign-in |
 | `thread_id` not owned by caller | Same response as a nonexistent conversation |
-| Anonymous session cookie lost | The conversation is not recoverable; the interface says so up front |
-| Email unreachable | No recovery path beyond a new link; there is nothing to reset |
-| Partner aggregate below threshold | Withheld, reported as below the minimum |
+| Anonymous session cookie lost | The conversation cannot be read again; the interface says so up front |
+| Email unreachable | No recovery path; there is nothing to reset |
+| Partner figure below threshold | Withheld, reported as below the minimum |
 | Partner administration revoked | Takes effect on the next request |
 
 ## Testing
 
 - Ownership: a principal cannot read, extend, list, rename, or delete another principal's conversation, and the response is indistinguishable from "not found".
 - Roles: a partner administrator cannot read any conversation, including those of affiliated users.
-- Account data: no log line, analytics event, checkpoint, or report contains an email address; a test asserts this against captured output of a full sign-in and chat flow.
-- Sign-in: tokens are single-use, expire, and the response does not reveal whether an address is registered.
-- History: a turn request carrying client-supplied history is rejected; the model receives only server-held turns; a refused or failed turn persists nothing.
-- Deletion: after deleting a conversation or account, no checkpoint or ownership row remains.
-- Retention: the expiry job removes conversations past their bound and leaves those inside it.
-- Aggregates: any breakdown, and any pair of breakdowns whose difference could isolate fewer than the minimum, is withheld.
+- Account data: no stored row, log line, analytics event, checkpoint, or report contains an email address; a test asserts this against the stores and captured output of a full sign-in and chat flow.
+- Sign-in binding: a correct code submitted from a browser without the pending sign-in's cookie does not sign in and does not claim conversations.
+- Sign-in: codes are single-use, expire, and stop working after five wrong attempts; the response to a request does not reveal whether an address is registered.
+- Affiliation: arriving with a partner code and taking no action stores no affiliation.
+- Reports: no report has a figure below the threshold, a per-code breakdown, a guardrail category, or, for an employer, a topic breakdown.
+- Sessions: signing out everywhere ends every session of the account on its next request.
+- Web security: a state-changing request with a foreign or missing `Origin` is refused.
 - Abuse signals: a network-derived value is never persisted past its time-to-live and never appears in an account or partner record.
 
 ## Delivery
 
-This design unblocks, and constrains, the implementation issues that follow: [#31](https://github.com/Finntegrate/tapio/issues/31) for sign-in and ownership, [#16](https://github.com/Finntegrate/tapio/issues/16) for the checkpointer, [#35](https://github.com/Finntegrate/tapio/issues/35) for saved conversations, [#32](https://github.com/Finntegrate/tapio/issues/32) for quotas, and [#45](https://github.com/Finntegrate/tapio/issues/45) and [#46](https://github.com/Finntegrate/tapio/issues/46) for partner reporting. Moving history to the server is a prerequisite for opening the beta, because the current API accepts client-supplied history of any length. Server-held conversations ship with the retention and deletion defined here, as the [multi-agent chat specification](multi-agent-chat.md) requires; registered accounts that keep conversations for longer also wait on the lawful-basis decision in [#40](https://github.com/Finntegrate/tapio/issues/40).
+This design unblocks, and constrains, the implementation issues that follow: [#31](https://github.com/Finntegrate/tapio/issues/31) for sign-in and ownership, [#16](https://github.com/Finntegrate/tapio/issues/16) for the checkpointer, [#35](https://github.com/Finntegrate/tapio/issues/35) for saved conversations, [#32](https://github.com/Finntegrate/tapio/issues/32) for quotas, and [#45](https://github.com/Finntegrate/tapio/issues/45) and [#46](https://github.com/Finntegrate/tapio/issues/46) for partner reporting.
+
+The beta needs anonymous sessions, access codes, ownership, the web security above, and [server-held history](conversation-history.md#delivery). Accounts and partner reports come after it.
 
 ## Open questions
 
 | Question | Owner | Blocking? |
 | --- | --- | --- |
-| Lawful basis and controller obligations for holding an email address, and whether a Data Protection Officer or notification is required | Privacy and data ([#40](https://github.com/Finntegrate/tapio/issues/40)) | Yes, before accounts ship |
-| Which usage events feed partner aggregates, and what consent covers collecting them | Privacy and data ([#101](https://github.com/Finntegrate/tapio/issues/101)) | Yes, before partner reporting |
-| Is a minimum cell size of 10 right for pilot volumes | Product and partnerships | No; configuration |
+| Lawful basis and controller obligations for holding an email hash, and whether a Data Protection Officer or notification is required | Privacy and data ([#40](https://github.com/Finntegrate/tapio/issues/40)) | Yes, before accounts ship |
+| Which usage events feed partner reports, and what consent covers collecting them | Privacy and data ([#101](https://github.com/Finntegrate/tapio/issues/101)) | Yes, before partner reporting |
+| Is a minimum cell size of 10 right for pilot volumes, and should employers have a higher one | Product and partnerships | No; configuration |
 | Should passkeys be offered as a second sign-in method | Product and engineering | No |
 | Which EU email processor, and does its retention of delivery logs fit the retention policy | Engineering, privacy | Yes, before accounts ship |

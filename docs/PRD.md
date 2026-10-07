@@ -118,13 +118,13 @@ A user can let Tapio route automatically, pick a guide explicitly, or reach one 
 ### 7.6 Access and continuity
 
 - Returning users can pick up a prior conversation rather than starting over (depends on authentication and durable storage — see §9, Roadmap).
-- Using Tapio, including returning to a saved conversation, never requires proving identity or immigration status; authentication is a low-friction, minimal-identity mechanism (e.g. magic link), not an identity-verification step.
-- No PII is stored beyond what a user explicitly types into a conversation — the product does not infer, request, or persist identifying fields (name, nationality, case number, contact details) to enable this feature.
+- Using Tapio, including returning to a saved conversation, never requires proving identity or immigration status; authentication is a low-friction, minimal-identity mechanism (a one-time code sent by email), not an identity-verification step.
+- No PII is stored beyond what a user explicitly types into a conversation — the product does not infer, request, or persist identifying fields (name, nationality, case number, contact details) to enable this feature. The one exception is optional: a person who chooses an account gives an email address to receive a sign-in code, and the product keeps only a keyed hash of it, never the address itself ([ADR 0008](ADRs/0008-auth-and-tenancy.md)).
 - Users can choose their preferred language for the conversation; guide answers and routing respect that choice where source language coverage allows.
 
 ### 7.7 Partner visibility
 
-- Partner organizations that refer people to Tapio can see aggregate, privacy-respecting usage and outcome signals relevant to their own advising work (not individual users' conversations without consent).
+- Partner organizations that refer people to Tapio can see aggregate, privacy-respecting usage and outcome signals relevant to their own advising work (never individual users' conversations).
 - Partners can be organized and reported on as distinct entities from individual end users; partner-level reporting is built from aggregate counts, not from identifiable user records.
 
 ## 8. Non-goals
@@ -160,7 +160,7 @@ No usage baseline exists yet; treat these as launch hypotheses to instrument, no
 | User-reported confidence | ≥70% of rated responses marked helpful or clear | Direct signal on whether answers are actually useful |
 | Safety boundary adherence | 0 responses that present a guide as an official/legal authority | A single violation undermines the trust the whole product depends on |
 | Proactive suggestion uptake | ≥30% of proactive suggestions are followed (clicked, asked about, or acted on) | Confirms anticipated needs are actually relevant, not noise |
-| No-PII posture | 0 identifying fields (name, nationality, case number, contact details) collected or required outside what a user volunteers in free text | For at-risk users, this is a safety property, not a compliance checkbox |
+| No-PII posture | 0 identifying fields (name, nationality, case number, contact details) collected or required outside what a user volunteers in free text; the optional sign-in email is kept only as a keyed hash | For at-risk users, this is a safety property, not a compliance checkbox |
 
 ## 11. Open questions
 

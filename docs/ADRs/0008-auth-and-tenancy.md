@@ -18,56 +18,60 @@ Three constraints from the PRD bound the answer.
 - **Access never requires proving identity or status** (PRD §7.6). Authentication exists to let someone come back to a conversation, not to establish who they are.
 - **Partners see aggregate signals, not individuals** (PRD §7.7), and PRD §11 asks what "partner-affiliated" means before this is designed.
 
+The threat model is not only an outside attacker. A controlling partner or family member may share the person's device, read their inbox, or try to steer them into using an account the abuser controls. Shared computers in libraries and reception centres are ordinary for this population.
+
 Operating budget also rules out a persistent managed database for now, so the design must work on embedded storage and move later without changing its shape.
 
 ## Decision
 
-**Anonymous use is the default and is complete.** Everything a person needs to get a sourced answer works with no account. An anonymous conversation is held only for as long as it is useful and then expires. During the beta, admission requires an access code distributed through partners ([ADR 0009](0009-abuse-and-cost-controls.md)); the code admits a person without identifying them, and needing one does not change what anonymous use can do once admitted.
+**Anonymous use is the default and is complete.** Everything a person needs to get a sourced answer works with no account. An anonymous session lasts no longer than the browser session, and its conversations expire soon after. During the beta, admission requires an access code distributed through partners ([ADR 0009](0009-abuse-and-cost-controls.md)); the code admits a person without identifying them, and needing one does not change what anonymous use can do once admitted.
 
-**Accounts exist only to bring a conversation back.** An account is a random pseudonymous identifier plus the one thing needed to reach the person again: an email address, used for passwordless sign-in links. No name, no nationality, no phone number, no password, no third-party identity. Everything else in the system refers to the pseudonymous identifier, never to the email.
+**Accounts exist only to bring a conversation back, and hold no readable contact details.** An account is a random pseudonymous identifier and a keyed hash of an email address. A person signs in by typing their address and then a one-time code sent to it, in the same browser. The service uses the typed address to send that one message and keeps only the hash, so it can recognize the address when it is typed again but cannot read it, contact the person, or hand it over. No name, nationality, phone number, password, or third-party identity is collected.
 
-**No social login.** Signing in with a third-party identity provider hands that provider a record that this person uses an immigration assistant, and ties their Tapio account to an identity the person may be trying to keep separate. For this audience that is a disclosure, not a convenience. A signed link to an inbox the person already controls reveals less and is as low-friction.
+**No social login.** Signing in with a third-party identity provider hands that provider a record that this person uses an immigration assistant, and ties their Tapio account to an identity the person may be trying to keep separate. For this audience that is a disclosure, not a convenience.
+
+**Sign-in completes only in the browser that asked for it.** A code is entered, not a link followed, so it cannot be completed on another device, consumed by a mail scanner, or used to sign a victim's browser into someone else's account.
 
 **Three roles, one mechanism.** *Anonymous*, *registered*, and *partner administrator*. A partner administrator is a registered account that Finntegrate has granted administration of one organization; the role is granted by Finntegrate, never self-asserted, and carries no ability to read any user's conversation.
 
-**A partner organization is a reporting and quota scope, not a data silo.** There is one shared corpus and one set of guides. A partner organization never owns, stores, or reads user data. It is a label that a person can opt into so that aggregate counts and usage budgets can be attributed to it.
+**A partner organization is a reporting and quota scope, not a data silo.** There is one shared corpus and one set of guides. A partner organization never owns, stores, or reads user data. It is a label that a person can choose to be counted under, so that aggregate figures and usage budgets can be attributed to it.
 
-**Partner affiliation is opt-in, revocable, and does not require an account.** A person arrives through a partner's referral and may be told so plainly; the attribution is theirs to keep or remove. Partners receive aggregates only, and an aggregate that could single out a person is withheld.
+**Partner affiliation is opt-in, revocable, and does not require an account.** A person who arrives through a partner is told so plainly and is counted for that partner only if they choose to be. The choice is off until they make it, and they can undo it. Partners receive a fixed set of organization-level aggregate reports, and a figure that could single out a person is withheld.
 
-**Conversation ownership is enforced, not assumed.** A conversation is addressable only by an unguessable identifier, and every access checks that the caller owns it. A person can delete any conversation they own, and deleting removes it rather than hiding it.
+**Conversation ownership is enforced, not assumed.** A conversation is addressable only by an unguessable identifier, and every access checks that the caller owns it. A person can delete any conversation they own, and deletion makes it unreadable. Where history lives and how it is protected at rest is decided in [ADR 0010](0010-server-held-conversation-history.md).
 
-**The server is the only source of a conversation's history.** A client sends a new message and the conversation it belongs to, never the conversation's earlier turns. The server reads those from its own store, and the client renders what the server holds, showing a person's own message optimistically until the server confirms it. A client cannot add, alter, or inflate prior turns, so it can neither forge what a guide said to steer the next answer nor make the project pay for input it invented.
+**Identity and ownership are kept apart from conversation storage.** Accounts, sessions, ownership, and retention live beside the conversation store rather than inside it, so either can change engine without touching the identity model.
 
-**Conversation state lives in the LangGraph checkpointer, on embedded storage first.** Ownership and retention are kept beside the checkpoint rather than inside it, so the storage engine can change without touching the identity model.
-
-**Retention is bounded by default.** Anonymous conversations expire quickly; registered conversations expire after a period of inactivity unless the person deletes them sooner.
+**Retention is bounded by default.** Anonymous conversations expire quickly; registered conversations expire after a period of inactivity; an account no one signs in to expires too.
 
 ## Consequences
 
 ### Positive
 
-- The protective default holds for the people at greatest risk: someone who never creates an account leaves nothing that outlives a short expiry.
-- Server-held history closes an injection path and an input-cost path that client-supplied history leaves open, and gives retention and deletion one place to act.
+- The protective default holds for the people at greatest risk: someone who never creates an account leaves nothing that outlives a short expiry and nothing readable at rest.
+- An account breach, disk image, or legal demand yields no email addresses, only hashes that can confirm an address someone already knows, and only with the service's key.
+- Sign-in cannot be completed from a link someone else forwarded, so an abuser cannot quietly sign a victim's browser into the abuser's account and read what the victim types next.
 - One identity model answers #31, #32, #35, #16, and #45 together, so they cannot disagree.
 - Partners get the visibility the PRD promises without ever holding or being able to request individual records, which also means a partner cannot be compelled to produce them.
 - Because partners are a scope rather than a tenant, there is no per-tenant data isolation to build, test, or get wrong.
-- The identity model is independent of the storage engine, so the move off embedded storage is a migration, not a redesign.
 
 ### Negative
 
-- An email address is still personal data, and holding it makes Tapio a controller of it with the obligations that follow (erasure, export, breach notification). The design minimizes this; it cannot remove it.
-- Email delivery becomes a dependency of returning to a conversation, and a person who loses access to their inbox loses the conversation.
-- Every conversation, anonymous ones included, is now stored server-side for its lifetime, where client-held history would have stored nothing. Short retention is what keeps that acceptable.
-- Anonymous conversations are not recoverable after expiry, and a person who clears their browser state loses an in-progress anonymous conversation.
+- An email hash is still personal data, and holding it makes Tapio a controller of it, with the obligations that follow. The design minimizes this; it cannot remove it. The PRD's no-contact-details rule is amended to allow exactly this.
+- The service cannot email a person, so there are no expiry warnings, no sign-in alerts, and no recovery path other than signing in again. Expiry dates are shown in the interface instead.
+- Whoever controls a person's inbox can sign in as them. The interface advises using an address no one else reads, and offers signing out everywhere.
+- Typing a code is slightly more effort than following a link.
+- Anonymous conversations are not recoverable after the browser closes or the session expires.
 - Opt-in attribution undercounts. Partner figures describe people who chose to be counted, not everyone referred.
 - Refusing social login removes the lowest-friction path for users who are comfortable with it.
 
 ### Risks
 
 - Anonymous usage still has to be bounded against abuse, which tempts collecting a network identifier. [ADR 0009](0009-abuse-and-cost-controls.md) decides how; whatever it does must hold a network address briefly and not in a form that identifies a person, since it is personal data under GDPR.
-- Small partners produce small aggregates. If the withholding rule is too lenient a partner can infer an individual; if too strict a small partner sees nothing useful. The threshold needs review against real pilot volumes.
-- Free-text conversation content can contain anything a user volunteers. Minimizing account fields does not minimize what is typed into a conversation, so retention and deletion carry most of the protection.
+- Small partners produce small aggregates. If the withholding rule is too lenient a partner can infer an individual; if too strict a small partner sees nothing useful. Employer partners carry a particular risk, since they hold power over the people they refer.
+- Free-text conversation content can contain anything a user volunteers. Minimizing account fields does not minimize what is typed into a conversation; [ADR 0010](0010-server-held-conversation-history.md) carries most of that protection.
 - Controller status, lawful basis, and data-protection-officer questions are decided in [#40](https://github.com/Finntegrate/tapio/issues/40) and [#101](https://github.com/Finntegrate/tapio/issues/101). This ADR assumes those will not require collecting more than it proposes, and must be revisited if they do.
+- The access-code gate suspends "anonymous use is complete" for the duration of the beta. [ADR 0009](0009-abuse-and-cost-controls.md) states when the gate is reviewed.
 
 ## Alternatives considered
 
@@ -82,6 +86,14 @@ Rejected for the reasons above. It was named as preferred in the original issue 
 ### Passwords
 
 Rejected. A password is a secret to store, breach, and reset, and the reset flow needs an email address anyway.
+
+### Sign-in links
+
+Rejected. A link can be completed in any browser that opens it, which lets an abuser sign a victim's browser into the abuser's own account by sending them the link. Corporate and NGO mail scanners open links before people do, consuming single-use tokens. Binding a link to the requesting browser needs a fallback code anyway, so the code alone is simpler.
+
+### Keep the email address in readable form
+
+Rejected. Its only uses would be sending sign-in codes, which the person's own typing already covers, and sending warnings, which would themselves disclose Tapio use to whoever reads the inbox. A readable address is what a breach or a demand would be after.
 
 ### Anonymous only, no accounts
 
@@ -103,7 +115,8 @@ Rejected as a durable identifier. Retained only as a short-lived abuse signal, a
 
 - [Specification: authentication and tenancy](../specs/auth-and-tenancy.md) — the mechanism this decision commits to
 - [ADR 0009: Abuse and cost controls](0009-abuse-and-cost-controls.md)
-- [PRD §5, §7.5–7.7, §11](../PRD.md)
+- [ADR 0010: Server-held conversation history](0010-server-held-conversation-history.md)
+- [PRD §5, §7.5–7.7, §10, §11](../PRD.md)
 - [#30: Design auth and tenancy model](https://github.com/Finntegrate/tapio/issues/30)
 - [#16](https://github.com/Finntegrate/tapio/issues/16), [#31](https://github.com/Finntegrate/tapio/issues/31), [#32](https://github.com/Finntegrate/tapio/issues/32), [#35](https://github.com/Finntegrate/tapio/issues/35), [#40](https://github.com/Finntegrate/tapio/issues/40), [#45](https://github.com/Finntegrate/tapio/issues/45), [#46](https://github.com/Finntegrate/tapio/issues/46), [#101](https://github.com/Finntegrate/tapio/issues/101)
 - [ADR 0005: Shared, guide-led conversation](0005-multi-agent-chat-experience.md)
