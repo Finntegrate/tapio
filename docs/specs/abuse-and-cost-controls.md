@@ -251,7 +251,7 @@ Alerts to Finntegrate operators:
 
 ## Later stages
 
-The beta controls are sufficient while three conditions hold: admission requires a code, no paid or metered tool is enabled, and the service runs as one process. Each change below requires its controls first.
+The beta controls are sufficient while three conditions hold: admission requires a code, no paid or metered tool is enabled, and the service runs as one process. Each change below requires its controls first. The access-code gate is reviewed no later than six months after the beta opens, and is lifted only once the controls for admission without codes exist.
 
 | Change | Controls required first |
 | --- | --- |
