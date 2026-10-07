@@ -21,7 +21,7 @@ from crawl4ai.deep_crawling.filters import (
 from crawl4ai.models import CrawlResultContainer
 
 from tapio_crawler.config.config_models import GapCrawlConfig, ScopeConfig
-from tapio_crawler.discovery.rate_limiter import HostRateLimiter
+from tapio_crawler.discovery.rate_limiter import HostRateLimiter, OperatorCancelledError
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +83,8 @@ async def discover_via_gap_crawl(
             )
             discovered = [result.url for result in raw_results if result.success]
             complete = all(result.success for result in raw_results)
+    except OperatorCancelledError:
+        raise
     except Exception:
         logger.exception("Gap-crawl discovery failed for %s", gap_crawl.seed_urls)
         complete = False

@@ -9,6 +9,7 @@ from pydantic import HttpUrl
 
 from tapio_crawler.config.config_models import SiteConfig
 from tapio_crawler.crawler.crawler import RenderRunSummary
+from tapio_crawler.crawler.job_control import JobControl
 from tapio_crawler.crawler.jobs import (
     ResourcePeak,
     SiteJob,
@@ -37,7 +38,7 @@ def _patch_runners(discovery: AsyncMock, render: AsyncMock) -> object:
 
 @pytest.mark.asyncio
 async def test_full_mode_runs_discovery_then_render_for_every_site(tmp_path: Path) -> None:
-    discovery = AsyncMock(side_effect=lambda name, _cfg: DiscoveryRunSummary(run_id="d", site_name=name))
+    discovery = AsyncMock(side_effect=lambda name, _cfg, **_k: DiscoveryRunSummary(run_id="d", site_name=name))
     render = AsyncMock(side_effect=lambda name, *_a, **_k: RenderRunSummary(run_id="r", site_name=name))
     jobs = [_job("a"), _job("b")]
     discovery_patch, render_patch = _patch_runners(discovery, render)
@@ -76,7 +77,7 @@ async def test_retry_mode_skips_discovery(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_one_site_failing_does_not_stop_the_others(tmp_path: Path) -> None:
-    async def discover(name: str, _cfg: SiteConfig) -> DiscoveryRunSummary:
+    async def discover(name: str, _cfg: SiteConfig, **_k: object) -> DiscoveryRunSummary:
         if name == "bad":
             message = "boom"
             raise RuntimeError(message)
@@ -99,7 +100,7 @@ async def test_max_concurrent_sites_limits_simultaneous_jobs(tmp_path: Path) -> 
     running = 0
     peak = 0
 
-    async def discover(name: str, _cfg: SiteConfig) -> DiscoveryRunSummary:
+    async def discover(name: str, _cfg: SiteConfig, **_k: object) -> DiscoveryRunSummary:
         nonlocal running, peak
         running += 1
         peak = max(peak, running)
@@ -121,10 +122,10 @@ async def test_max_concurrent_sites_limits_simultaneous_jobs(tmp_path: Path) -> 
 async def test_cancel_during_discovery_stops_the_job_without_rendering(tmp_path: Path) -> None:
     started = asyncio.Event()
 
-    async def discover(_name: str, _cfg: SiteConfig) -> DiscoveryRunSummary:
+    async def discover(name: str, _cfg: SiteConfig, *, control: JobControl) -> DiscoveryRunSummary:
         started.set()
-        await asyncio.sleep(30)
-        raise AssertionError
+        await control.wait_cancelled()
+        return DiscoveryRunSummary(run_id="d", site_name=name, complete=False, cancelled=True)
 
     render = AsyncMock()
     job = _job("a")
@@ -138,6 +139,30 @@ async def test_cancel_during_discovery_stops_the_job_without_rendering(tmp_path:
 
     assert job.progress.phase == "cancelled"
     render.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_store_factory_failure_fails_only_that_job(tmp_path: Path) -> None:
+    calls = 0
+
+    def factory() -> ManifestStore:
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            message = "cannot open manifest"
+            raise OSError(message)
+        return ManifestStore(tmp_path / "manifest.db")
+
+    discovery = AsyncMock(side_effect=lambda name, _cfg, **_k: DiscoveryRunSummary(run_id="d", site_name=name))
+    render = AsyncMock(side_effect=lambda name, *_a, **_k: RenderRunSummary(run_id="r", site_name=name))
+    first, second = _job("a"), _job("b")
+    discovery_patch, render_patch = _patch_runners(discovery, render)
+
+    with discovery_patch, render_patch:
+        await run_jobs([first, second], max_urls=10, batch_size=5, max_concurrent_sites=1, store_factory=factory)
+
+    assert first.progress.phase == "failed"
+    assert second.progress.phase == "done"
 
 
 @pytest.mark.asyncio
@@ -156,7 +181,7 @@ async def test_job_cancelled_before_start_is_not_run(tmp_path: Path) -> None:
 
 @pytest.mark.asyncio
 async def test_render_cancellation_marks_job_cancelled(tmp_path: Path) -> None:
-    discovery = AsyncMock(side_effect=lambda name, _cfg: DiscoveryRunSummary(run_id="d", site_name=name))
+    discovery = AsyncMock(side_effect=lambda name, _cfg, **_k: DiscoveryRunSummary(run_id="d", site_name=name))
     render = AsyncMock(return_value=RenderRunSummary(run_id="r", site_name="a", cancelled=True, complete=False))
     job = _job("a")
     discovery_patch, render_patch = _patch_runners(discovery, render)

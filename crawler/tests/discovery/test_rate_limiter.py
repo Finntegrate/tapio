@@ -114,3 +114,23 @@ def test_suspend_for_retry_after_caps_at_configured_maximum() -> None:
 
     assert applied == 60
     assert limiter.last_suspension_capped is True
+
+
+@pytest.mark.asyncio
+async def test_wait_for_turn_blocks_while_paused_and_raises_on_cancel() -> None:
+    import asyncio
+
+    from tapio_crawler.crawler.job_control import JobControl
+    from tapio_crawler.discovery.rate_limiter import OperatorCancelledError
+
+    control = JobControl()
+    control.pause()
+    limiter = HostRateLimiter(min_delay=0, max_delay=0, control=control)
+
+    waiter = asyncio.ensure_future(limiter.wait_for_turn())
+    await asyncio.sleep(0.02)
+    assert not waiter.done()
+
+    control.cancel()
+    with pytest.raises(OperatorCancelledError):
+        await asyncio.wait_for(waiter, timeout=1)

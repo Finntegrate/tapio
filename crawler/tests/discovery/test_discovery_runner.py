@@ -591,3 +591,23 @@ async def test_exception_during_discovery_leaves_last_run_marked_incomplete(
     last_run = store.get_last_discovery_run("example")
     assert last_run is not None
     assert last_run.complete is False
+
+
+@pytest.mark.asyncio
+async def test_cancelled_control_stops_discovery_before_any_request(store: ManifestStore) -> None:
+    """A cancelled job makes no robots/sitemap request and reports a cancelled, incomplete run."""
+    from tapio_crawler.crawler.job_control import JobControl
+
+    control = JobControl()
+    control.cancel()
+    site_config = _site_config(
+        discovery=DiscoveryConfig(source="sitemap", sitemap_urls=["https://example.com/sitemap.xml"]),
+    )
+    client_get = AsyncMock()
+
+    with patch("httpx.AsyncClient.get", client_get):
+        summary = await DiscoveryRunner(store).run("example", site_config, control=control)
+
+    assert summary.cancelled
+    assert summary.complete is False
+    client_get.assert_not_awaited()

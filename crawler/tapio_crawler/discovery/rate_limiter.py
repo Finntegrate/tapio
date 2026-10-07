@@ -12,8 +12,21 @@ import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from email.utils import parsedate_to_datetime
+from typing import Protocol
 
 DEFAULT_MAX_SUSPENSION_SECONDS = 60 * 60  # 1 hour cap on Retry-After
+
+
+class OperatorCancelledError(Exception):
+    """Raised from ``wait_for_turn`` when an operator cancelled the job."""
+
+
+class Checkpoint(Protocol):
+    """Pause/cancel hook consulted before every request (``JobControl`` satisfies this)."""
+
+    async def checkpoint(self) -> bool:
+        """Wait out any pause; return ``False`` if the job was cancelled."""
+        ...
 
 
 @dataclass
@@ -60,6 +73,7 @@ class HostRateLimiter:
         min_delay: float,
         max_delay: float,
         max_suspension_seconds: float = DEFAULT_MAX_SUSPENSION_SECONDS,
+        control: Checkpoint | None = None,
     ) -> None:
         """Initialize the limiter with its politeness delay bounds.
 
@@ -68,6 +82,9 @@ class HostRateLimiter:
             max_delay: Maximum delay, in seconds, between requests to the host.
             max_suspension_seconds: Upper bound applied to any ``Retry-After``
                 suspension.
+            control: Optional operator pause/cancel hook, checked before and
+                after the politeness wait so no request starts while paused
+                or after a cancel.
         """
         self.min_delay = min_delay
         self.max_delay = max_delay
@@ -75,13 +92,24 @@ class HostRateLimiter:
         self._lock = asyncio.Lock()
         self._next_available_at: float = 0.0
         self.last_suspension_capped = False
+        self.control = control
+
+    async def _checkpoint(self) -> None:
+        if self.control is not None and not await self.control.checkpoint():
+            raise OperatorCancelledError
 
     async def wait_for_turn(self) -> None:
-        """Block until this host's next request may be sent, then reserve it."""
+        """Block until this host's next request may be sent, then reserve it.
+
+        Raises:
+            OperatorCancelledError: If an operator cancelled the job.
+        """
+        await self._checkpoint()
         async with self._lock:
             wait_seconds = max(0.0, self._next_available_at - time.monotonic())
             if wait_seconds > 0:
                 await asyncio.sleep(wait_seconds)
+            await self._checkpoint()
             self._next_available_at = time.monotonic() + self.min_delay
 
     def suspend_for_retry_after(self, retry_after_value: str | None) -> float:

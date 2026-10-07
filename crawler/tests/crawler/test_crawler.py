@@ -15,6 +15,7 @@ from tapio_crawler.config.config_models import CrawlerConfig, ScopeConfig, SiteC
 from tapio_crawler.crawler.crawler import Crawl4AICrawler, RenderRunSummary
 from tapio_crawler.crawler.job_control import JobControl, SiteProgress
 from tapio_crawler.crawler.policy import EXTRACTOR_VERSION, MAX_RETRY_COUNT
+from tapio_crawler.discovery.rate_limiter import HostRateLimiter
 from tapio_crawler.discovery.robots import RobotsRules
 from tapio_crawler.manifest.models import ManifestRecord
 from tapio_crawler.manifest.normalize import canonicalize_url
@@ -579,3 +580,37 @@ async def test_retry_includes_inactive_candidates_only_when_asked(tmp_path: Path
     assert without.considered == 0
     assert with_inactive.considered == 1
     assert with_inactive.saved == 1
+
+
+@pytest.mark.asyncio
+async def test_cancel_with_nothing_due_still_reports_cancelled(tmp_path: Path) -> None:
+    store = ManifestStore(path=str(tmp_path / "manifest.db"))
+    control = JobControl()
+    control.cancel()
+
+    summary = await _run(store, tmp_path, control=control)
+
+    store.close()
+    assert summary.cancelled
+    assert not summary.complete
+
+
+@pytest.mark.asyncio
+async def test_cancel_while_waiting_on_rate_limiter_starts_no_request(tmp_path: Path) -> None:
+    store = ManifestStore(path=str(tmp_path / "manifest.db"))
+    seed_record(store)
+    control = JobControl()
+    browser = mock_browser()
+
+    original = HostRateLimiter.wait_for_turn
+
+    async def cancel_during_wait(self: HostRateLimiter) -> None:
+        control.cancel()
+        await original(self)
+
+    with patch.object(HostRateLimiter, "wait_for_turn", cancel_during_wait):
+        summary = await _run(store, tmp_path, browser=browser, control=control)
+
+    store.close()
+    assert summary.cancelled
+    browser.arun.assert_not_awaited()

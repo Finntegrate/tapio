@@ -15,6 +15,7 @@ from tapio_crawler.crawler.jobs import (
     monitor_resources,
     report_progress,
     run_jobs,
+    sample_resources,
 )
 from tapio_crawler.discovery.runner import DiscoveryRunner, MisconfiguredDiscoveryError
 from tapio_crawler.manifest.store import ManifestStore
@@ -163,7 +164,7 @@ def _resolve_jobs(config: ConfigManager, sites: list[str] | None) -> list[SiteJo
     if not names:
         typer.echo("No crawler sites are configured.")
         raise typer.Exit(code=1)
-    return [SiteJob(site_name=name, site_config=config.get_site_config(name)) for name in names]
+    return [SiteJob(site_name=name, site_config=config.get_site_config(name)) for name in dict.fromkeys(names)]
 
 
 def _run_site_jobs(  # noqa: PLR0913
@@ -200,6 +201,8 @@ def _run_site_jobs(  # noqa: PLR0913
         finally:
             for helper in helpers:
                 helper.cancel()
+            if report_resources:
+                sample_resources(jobs, peak)  # ensures a fast run still reports a real measurement
 
     asyncio.run(main())
 
@@ -236,14 +239,14 @@ def _describe_result(job: SiteJob) -> str:
 
 _SITES_ARGUMENT = typer.Argument(None, help="Sites to run. Defaults to every configured site.")
 _MAX_URLS_OPTION = typer.Option(5_000, "--max-urls", help="Hard cap on manifest records rendered per site.")
-_BATCH_SIZE_OPTION = typer.Option(500, "--batch-size", help="Manifest page size used while selecting records.")
+_BATCH_SIZE_OPTION = typer.Option(500, "--batch-size", min=1, help="Manifest page size used while selecting records.")
 _MAX_CONCURRENT_SITES_OPTION = typer.Option(
     None,
     "--max-concurrent-sites",
     min=1,
     help="Run at most this many sites at once. Defaults to all selected sites; lower it on constrained hosts.",
 )
-_PROGRESS_INTERVAL_OPTION = typer.Option(10.0, "--progress-interval", help="Seconds between progress lines.")
+_PROGRESS_INTERVAL_OPTION = typer.Option(10.0, "--progress-interval", min=0.1, help="Seconds between progress lines.")
 _REPORT_RESOURCES_OPTION = typer.Option(
     False,
     "--report-resources",

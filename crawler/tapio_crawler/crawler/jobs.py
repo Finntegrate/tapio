@@ -88,6 +88,16 @@ def _sample_tree(root: psutil.Process) -> tuple[int, float]:
     return rss, cpu
 
 
+def sample_resources(jobs: Iterable[SiteJob], peak: ResourcePeak) -> None:
+    """Take one sample of the process tree and fold it into ``peak``."""
+    rss, cpu = _sample_tree(psutil.Process(os.getpid()))
+    active = sum(1 for job in jobs if job.progress.phase in ("discovery", "render"))
+    peak.rss_bytes = max(peak.rss_bytes, rss)
+    peak.cpu_percent = max(peak.cpu_percent, cpu)
+    peak.active_jobs = max(peak.active_jobs, active)
+    peak.samples += 1
+
+
 async def monitor_resources(
     jobs: Iterable[SiteJob],
     peak: ResourcePeak,
@@ -100,16 +110,10 @@ async def monitor_resources(
     ``--max-concurrent-sites`` set to 1, 2, ... and compare the reported peaks.
     """
     job_list = list(jobs)
-    root = psutil.Process(os.getpid())
-    _sample_tree(root)  # prime cpu_percent, whose first reading is always 0
+    _sample_tree(psutil.Process(os.getpid()))  # prime cpu_percent, whose first reading is always 0
     while True:
         await asyncio.sleep(interval)
-        rss, cpu = _sample_tree(root)
-        active = sum(1 for job in job_list if job.progress.phase in ("discovery", "render"))
-        peak.rss_bytes = max(peak.rss_bytes, rss)
-        peak.cpu_percent = max(peak.cpu_percent, cpu)
-        peak.active_jobs = max(peak.active_jobs, active)
-        peak.samples += 1
+        sample_resources(job_list, peak)
 
 
 async def report_progress(
@@ -128,19 +132,13 @@ async def report_progress(
 
 
 async def _run_discovery(job: SiteJob, store: ManifestStore) -> bool:
-    """Run discovery, abandoning it if the job is cancelled; return whether it finished."""
-    discovery = asyncio.ensure_future(DiscoveryRunner(store).run(job.site_name, job.site_config))
-    cancelled = asyncio.ensure_future(job.control.wait_cancelled())
-    try:
-        await asyncio.wait({discovery, cancelled}, return_when=asyncio.FIRST_COMPLETED)
-        if discovery.done():
-            job.discovery = discovery.result()
-            return True
-        discovery.cancel()
-        await asyncio.gather(discovery, return_exceptions=True)
-        return False
-    finally:
-        cancelled.cancel()
+    """Run discovery to completion or cooperative cancel; return whether it finished.
+
+    Pause and cancel are enforced inside discovery, before each request, so a
+    cancel lets the request in flight finish rather than aborting it.
+    """
+    job.discovery = await DiscoveryRunner(store).run(job.site_name, job.site_config, control=job.control)
+    return not job.discovery.cancelled
 
 
 async def _run_job(  # noqa: PLR0913
@@ -157,8 +155,9 @@ async def _run_job(  # noqa: PLR0913
     if job.control.cancelled:
         job.progress.phase = "cancelled"
         return
-    store = store_factory()
+    store: ManifestStore | None = None
     try:
+        store = store_factory()
         if mode == "full":
             job.progress.phase = "discovery"
             if not await _run_discovery(job, store):
@@ -185,7 +184,8 @@ async def _run_job(  # noqa: PLR0913
         job.error = error
         job.progress.phase = "failed"
     finally:
-        store.close()
+        if store is not None:
+            store.close()
 
 
 async def run_jobs(  # noqa: PLR0913

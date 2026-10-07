@@ -39,7 +39,11 @@ from tapio_crawler.crawler.policy import (
     decide_render,
     retry_backoff_seconds,
 )
-from tapio_crawler.discovery.rate_limiter import HostRateLimiter, resolve_effective_delay
+from tapio_crawler.discovery.rate_limiter import (
+    HostRateLimiter,
+    OperatorCancelledError,
+    resolve_effective_delay,
+)
 from tapio_crawler.discovery.robots import fetch_robots_rules
 from tapio_crawler.discovery.scope import evaluate_scope
 from tapio_crawler.manifest.models import ManifestRecord
@@ -177,7 +181,11 @@ class Crawl4AICrawler:
             )
             return summary
 
-        rate_limiter = HostRateLimiter(min_delay=self.config.min_delay, max_delay=self.config.max_delay)
+        rate_limiter = HostRateLimiter(
+            min_delay=self.config.min_delay,
+            max_delay=self.config.max_delay,
+            control=control,
+        )
         effective_delay = resolve_effective_delay(
             configured_min_delay=self.config.min_delay,
             configured_max_delay=self.config.max_delay,
@@ -200,7 +208,11 @@ class Crawl4AICrawler:
             due = self._select_due_records(max_urls=max_urls, batch_size=batch_size, force=force, summary=summary)
         if progress is not None:
             progress.due_total = len(due)
-        if due:
+        if control is not None and not await control.checkpoint():
+            # A cancel that arrived during setup/selection, even with nothing due.
+            summary.cancelled = True
+            summary.complete = False
+        elif due:
             semaphore = asyncio.Semaphore(self.config.max_concurrent)
             try:
                 async with AsyncWebCrawler(config=self._browser_config()) as crawler:
@@ -317,7 +329,13 @@ class Crawl4AICrawler:
                 summary.cancelled = True
                 summary.complete = False
                 return
-            await self._render_one(crawler, record, decision, rate_limiter, summary)
+            try:
+                await self._render_one(crawler, record, decision, rate_limiter, summary)
+            except OperatorCancelledError:
+                # Raised by the limiter after the politeness wait, immediately
+                # before a request would start; nothing was fetched.
+                summary.cancelled = True
+                summary.complete = False
 
     async def _render_one(
         self,

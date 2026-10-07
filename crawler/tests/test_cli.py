@@ -227,3 +227,17 @@ def test_run_all_with_no_configured_sites_exits_with_error() -> None:
 
     assert result.exit_code == 1
     assert "No crawler sites are configured." in result.stdout
+
+
+def test_run_all_deduplicates_repeated_site_names() -> None:
+    """Naming a site twice runs it once, so two jobs never write the same records."""
+    result, recorder = _invoke_with_fake(["run-all", "a", "a", "b"])
+
+    assert result.exit_code == 0
+    assert recorder["sites"] == ["a", "b"]
+
+
+def test_run_all_rejects_non_positive_batch_size_and_interval() -> None:
+    """Zero or negative values are rejected at the CLI boundary."""
+    assert CliRunner().invoke(app, ["run-all", "--batch-size", "0"]).exit_code != 0
+    assert CliRunner().invoke(app, ["retry", "--progress-interval", "0"]).exit_code != 0
