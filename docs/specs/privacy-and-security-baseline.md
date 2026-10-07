@@ -1,6 +1,6 @@
 # Privacy and security baseline — specification
 
-**Status:** Proposed
+**Status:** Accepted, not yet implemented
 
 **Owner:** Finntegrate
 

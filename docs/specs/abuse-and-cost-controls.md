@@ -1,6 +1,6 @@
 # Abuse and cost controls — specification
 
-**Status:** Proposed
+**Status:** Accepted, not yet implemented
 
 **Owner:** Finntegrate
 
