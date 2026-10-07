@@ -30,7 +30,7 @@ Saved conversations, usage quotas, and partner reporting all depend on knowing w
 
 | Principal | How established | Can do | Holds |
 | --- | --- | --- | --- |
-| **Anonymous** | A random session secret issued on first use and kept by the browser | Chat; keep a conversation until it expires | Session secret hash; its conversations |
+| **Anonymous** | A random session secret issued on admission and kept by the browser | Chat; keep a conversation until it expires | Session secret hash; its conversations |
 | **Registered** | Passwordless sign-in link to an email address | Everything anonymous can; resume conversations across devices; name and delete conversations | Account id; email; its conversations |
 | **Partner administrator** | A registered account granted administration of one organization by a Finntegrate operator | Everything registered can; read that organization's aggregate report and quota usage | A role grant on one organization |
 
@@ -69,7 +69,9 @@ There is no social login and no password. Passkeys are a candidate later additio
 
 ## Anonymous sessions
 
-First use issues a random session secret, stored as a cookie. The server keeps only its hash. An anonymous principal's id is derived from that hash and is not stable across devices.
+Admission issues a random session secret, stored as a cookie. The server keeps only its hash. An anonymous principal's id is derived from that hash and is not stable across devices.
+
+During the beta, admission requires redeeming an access code distributed by a partner organization. The code admits; it does not identify. Codes are shared by many people, and how they are generated, stored, redeemed, and protected against guessing is specified in [abuse and cost controls](abuse-and-cost-controls.md#access-codes). Once the beta gate is lifted, admission happens on first use.
 
 An anonymous conversation expires after a short idle period and a fixed maximum age, whichever comes first. The interface says so before the person invests in a long conversation.
 
@@ -79,11 +81,13 @@ When an anonymous person signs in, the interface offers to move their current an
 
 ## Partner affiliation
 
-A partner organization is a record with an id, a display name, and a referral code. It is not a container for users.
+A partner organization is a record with an id, a display name, and one or more codes. It is not a container for users.
+
+During the beta, a partner's access code is also its referral code: the code that admits a person is what lets the interface offer affiliation. Redeeming it does not create an affiliation. The session holds which code admitted it only so that the code can be revoked and its usage limited; that is not reported to the partner unless the person accepts affiliation.
 
 ### How affiliation is established
 
-A partner distributes a link carrying its referral code. On arrival the interface states, in plain language, that the visit was referred by that organization and that Tapio will count it in the organization's aggregate figures, and offers to turn that off. Affiliation is stored only if the person does not decline.
+A partner distributes its code, or a link carrying it. On arrival the interface states, in plain language, that the visit was referred by that organization and that Tapio will count it in the organization's aggregate figures, and offers to turn that off. Affiliation is stored only if the person does not decline.
 
 - An anonymous principal's affiliation is held on the session and expires with it.
 - A registered principal's affiliation is held on the account.
@@ -115,6 +119,22 @@ A new conversation is created by the server, which mints the `thread_id`; the cl
 
 Conversations are listed only for the calling principal. An anonymous principal lists the conversations of its own session.
 
+### The server holds the history
+
+The server is the only source of a conversation's history, for every principal, anonymous included. A turn request carries the `thread_id` and the new message, nothing else from the conversation. The server loads prior turns from the checkpointer, decides how much of them to send to the model, runs the turn, and persists both the person's message and the guide's answer before acknowledging it.
+
+The API accepts no client-supplied history. A request that carries one is rejected, not silently ignored, so a client bug is visible rather than masked. This removes two attacks at once: fabricated earlier turns, including forged guide answers written to steer the model, and inflated input that the project pays for on every request.
+
+The client hydrates from the server and renders optimistically:
+
+- On opening a conversation, the client fetches its turns from the server and renders them.
+- On sending, the client shows the person's message immediately as pending. The server's first stream event acknowledges it with a server-assigned message id, and the client marks it sent.
+- Streamed answer text is rendered as it arrives and replaced by the persisted answer when the turn completes.
+- If the turn fails or is refused, the pending message is marked as not sent and its text stays in the input for retry; nothing is persisted for a turn the server did not accept.
+- After a reconnect, or when a stream ends without a completion event, the client refetches the conversation rather than trusting what it rendered.
+
+The client's copy is a cache. Where it and the server disagree, the server wins.
+
 ### Deletion
 
 Deleting a conversation removes its checkpoints and its ownership record. There is no soft delete and no archive. Deletion is idempotent.
@@ -136,7 +156,7 @@ Budgets, edge limits, the global spend ceiling, and the controls that keep an an
 
 ## Storage
 
-Conversation state is held in a LangGraph checkpointer ([#16](https://github.com/Finntegrate/tapio/issues/16)). The first implementation uses an embedded SQLite-backed checkpointer, consistent with the project having no operating budget for a persistent managed database. In-memory storage is used for local development and tests only.
+Every conversation, including an anonymous one for its short lifetime, is held in a LangGraph checkpointer ([#16](https://github.com/Finntegrate/tapio/issues/16)). The first implementation uses an embedded SQLite-backed checkpointer, consistent with the project having no operating budget for a persistent managed database. In-memory storage is used for local development and tests only.
 
 Account, session, ownership, affiliation, and quota records are stored in a separate store from the checkpoints, behind an interface that does not expose the engine. Moving either store off embedded storage changes the implementation behind that interface and no identifiers, ownership rules, or retention behaviour.
 
@@ -146,7 +166,7 @@ Both stores are encrypted at rest. Backups follow the same retention as live dat
 
 ## Operator tooling
 
-Finntegrate operators, not the public API, can create and retire partner organizations, issue and revoke referral codes, grant and revoke partner administration, and delete an account on a person's request. Operator actions are logged with the operator and action but never the content of any conversation. There is no operator capability to read a user's conversation.
+Finntegrate operators, not the public API, can create and retire partner organizations, issue and revoke access codes, grant and revoke partner administration, and delete an account on a person's request. Operator actions are logged with the operator and action but never the content of any conversation. There is no operator capability to read a user's conversation.
 
 ## Failure modes
 
@@ -165,6 +185,7 @@ Finntegrate operators, not the public API, can create and retire partner organiz
 - Roles: a partner administrator cannot read any conversation, including those of affiliated users.
 - Account data: no log line, analytics event, checkpoint, or report contains an email address; a test asserts this against captured output of a full sign-in and chat flow.
 - Sign-in: tokens are single-use, expire, and the response does not reveal whether an address is registered.
+- History: a turn request carrying client-supplied history is rejected; the model receives only server-held turns; a refused or failed turn persists nothing.
 - Deletion: after deleting a conversation or account, no checkpoint or ownership row remains.
 - Retention: the expiry job removes conversations past their bound and leaves those inside it.
 - Aggregates: any breakdown, and any pair of breakdowns whose difference could isolate fewer than the minimum, is withheld.
@@ -172,7 +193,7 @@ Finntegrate operators, not the public API, can create and retire partner organiz
 
 ## Delivery
 
-This design unblocks, and constrains, the implementation issues that follow: [#31](https://github.com/Finntegrate/tapio/issues/31) for sign-in and ownership, [#16](https://github.com/Finntegrate/tapio/issues/16) for the checkpointer, [#35](https://github.com/Finntegrate/tapio/issues/35) for saved conversations, [#32](https://github.com/Finntegrate/tapio/issues/32) for quotas, and [#45](https://github.com/Finntegrate/tapio/issues/45) and [#46](https://github.com/Finntegrate/tapio/issues/46) for partner reporting. Persistence of conversations stays disabled until retention, deletion, and consent are in place, as the [multi-agent chat specification](multi-agent-chat.md) already requires.
+This design unblocks, and constrains, the implementation issues that follow: [#31](https://github.com/Finntegrate/tapio/issues/31) for sign-in and ownership, [#16](https://github.com/Finntegrate/tapio/issues/16) for the checkpointer, [#35](https://github.com/Finntegrate/tapio/issues/35) for saved conversations, [#32](https://github.com/Finntegrate/tapio/issues/32) for quotas, and [#45](https://github.com/Finntegrate/tapio/issues/45) and [#46](https://github.com/Finntegrate/tapio/issues/46) for partner reporting. Moving history to the server is a prerequisite for opening the beta, because the current API accepts client-supplied history of any length. Server-held conversations ship with the retention and deletion defined here, as the [multi-agent chat specification](multi-agent-chat.md) requires; registered accounts that keep conversations for longer also wait on the lawful-basis decision in [#40](https://github.com/Finntegrate/tapio/issues/40).
 
 ## Open questions
 

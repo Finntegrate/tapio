@@ -1,4 +1,4 @@
-# ADR 0009: Bound what anonymous access can cost with a spend ceiling, not only per-user limits
+# ADR 0009: Gate the beta with partner access codes and bound what any request can cost
 
 ## Status
 
@@ -10,91 +10,97 @@ Proposed
 
 ## Context
 
-[ADR 0008](0008-auth-and-tenancy.md) makes anonymous use complete and the default. That leaves a public endpoint backed by a paid language model and, soon, paid tools ([#19](https://github.com/Finntegrate/tapio/issues/19)), reachable by anyone without an account. The abuse that follows is not mainly spam or scraping. It is *denial of wallet*: an attacker, or a bug, or an agent loop, spends the project's money. Finntegrate has no operating budget to absorb that (see [ADR 0008](0008-auth-and-tenancy.md)), so an unbounded bill is an outage by another name: the service gets switched off, and the people who needed it lose it.
+[ADR 0008](0008-auth-and-tenancy.md) makes anonymous use the default. That puts a paid language model behind a public endpoint that anyone can reach without an account. The abuse that matters most is not spam or scraping but *denial of wallet*: an attacker, a bug, or an agent loop spends the project's money. Finntegrate has no operating budget to absorb that, so an unbounded bill is an outage by another name. The service gets switched off and the people who needed it lose it.
 
-Three facts shape the answer.
+Several facts shape the answer.
 
-- **Per-user limits do not bound total cost.** Anonymous identities are free to create. Any limit scoped to a session, an account, or a network address can be multiplied by creating more of them, so the sum of all such limits is unbounded.
-- **A request is not a unit of cost.** One short message and one that triggers a long answer, several retrievals, and a paid search differ by orders of magnitude. Counting requests protects neither the budget nor the user.
-- **Legitimate users share addresses.** Reception centres, shelters, libraries, and mobile carriers put many real people behind one network address. A limit keyed mainly on address would lock out exactly the people the service is for, and the privacy posture ([PRD §5](../PRD.md)) rules out durable per-address records.
+- **Per-user limits do not bound total cost.** Anonymous sessions are free to create, so any limit scoped to a session or an address can be multiplied by creating more of them.
+- **Many actors at once is the real threat.** A coordinated burst from many origins defeats per-origin limits. What holds against it is a limit on the whole service: on how much can run at once, and on how much can be spent in total.
+- **The largest floods never reach the application.** Volumetric attacks saturate the network before a request is parsed. Only the hosting layer can absorb them.
+- **Legitimate users share addresses.** Reception centres, shelters, libraries, and mobile carriers put many real people behind one network address. A limit keyed mainly on address would lock out the people the service is for, and the privacy posture ([PRD §5](../PRD.md)) rules out durable per-address records.
+- **The beta reaches people through partners.** Early users arrive by referral from organizations that work with them, which gives a distribution channel for admission that does not involve identifying anyone.
+- **The current API accepts conversation history from the client**, of any length. That is both an injection path and a way to make the project pay for invented input. [ADR 0008](0008-auth-and-tenancy.md) moves history to the server.
 
-Abuse also has costs besides money: someone using the service to harass, to extract the model's instructions, or to make it emit harmful content; and the sign-in endpoint being used to send unwanted email to third parties.
+The beta has to be safe to open without building infrastructure ahead of evidence, and without a normal user noticing any of the protection.
 
 ## Decision
 
-**Total spend is capped, absolutely, and the cap is the control that does not depend on identifying anyone.** The service has a budget for a period. When it is reached or approaching, the service degrades in a defined order rather than continuing to spend, and it does so the same way for every caller. Every other control exists to make that cap rarely reached and to share what it covers fairly; none of them replaces it.
+**The beta is gated by access codes distributed through partners.** A code admits a person to an anonymous session; it does not identify them. Codes are shared by many people, generated randomly with enough entropy that guessing is infeasible, stored only in hashed form, and individually revocable, expirable, and limited in how many sessions they can admit. Guessing is further bounded by limiting attempts at the entry form, and a failed attempt reveals nothing about which codes exist. A leaked code is contained by its own limits and revoked.
 
-**Cost is metered in units of cost, not requests.** Limits and the ceiling count what a turn actually spends (model usage and paid tool calls), so a limit means the same thing whichever way an attacker shapes a request.
+**Total spend has a hard ceiling enforced outside our code.** The model provider's spend limit or prepaid balance is the ceiling, so it holds even if our own accounting is wrong. Finntegrate is alerted well before it is reached. When it is reached, the service says plainly that it is at capacity and points to official sources, rather than failing with an error.
 
-**Each turn has a bounded cost before it starts.** Input size, output size, the number of steps and tool calls, and concurrency are limited per turn and per caller, so no single request, loop, or injected instruction can run away.
+**Volumetric attacks are the hosting provider's to absorb.** The service runs behind the hosting provider's edge protection. The application does not try to survive floods it cannot see, and the edge does not put a fingerprinting challenge in front of visitors by default.
 
-**Cheap checks run before expensive ones.** Anything that can reject a request without a model call does so first, and the checks themselves that call a model are metered like everything else.
+**Every request is bounded before it can cost anything.** The size of a message, the history sent to the model, the length of the answer, the number of orchestration steps and tool calls, and the time a turn may take are all capped. History comes only from the server ([ADR 0008](0008-auth-and-tenancy.md)), so its size is the server's decision.
 
-**Paid capability is earned, not default.** Anonymous callers get the cheapest useful path. Metered and paid tools are unavailable to them unless an operator enables them, and they are individually disableable without a code change.
+**Model calls pass through a service-wide admission limit.** Only a bounded number of turns run at once, each session runs one at a time, and the rest wait their turn briefly in a fair queue. Waiting is shown to the person as waiting, not as an error, and a busy message appears only when the wait would be unreasonable. Together with the per-request bounds, this gives the service a maximum rate of spend that can be calculated in advance, which is what makes the ceiling safe: the alert arrives with time to act.
 
-**Identity-based limits are per-principal budgets, with the network address only as a coarse, short-lived backstop.** The primary limit is on the session or account. A network signal exists to blunt mass session creation, is deliberately generous so shared addresses are not collateral, and never persists in identifying form.
+**Per-session and per-address limits are a generous backstop.** They stop one session or one machine from monopolizing the service. The address-based limit is set high enough that a shared network is not collateral, and the address is held only briefly and never in identifying form.
 
-**Creating anonymous sessions in volume costs the attacker something, and costs ordinary people nothing.** The mechanism is a lightweight proof of effort that adapts to load and does not require a third party to see who is visiting.
+**Paid tools are off, and the service has a kill switch.** No metered or paid tool is enabled during the beta. An operator can close the service, with the same plain at-capacity message, without a deploy.
 
-**Degradation is honest and keeps the highest-value path.** When capacity is constrained, the service says so plainly, keeps serving the cheapest path that still points people to official sources, and prefers to shed low-value usage over refusing everyone. Refusal never reads as an accusation.
-
-**Spend is visible while it happens.** Cost is attributed and alerted on in time to act before the ceiling, not discovered afterwards on an invoice.
-
-**Abuse of the sign-in email is bounded as abuse of a sending channel.** Email can be directed at third parties, so it is limited by recipient as well as by caller.
+**These controls are sufficient only while the beta's conditions hold.** Opening admission without codes, enabling paid or metered tools, or running more than one process each require further controls first: an in-application spend ceiling with graceful degradation, cost-based metering, friction on mass session creation, and per-tier budgets. The specification describes those stages and what triggers each.
 
 ## Consequences
 
 ### Positive
 
-- The worst case has a number. However many sessions are created, the project's exposure is the ceiling.
-- The primary protection does not require knowing who a caller is, so it is compatible with the no-PII posture and with anonymous-by-default.
-- Metering cost rather than requests means ordinary conversation is not throttled to defend against expensive requests, and a cheap flood does not exhaust a budget meant for costly ones.
-- Shared-address users are not the primary casualty of the defence.
+- The worst case has a number. Admission control and per-request bounds fix the maximum rate of spend, and the provider ceiling fixes the total.
+- Almost everything is configuration or a small amount of code. No new service, store, or paid infrastructure is needed for the beta.
+- The financial ceiling does not depend on our code being correct.
+- Ordinary users notice nothing: limits are set above normal use, and contention shows up as a short wait rather than a refusal.
+- Access codes ride on the partner relationships the beta already depends on, and do not require anyone to be identified.
+- Server-held history closes the cheapest attack available against the current API.
 
 ### Negative
 
-- The ceiling is itself a denial-of-service lever. An attacker who cannot cost more than the ceiling can still reach it, degrading the service for everyone. The defence converts a financial attack into an availability attack; it does not remove it.
-- Metering, budgeting, and degradation are real machinery to build and keep correct, ahead of any user-visible feature.
-- Proof of effort adds friction and battery cost on low-end phones, which is common in this population.
-- A degraded mode means some users get a thinner answer at the moment the service is under strain, which may be when it is most needed.
+- The beta is not open to everyone. A person without a partner connection cannot use it, which contradicts the anonymous-and-complete default of [ADR 0008](0008-auth-and-tenancy.md) for the duration of the beta.
+- The provider ceiling is blunt. When it is reached the service stops, for everyone, until the next period or a top-up.
+- The ceiling is itself a target. An attacker with a valid code can try to exhaust it and degrade the service for everyone. The design turns a financial attack into an availability attack, bounded by the code's limits; it does not remove it.
+- In-memory limits reset when the process restarts, and do not work across processes.
+- A code passed beyond its intended audience admits people the partner did not refer, until it is noticed and revoked.
 
 ### Risks
 
-- A ceiling set too low switches the service off for legitimate use; too high, it fails to protect. It needs setting against real pilot cost and revisiting.
-- Cost estimates made before a turn can be wrong. The mechanism has to stay safe when they are, by also enforcing against actual spend.
-- A determined, well-funded attacker with many real network origins defeats address-based and effort-based friction. Only the ceiling holds against them.
-- Prompt injection can try to make the system spend on the attacker's behalf. Per-turn bounds limit this; they do not make the system immune to being steered.
-- Retained records of who was throttled or challenged are themselves data. Controls must not accumulate an identifying record of abuse handling.
+- A ceiling set too low switches the service off for legitimate use; too high, it fails to protect. It needs setting against measured cost per conversation and revisiting.
+- Admission and queue limits set too tight turn a busy hour into a degraded experience for real users. They need sizing from observed load, and contention needs to be visible to operators.
+- A code shared publicly, for example on social media, could admit many sessions quickly. Per-code admission limits bound how fast; noticing it depends on alerting.
+- Prompt injection can try to make the system spend on the attacker's behalf. Per-request bounds limit how much; they do not make the system immune to being steered.
+- Records of throttling and code redemption are themselves data. The controls must not accumulate an identifying record of who was admitted or limited.
 
 ## Alternatives considered
 
-### Per-user and per-address rate limits alone
+### Per-session and per-address limits alone
 
-Rejected as sufficient. Free identities multiply them, and per-address keying penalizes shared networks. Retained as layers, not as the defence.
+Rejected as sufficient. New sessions are free and many actors at once defeat any per-origin limit. Retained as a backstop.
 
-### Require an account for any LLM use
+### An in-application spend ceiling with staged degradation, now
 
-Rejected. It reverses [ADR 0008](0008-auth-and-tenancy.md)'s protective default, and an email-only account is no more costly to mass-create than an anonymous session.
+Deferred, not rejected. While access is gated and paid tools are off, the provider ceiling plus a computable maximum spend rate protects the budget with far less to build. It becomes required when those conditions stop holding.
 
-### A third-party bot-detection service on every visit
+### Proof-of-work or other friction on session creation, now
 
-Rejected as the default. It tells a provider that this visitor is using an immigration assistant and often depends on fingerprinting, which conflicts with the privacy posture. Reconsidered only as an operator-enabled response to an active attack.
+Deferred. Access codes already make mass session creation depend on a code that can be limited and revoked. Friction is the right tool when admission opens to everyone.
 
-### Per-request counting
+### A third-party bot-detection challenge on every visit
 
-Rejected. A request is not a unit of cost; see Context.
+Rejected as a default. It tells a provider that this visitor is using an immigration assistant and often depends on fingerprinting, which conflicts with the privacy posture. An operator may enable it as a response to an active attack.
 
-### Run the model locally or self-hosted to remove marginal cost
+### One access code per person
 
-Not a substitute. It changes the cost from per-token to capacity, which an attacker can still exhaust, and capacity has a budget too. It remains a valid way to lower the cost per turn within this decision.
+Rejected. A personal code links a specific person to the partner that issued it, and becomes an identifier the system would then hold. A shared code admits without identifying, and its limits do the work a personal code would.
 
-### Do nothing until abuse appears
+### Require an account for any use
 
-Rejected. The first incident would be the unbounded bill, and the cost of the mechanism is far lower than the cost of an outage during a pilot.
+Rejected. It reverses [ADR 0008](0008-auth-and-tenancy.md)'s protective default, and an email-only account is no harder to mass-create than a session.
+
+### Keep conversation history on the client
+
+Rejected. A client that supplies history can forge earlier turns to steer the model and can inflate the input the project pays for.
 
 ## References
 
 - [Specification: abuse and cost controls](../specs/abuse-and-cost-controls.md) — the mechanism this decision commits to
-- [ADR 0008: Anonymous by default](0008-auth-and-tenancy.md)
+- [ADR 0008: Anonymous by default](0008-auth-and-tenancy.md) and its [specification](../specs/auth-and-tenancy.md)
 - [PRD §5](../PRD.md)
-- [#32: Usage quotas and rate limiting](https://github.com/Finntegrate/tapio/issues/32), [#17: Tool registry and cost guard](https://github.com/Finntegrate/tapio/issues/17), [#19: Kagi Search tool](https://github.com/Finntegrate/tapio/issues/19), [#37](https://github.com/Finntegrate/tapio/issues/37), [#38](https://github.com/Finntegrate/tapio/issues/38), [#44: Production deployment](https://github.com/Finntegrate/tapio/issues/44)
+- [#32: Usage quotas and rate limiting](https://github.com/Finntegrate/tapio/issues/32), [#17: Tool registry and cost guard](https://github.com/Finntegrate/tapio/issues/17), [#16: Checkpointer](https://github.com/Finntegrate/tapio/issues/16), [#37](https://github.com/Finntegrate/tapio/issues/37), [#38](https://github.com/Finntegrate/tapio/issues/38), [#44: Production deployment](https://github.com/Finntegrate/tapio/issues/44)

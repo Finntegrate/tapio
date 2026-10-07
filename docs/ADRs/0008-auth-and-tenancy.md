@@ -22,7 +22,7 @@ Operating budget also rules out a persistent managed database for now, so the de
 
 ## Decision
 
-**Anonymous use is the default and is complete.** Everything a person needs to get a sourced answer works with no account. An anonymous conversation is held only for as long as it is useful and then expires.
+**Anonymous use is the default and is complete.** Everything a person needs to get a sourced answer works with no account. An anonymous conversation is held only for as long as it is useful and then expires. During the beta, admission requires an access code distributed through partners ([ADR 0009](0009-abuse-and-cost-controls.md)); the code admits a person without identifying them, and needing one does not change what anonymous use can do once admitted.
 
 **Accounts exist only to bring a conversation back.** An account is a random pseudonymous identifier plus the one thing needed to reach the person again: an email address, used for passwordless sign-in links. No name, no nationality, no phone number, no password, no third-party identity. Everything else in the system refers to the pseudonymous identifier, never to the email.
 
@@ -36,6 +36,8 @@ Operating budget also rules out a persistent managed database for now, so the de
 
 **Conversation ownership is enforced, not assumed.** A conversation is addressable only by an unguessable identifier, and every access checks that the caller owns it. A person can delete any conversation they own, and deleting removes it rather than hiding it.
 
+**The server is the only source of a conversation's history.** A client sends a new message and the conversation it belongs to, never the conversation's earlier turns. The server reads those from its own store, and the client renders what the server holds, showing a person's own message optimistically until the server confirms it. A client cannot add, alter, or inflate prior turns, so it can neither forge what a guide said to steer the next answer nor make the project pay for input it invented.
+
 **Conversation state lives in the LangGraph checkpointer, on embedded storage first.** Ownership and retention are kept beside the checkpoint rather than inside it, so the storage engine can change without touching the identity model.
 
 **Retention is bounded by default.** Anonymous conversations expire quickly; registered conversations expire after a period of inactivity unless the person deletes them sooner.
@@ -44,7 +46,8 @@ Operating budget also rules out a persistent managed database for now, so the de
 
 ### Positive
 
-- The protective default holds for the people at greatest risk: someone who never creates an account leaves almost nothing behind.
+- The protective default holds for the people at greatest risk: someone who never creates an account leaves nothing that outlives a short expiry.
+- Server-held history closes an injection path and an input-cost path that client-supplied history leaves open, and gives retention and deletion one place to act.
 - One identity model answers #31, #32, #35, #16, and #45 together, so they cannot disagree.
 - Partners get the visibility the PRD promises without ever holding or being able to request individual records, which also means a partner cannot be compelled to produce them.
 - Because partners are a scope rather than a tenant, there is no per-tenant data isolation to build, test, or get wrong.
@@ -54,6 +57,7 @@ Operating budget also rules out a persistent managed database for now, so the de
 
 - An email address is still personal data, and holding it makes Tapio a controller of it with the obligations that follow (erasure, export, breach notification). The design minimizes this; it cannot remove it.
 - Email delivery becomes a dependency of returning to a conversation, and a person who loses access to their inbox loses the conversation.
+- Every conversation, anonymous ones included, is now stored server-side for its lifetime, where client-held history would have stored nothing. Short retention is what keeps that acceptable.
 - Anonymous conversations are not recoverable after expiry, and a person who clears their browser state loses an in-progress anonymous conversation.
 - Opt-in attribution undercounts. Partner figures describe people who chose to be counted, not everyone referred.
 - Refusing social login removes the lowest-friction path for users who are comfortable with it.

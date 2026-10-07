@@ -8,185 +8,240 @@
 
 ## Problem statement
 
-Anonymous access puts a paid language model and paid tools behind a public endpoint. The principal threat is denial of wallet, an unbounded bill that forces the service off. Related threats are session flooding, runaway agent loops and tool calls, prompt-injected spending, extraction of prompts, harassment, and use of the sign-in endpoint to email third parties. Controls must hold without identifying callers and must not penalize people who share a network address. The decision and its rationale are in [ADR 0009](../ADRs/0009-abuse-and-cost-controls.md); this document is the mechanism.
+Anonymous access puts a paid language model behind a public endpoint. The principal threat is denial of wallet: an unbounded bill that forces the service off. Related threats are floods from many actors at once, runaway agent loops, prompt-injected spending, and guessing access codes. Controls must hold without identifying anyone, must not penalize people who share a network address, and must not be noticeable in ordinary use. The decision and its rationale are in [ADR 0009](../ADRs/0009-abuse-and-cost-controls.md); this document is the mechanism.
 
 ## Goals
 
-1. Total spend over a period has a hard ceiling that no number of sessions can exceed.
-2. A single turn's cost is bounded before it runs.
-3. Controls are expressed in units of cost, so they mean the same thing for any request shape.
-4. Ordinary users, including those behind shared addresses, are not the casualties.
-5. Spend is visible and alerted on before the ceiling is reached.
+1. Total spend has a ceiling that holds even if this service's code is wrong.
+2. The maximum rate of spend is a number that can be calculated from configuration.
+3. No single request, session, or code can consume a meaningful share of either.
+4. Ordinary users, including those behind shared addresses, see at most a short wait.
+5. The beta controls need no new service or paid infrastructure.
 
 ## Non-goals
 
-- **Billing or paid tiers.** These are cost controls, not monetization.
-- **Identifying abusers.** Controls act on behaviour and spend, not identity, and keep no durable record of who was throttled.
-- **Defeating a well-funded distributed attacker.** Only the ceiling holds against one; the rest is friction.
-- **Content abuse policy.** Sensitive and off-topic queries are handled by [the guardrails policy](guardrails.md).
+- **Identifying abusers.** Controls act on codes, sessions, and spend, and keep no durable record of who was limited.
+- **Defeating a well-funded distributed attacker.** The ceiling bounds the cost of one; nothing here prevents one from reaching it.
+- **Content abuse.** Sensitive and off-topic queries are handled by [the guardrails policy](guardrails.md).
+- **Billing.** These are cost controls, not paid tiers.
 
-## Cost units
+## Threats and the controls that answer them
 
-A *cost unit* is the metered spend of a turn: model input and output tokens priced by model, plus a fixed price per paid tool call. Prices come from configuration, so a model or provider change updates the unit without code changes.
-
-Every limit and the global ceiling are expressed in cost units. The meter records actual spend from provider usage after each model and tool call, and a conservative estimate before a call is made. Enforcement uses the larger of the two when they disagree.
-
-## Layers
-
-Controls are applied in this order, cheapest first. A request rejected at a layer does not reach the next.
-
-| # | Layer | Rejects | Costs a model call? |
-| --- | --- | --- | --- |
-| 1 | Global ceiling and degradation state | Anything the current state no longer serves | No |
-| 2 | Edge limits | Floods by coarse network bucket | No |
-| 3 | Session creation challenge | Mass creation of anonymous sessions | No |
-| 4 | Per-principal budget | A principal past its budget | No |
-| 5 | Turn bounds | Oversized or unbounded turns | No |
-| 6 | Guardrail classification | Sensitive and off-topic content | Yes, metered |
-| 7 | Generation and tools | | Yes, metered |
-
-The guardrail classifier makes a model call ([guardrails policy](guardrails.md)), so it follows the free layers and is metered as spend.
-
-## Global ceiling and degradation
-
-The service has a budget in cost units per rolling day and per rolling month, set in configuration. Spend against each is tracked continuously.
-
-The service moves through states as spend approaches the budget. Thresholds are configuration; the initial values are 70%, 90%, and 100%.
-
-| State | Condition | Behaviour |
+| Threat | Primary control | Backstop |
 | --- | --- | --- |
-| Normal | Below 70% | Full service for permitted principals |
-| Conserving | 70–90% | Paid and metered tools off for everyone; anonymous per-principal budgets tightened; alert raised |
-| Constrained | 90–100% | Cheaper model or retrieval-only answers; anonymous new sessions queued or declined; registered and partner principals keep their budgets |
-| Closed | 100% | No generation. The interface states that the service is at capacity, when it is expected to resume, and links to the official sources the guides cite |
+| Volumetric flood | Hosting provider edge | Request size limits |
+| Many actors at once | Admission limit | Provider spend ceiling |
+| Mass session creation | Access codes and per-code limits | Per-address limits |
+| Guessing access codes | Code entropy | Entry-form rate limits |
+| One expensive request | Request bounds | Admission limit |
+| Forged or inflated history | Server-held history | Input bounds |
+| Agent loop or injected tool use | Step and tool-call bounds | Turn timeout |
+| Paid tool spend | Paid tools off | Kill switch |
+| Exhausting the budget on purpose | Per-code limits | Alerting, revocation, kill switch |
 
-The state is stored where every request handler reads it, and a handler that cannot read it treats the state as Constrained, not Normal. State changes are logged with the spend that caused them and never with caller information.
+## Access codes
 
-Capacity is reserved so that one population cannot consume it all. A share of each budget, set in configuration, is held back for registered principals, and a partner organization's ceiling can only draw on its own allocation, so a leaked or abused referral link cannot starve everyone else, and anonymous traffic cannot starve registered users.
+During the beta, an anonymous session is issued only on redeeming a valid access code ([auth and tenancy](auth-and-tenancy.md#anonymous-sessions)).
 
-The Closed message is a fixed, translated string stored with the other user-facing strings, never generated.
+### Format
 
-## Per-principal budgets
+A code is 16 characters from Crockford's base32 alphabet, giving 80 bits of entropy, displayed in four groups of four (`XXXX-XXXX-XXXX-XXXX`). Entry is case-insensitive, ignores hyphens and spaces, and maps the commonly confused characters (`O` to `0`, `I` and `L` to `1`). At 80 bits, guessing is infeasible at any rate the entry form permits; the rate limits below exist to stop a guessing campaign consuming capacity, not to make guessing hard.
 
-Each principal has a budget in cost units per rolling window, in tiers set in configuration:
+A code can also be distributed as a link that carries it in the URL fragment (`/join#XXXX-XXXX-XXXX-XXXX`). Browsers do not send the fragment to the server, so the code stays out of access logs, proxy logs, and referrer headers; the page reads it and submits it in a request body.
 
-| Principal | Window | Relative budget |
-| --- | --- | --- |
-| Anonymous session | Rolling day | Smallest |
-| Registered account | Rolling day | Larger |
-| Partner organization | Rolling day, in aggregate | A ceiling on affiliated spend, drawn from its own allocation |
+### Generation and storage
 
-Budgets are charged as turns complete. An exhausted principal is told in plain language what happened and when its budget returns, and is pointed to official sources, which cost nothing to serve. The message never implies wrongdoing, and an organization ceiling that is reached does not blame the individual.
+Codes are generated by an operator command using the operating system's cryptographically secure random source. The command prints the code once and stores only:
 
-Anonymous budgets are intentionally ample for ordinary use. They exist so that one session cannot spend meaningfully, not to ration a person's help.
-
-## Turn bounds
-
-Applied before a turn runs and enforced during it.
-
-| Bound | Effect |
+| Field | Purpose |
 | --- | --- |
-| Maximum input length | Longer messages are rejected before any model call |
-| Maximum output tokens | Passed to the provider on every call |
-| Maximum history sent | Older turns are summarized or dropped, so cost does not grow with conversation length |
-| Maximum graph steps | The orchestration graph aborts a turn that exceeds its step limit |
-| Maximum tool calls per turn | Per tool and in total; further calls are refused |
-| Maximum concurrent turns per principal | Extra concurrent requests wait or are rejected |
-| Turn wall-clock timeout | The turn is cancelled and what was spent is still charged |
+| `code_id` | Random identifier used everywhere else |
+| `code_hash` | HMAC of the normalized code with a server-held key |
+| `partner_id` | The issuing partner; see [auth and tenancy](auth-and-tenancy.md#partner-affiliation) |
+| `label` | Operator note, for example the cohort or event |
+| `expires_at` | Optional |
+| `max_sessions` | Total sessions the code may ever admit |
+| `max_sessions_per_day` | Sessions admitted per rolling day |
+| `sessions_admitted` | Counter |
+| `revoked_at` | Set on revocation |
 
-These bounds are what limit injected instructions and agent loops, since neither can exceed them however the model is steered.
+Initially these records live in a configuration file loaded at startup, edited by the operator command, and kept out of the repository. They move into the same store as sessions when operator tooling exists. The plain code is never stored, logged, or recoverable; a lost code is replaced, not retrieved.
 
-## Tools
+Codes are issued per partner, or per cohort within a partner, never per person.
 
-Tools carry a cost tier of free, metered, or paid, and an enabled flag ([#17](https://github.com/Finntegrate/tapio/issues/17)). Defaults:
+### Redemption
 
-- Free tools are available to every principal.
-- Metered and paid tools are unavailable to anonymous principals unless an operator enables them for that tier.
-- Any tool can be disabled in configuration without a deploy, and the Conserving state disables metered and paid tools automatically.
-- Each invocation is metered at its configured price and logged with its tier and the cost, not the arguments.
+The code is submitted in the body of a request to the admission endpoint. The server normalizes it, computes the HMAC, and looks up the hash. Because lookup is by keyed hash, there is no string comparison whose timing depends on the stored code.
 
-## Session creation challenge
+On success, the server issues an anonymous session that records the `code_id`, and increments the code's counters. The `code_id` on a session is used only for revocation and per-code limits, and is not reported to the partner unless the person accepts affiliation.
 
-Creating an anonymous session requires solving a small proof-of-work challenge issued by the server. The browser solves it without user action. The difficulty is low in Normal state and rises with load and with the recent rate of session creation, so an attacker creating sessions in volume pays per session and ordinary use does not notice.
+A code is refused if it is unknown, revoked, expired, or past either limit. Every refusal returns the same response: "This code isn't working. Check it, or ask the organization that gave it to you." The response does not say which condition applied, and takes the same time whichever it was.
 
-The challenge is self-hosted. No third party is told that a visitor is using Tapio. Difficulty is capped so that a low-end phone completes it within a few seconds, and there is a documented non-interactive path for assistive technology that does not depend on timing.
+Revoking a code ends every session it admitted, on that session's next request, with a message that the person's access has ended and how to get a new code.
 
-A third-party bot-detection service may be enabled by an operator as a response to an active attack. It is off by default, and enabling it is recorded and reviewed, because it sends visit information to that provider.
+### Entry-form safeguards
 
-## Edge limits
+- Attempts are limited per network bucket: 5 per minute and 20 per hour, initially.
+- Failed attempts are counted across the whole service, and a rate above a configured baseline raises an alert.
+- Codes are never locked after failed attempts. Locking would let anyone who knows a code exists deny it to its partner; limiting the source of attempts does not.
+- The form has no field other than the code, and the request requires the same-origin and CSRF protections as the rest of the API.
 
-A coarse network bucket is derived from a keyed hash of the address truncated to a coarse prefix, with a key that rotates daily. It is held in memory with a time-to-live of at most 24 hours, is never written to a log, an account, a conversation, or a partner report, and is never joined to any of them.
+## Spend ceiling
 
-Edge limits are set high on purpose. They exist to blunt floods from a single origin, and they tolerate a reception centre or mobile carrier whose users share an address. The per-principal budget is the primary limit, and an edge limit alone never blocks a principal whose session is in good standing.
+The ceiling is the model provider's hard spend limit or a prepaid balance with automatic top-up off. It is set per month.
 
-Limits apply separately to chat, session creation, and sign-in requests.
+- Finntegrate is alerted by the provider, or by a scheduled check of the provider's usage, at 50% and 80% of the ceiling, and on any day whose spend exceeds the ceiling divided by the number of days in the month.
+- When the provider refuses a call for exceeding its limit, the service maps that refusal to the closed state below rather than to a generic error.
 
-## Sign-in as a sending channel
+## Maximum spend rate
 
-The sign-in link endpoint can be used to send mail to people who did not ask for it.
+The admission limit and request bounds together fix the most the service can spend per hour:
 
-- Limits apply per recipient address as well as per caller: a recipient receives no more than a small number of links per hour regardless of who asks.
-- Requests are rate limited per network bucket, and require a solved session challenge.
-- The response never reveals whether an address has an account.
-- Mail contains the link and a plain line saying someone requested it, so an unwanted recipient can ignore it, and links expire in 15 minutes ([auth and tenancy](auth-and-tenancy.md)).
-- Recipient counters hold only a keyed hash of the address and expire within an hour.
+```text
+max spend per hour = admission_limit
+                   × (3600 / min_turn_seconds)
+                   × max_model_calls_per_turn
+                   × (max_input_tokens × input_price + max_output_tokens × output_price)
+```
 
-## Prompt extraction and misuse
+`min_turn_seconds` is the shortest turn observed under load. The admission limit is chosen so that this rate, sustained, would take at least two days to consume the monthly ceiling. That leaves time for an alert to be read and acted on. The calculation is recorded beside the deployment configuration and redone whenever a bound, the model, or its price changes.
 
-Cost is bounded regardless of content, so this is a smaller concern. Two measures apply:
+## Edge protection
 
-- System prompts are treated as non-secret and carry nothing that needs protecting; no credential, key, or partner configuration is ever placed in a prompt.
-- Content the guardrail classifier refuses does not count against the budget more than the classification itself cost.
+The service is deployed behind its hosting provider's edge, which terminates TLS and absorbs volumetric attacks before they reach the application. The edge enforces a request body limit of 32 KB and a connection rate limit per source. It does not present a challenge interstitial or fingerprint visitors by default; enabling either is an operator response to an active attack and is recorded.
 
-## Observability and alerting
+The edge, like any host, sees visitor network addresses. It is listed as a processor in the privacy notice under [#40](https://github.com/Finntegrate/tapio/issues/40).
 
-Spend is attributed per turn by guide, model, and tool tier, with no caller identity, and exported to the same pipeline as the other operational metrics ([#37](https://github.com/Finntegrate/tapio/issues/37), [#38](https://github.com/Finntegrate/tapio/issues/38)).
+## Request bounds
 
-Alerts, to Finntegrate operators:
+Applied before a turn runs and enforced during it. Initial values are configuration.
 
-- Each state transition, with the spend that caused it
-- Spend rate exceeding a multiple of the trailing baseline, before any threshold is reached
-- Session creation rate or challenge difficulty at its cap
-- A single turn reaching a hard bound
-- Any single partner allocation above a configured share
+| Bound | Initial value | Enforced |
+| --- | --- | --- |
+| Request body | 32 KB | Edge and application |
+| Message length | 4,000 characters | Request validation, before any model call |
+| Client-supplied history | None accepted | Request validation; see [auth and tenancy](auth-and-tenancy.md#the-server-holds-the-history) |
+| History sent to the model | Most recent turns within 6,000 tokens | Server, when building the prompt |
+| Output tokens | 1,024 | Passed to the provider on every call |
+| Orchestration steps | 10 | Graph recursion limit |
+| Model calls per turn | 4, including routing and guardrail classification | Counted per turn |
+| Tool calls per turn | 3 | Counted per turn |
+| Turn duration | 60 seconds | Cancelled; spend so far still counts |
 
-Alerts carry aggregates and never message content or caller information.
+The guardrail classifier makes a model call, so it counts against the model-call bound and runs after the free validation checks.
 
-Operator tools can force a state (for example, to Conserving ahead of a known spike), disable a tool, and adjust budgets, and record each action with the operator and the action.
+## Admission limit
+
+Every turn acquires a slot from a service-wide limiter before its first model call and releases it when the turn ends, however it ends.
+
+- The limiter has `admission_limit` slots, sized from the maximum spend rate above and the provider's own rate limits.
+- A session can hold at most one slot. A second request from the same session while a turn is running is refused with "Still answering your last message", and the client prevents it from being sent.
+- A request with no free slot joins a first-in, first-out queue. While it waits, the stream sends a `queued` event and the interface shows that the guide will answer in a moment. When a slot frees, the turn starts and streams as normal.
+- The queue holds at most `queue_limit` requests, and no request waits longer than 20 seconds. Past either bound the request is refused with a plain busy message, and the person's text stays in the input so retrying needs no retyping.
+
+Because each session holds at most one slot or queue position, a single actor occupies capacity in proportion to the sessions it has, and session creation is bounded by codes.
+
+## Rate limits
+
+Held in memory. They reset on restart, which is acceptable for a single-process beta.
+
+| Scope | Limit | Initial value |
+| --- | --- | --- |
+| Session | Turns, as a token bucket | Burst of 5, refilling 1 every 15 seconds |
+| Session | Turns per rolling day | 200 |
+| Code | Sessions admitted | `max_sessions_per_day` and `max_sessions` on the code |
+| Network bucket | Code attempts | 5 per minute, 20 per hour |
+| Network bucket | Turns | 120 per minute |
+
+The session limits sit well above a person reading and replying. The network bucket's turn limit is high on purpose, so that a reception centre or mobile carrier is not affected; it exists to stop one machine running many sessions flat out.
+
+A network bucket is a keyed hash of the address truncated to a coarse prefix, with a key that rotates daily. It is held in memory with a time-to-live of at most 24 hours, is never written to a log, an account, a conversation, or a partner report, and is never joined to any of them.
+
+Every limit message says plainly what happened and when to try again, never implies wrongdoing, and points to the official sources the guides cite.
+
+## Tools and the kill switch
+
+Metered and paid tools are disabled during the beta ([#17](https://github.com/Finntegrate/tapio/issues/17)). Only free tools are registered.
+
+The service has an `open` flag read on every request from a source an operator can change without a deploy. When it is false, the service is in the closed state.
+
+### Closed state
+
+No turn runs. The interface shows a fixed, translated message, stored with the other user-facing strings and never generated, saying that Tapio is temporarily unavailable and linking to the official sources the guides draw on. The same state is entered when the provider refuses calls for exceeding its limit.
 
 ## Failure modes
 
 | Case | Behaviour |
 | --- | --- |
-| Spend meter unavailable | Treated as Constrained; no spend continues unmetered |
-| Provider usage not returned for a call | Charged at the conservative pre-call estimate |
-| State store unreadable | Treated as Constrained |
-| Challenge service overloaded | Existing sessions unaffected; new sessions wait |
-| Shared network at an edge limit | Principals in good standing continue; only session creation from that bucket is slowed |
-| Budget exhausted mid-turn | The turn is stopped, what was spent is charged, and the interface says so plainly |
+| Provider spend limit reached | Closed state until the period resets or the operator acts |
+| Provider rate-limited or unavailable | The turn fails with a plain retry message; its slot is released |
+| Kill-switch source unreadable | Treated as closed |
+| Code store unreadable | No new sessions are admitted; existing sessions continue |
+| Queue wait exceeds its bound | Busy message; text stays in the input |
+| Turn exceeds a bound | Stopped; spend so far counts; the person is told the answer could not be completed |
+| Process restart | In-memory limits and the queue reset; sessions and conversations persist |
+| Shared network at its bucket limit | Turns from sessions on it slow, existing sessions are not ended |
+
+## Observability and alerting
+
+Recorded per turn, with no message content and no caller identity: guide, model, input and output tokens, tool calls, queue wait, outcome. Recorded per code, by `code_id`: sessions admitted per day. Exported with the other operational metrics ([#37](https://github.com/Finntegrate/tapio/issues/37), [#38](https://github.com/Finntegrate/tapio/issues/38)).
+
+Alerts to Finntegrate operators:
+
+- Provider spend at 50% and 80% of the ceiling, and daily spend above the even daily share
+- Queue waits regularly above a few seconds, which means `admission_limit` is too low for real use
+- A code admitting sessions faster than its usual rate, or reaching its daily limit
+- Failed code attempts above baseline
+- Any closed-state transition
 
 ## Testing
 
-- Ceiling: with simulated parallel session creation up to the challenge's capacity, total metered spend never exceeds the configured budget.
-- Degradation: crossing each threshold changes the state, disables the tools it should, and produces the fixed Closed string at 100%.
-- Fail-safe: with the meter or state store unavailable, handlers behave as Constrained.
-- Turn bounds: an oversized message, a tool-call loop, and an unbounded graph are each stopped at their bound with the spend charged.
-- Units: two requests of very different cost are charged differently, and a flood of cheap requests does not exhaust a budget meant for expensive ones.
-- Reservation: anonymous traffic at its limit does not reduce registered principals' budgets, and one partner allocation cannot draw on another's.
-- Privacy: no log line, metric, or alert contains an address, a bucket value, or an email address; a test asserts this against captured output.
-- Sign-in: a recipient cannot be sent more than the hourly limit by any number of callers.
-- Shared network: many principals in good standing behind one bucket are not blocked by the edge limit.
+- Request bounds: an oversized body, an over-long message, and a request carrying history are rejected before any model call.
+- History: the model receives only server-held turns, bounded to the configured window.
+- Loops: a graph that would exceed its step, model-call, or tool-call bound is stopped at the bound.
+- Admission: with more concurrent requests than slots, at most `admission_limit` turns run, waiting requests receive a `queued` event, and a session cannot hold two slots.
+- Codes: unknown, revoked, expired, and exhausted codes produce byte-identical responses; revocation ends sessions on their next request; normalization accepts case and hyphen variants.
+- Entry form: attempts beyond the per-bucket limit are refused, and no code becomes unusable because of failed attempts against it.
+- Closed state: the kill switch and a provider limit refusal both produce the fixed closed message.
+- Privacy: no log line, metric, or alert contains a network address, a bucket value, a plain code, or message content; a test asserts this against captured output of admission and chat flows.
+- Shared networks: many sessions behind one bucket at ordinary use rates are not limited.
+
+## Later stages
+
+The beta controls are sufficient while three conditions hold: admission requires a code, no paid or metered tool is enabled, and the service runs as one process. Each change below requires its controls first.
+
+| Change | Controls required first |
+| --- | --- |
+| Admission without codes | In-application spend ceiling with staged degradation; friction on session creation |
+| Paid or metered tools enabled | Cost-unit metering; tools gated by principal tier |
+| Registered accounts and partner reporting | Per-tier budgets; reserved capacity so one population cannot exhaust another; partner allocations |
+| More than one process | Limiter, queue, and rate-limit state in a shared store |
+
+**In-application spend ceiling.** Spend is metered per turn from provider usage, against a daily and monthly budget set below the provider ceiling. As spend approaches the budget the service degrades in order: paid tools off, then a cheaper model or retrieval-only answers with new anonymous sessions declined, then closed. A handler that cannot read the spend state assumes the more restrictive state.
+
+**Cost units.** Limits count priced model tokens plus a fixed price per paid tool call, from configuration, so a limit means the same thing whatever a request costs.
+
+**Session creation friction.** A small proof-of-work challenge, solved by the browser without user action, issued by the service itself so no third party learns of the visit. Difficulty rises with load and is capped so that a low-end phone completes it in a few seconds, with a non-timing path for assistive technology.
+
+**Per-tier budgets and reservations.** Anonymous, registered, and partner principals have separate budgets, a share of capacity is reserved for registered principals, and a partner's ceiling draws only on its own allocation.
 
 ## Delivery
 
-The budgets and ceiling are the first slice, because they are what make a public endpoint safe to open. [#32](https://github.com/Finntegrate/tapio/issues/32) owns the per-principal budgets and edge limits, [#17](https://github.com/Finntegrate/tapio/issues/17) the tool tiers, [#37](https://github.com/Finntegrate/tapio/issues/37) and [#38](https://github.com/Finntegrate/tapio/issues/38) the metering export and alerts, and [#44](https://github.com/Finntegrate/tapio/issues/44) the deployment settings. The service is not opened to anonymous public use before the global ceiling and turn bounds are in place.
+The service does not accept public traffic before these are in place:
+
+1. Server-held history, with the client-supplied history field removed from the API ([#16](https://github.com/Finntegrate/tapio/issues/16), [auth and tenancy](auth-and-tenancy.md#the-server-holds-the-history))
+2. Request bounds
+3. Admission limit and queue
+4. Access codes and the admission endpoint
+5. Provider spend ceiling and alerts, edge protection, and the kill switch ([#44](https://github.com/Finntegrate/tapio/issues/44))
+6. Rate limits ([#32](https://github.com/Finntegrate/tapio/issues/32))
 
 ## Open questions
 
 | Question | Owner | Blocking? |
 | --- | --- | --- |
-| Monthly budget and the ceiling value for the pilot | Finntegrate | Yes, before public launch |
-| Initial per-tier budgets, set against measured cost per typical conversation | Product and engineering | Yes, before public launch |
-| Which proof-of-work scheme, and whether its battery cost on low-end phones is acceptable | Engineering | No |
-| Whether a deployment-level protection in front of the service (a hosting provider's rate limiting) is acceptable for the privacy posture | Engineering, privacy | No |
-| Whether Closed state should queue sessions rather than decline them | Product | No |
+| Monthly spend ceiling for the beta | Finntegrate | Yes, before the beta opens |
+| `admission_limit` and `queue_limit`, from measured cost and duration of a typical turn | Engineering | Yes, before the beta opens |
+| Which hosting provider, and what its edge protection offers at no cost | Engineering ([#44](https://github.com/Finntegrate/tapio/issues/44)) | Yes, before the beta opens |
+| Default `max_sessions` and `max_sessions_per_day` per code, by partner size | Partnerships | No; set per code |
+| Whether the six-thousand-token history window is enough for multi-guide conversations | Product and engineering | No |
