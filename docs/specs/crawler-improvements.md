@@ -925,6 +925,12 @@ only discovery path and is required from Phase 1, per Requirement 2.
   sites concurrently" in constrained environments such as CI or a small
   deployment host.
 
+Implemented in `tapio_crawler.cli` (`run-all`, `retry`) and
+`tapio_crawler.crawler.jobs`: concurrent per-site jobs with live progress lines,
+signal-driven pause/resume/cancel, a source-level retry command, and a
+`--report-resources` peak memory/CPU sampler for the measurement above. Surfacing
+Crawl4AI deep-crawl checkpoint state remains open.
+
 ### Future considerations (P2)
 
 - Parse published PDFs and other official document formats through a dedicated,

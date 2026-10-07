@@ -21,7 +21,15 @@ async def test_runner_wires_site_config_to_crawl4ai_crawler() -> None:
         result = await runner.run_async("example", config, max_urls=5_000, batch_size=500)
 
     crawler_type.assert_called_once_with("example", config, manifest_store)
-    crawler_type.return_value.crawl.assert_awaited_once_with(max_urls=5_000, batch_size=500, force=False)
+    crawler_type.return_value.crawl.assert_awaited_once_with(
+        max_urls=5_000,
+        batch_size=500,
+        force=False,
+        retry=False,
+        include_inactive=False,
+        control=None,
+        progress=None,
+    )
     assert result is summary
 
 

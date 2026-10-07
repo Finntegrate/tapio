@@ -16,9 +16,11 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from tapio_crawler.config.config_models import CrawlerConfig, SiteConfig
+from tapio_crawler.crawler.job_control import JobControl
 from tapio_crawler.discovery.gap_crawl import discover_via_gap_crawl
 from tapio_crawler.discovery.rate_limiter import (
     HostRateLimiter,
+    OperatorCancelledError,
     resolve_effective_delay,
 )
 from tapio_crawler.discovery.robots import RobotsRules, fetch_robots_rules
@@ -89,6 +91,8 @@ class DiscoveryRunSummary:
         cached: Whether this summary was rebuilt from a prior discovery
             run's manifest state, per ``discovery.cache_ttl_hours``, instead
             of re-fetching robots.txt and the sitemap.
+        cancelled: Whether an operator cancelled the run before it finished;
+            the run is then also incomplete.
     """
 
     run_id: str
@@ -101,6 +105,7 @@ class DiscoveryRunSummary:
     robots_txt_url: str = ""
     sitemap_urls: list[str] = field(default_factory=list)
     cached: bool = False
+    cancelled: bool = False
 
 
 class MisconfiguredDiscoveryError(Exception):
@@ -118,13 +123,23 @@ class DiscoveryRunner:
         """
         self._manifest_store = manifest_store
 
-    async def run(self, site_name: str, site_config: SiteConfig) -> DiscoveryRunSummary:
+    async def run(
+        self,
+        site_name: str,
+        site_config: SiteConfig,
+        *,
+        control: JobControl | None = None,
+    ) -> DiscoveryRunSummary:
         """Discover URLs for ``site_name`` and record them in the manifest.
 
         Args:
             site_name: Name of the configured source site.
             site_config: Configuration for the site, including its discovery,
                 scope, and politeness settings.
+            control: Optional pause/cancel control, consulted before every
+                robots, sitemap, and gap-crawl request. A cancel lets the
+                request in flight finish, starts no further ones, and
+                returns an incomplete, cancelled summary.
 
         Returns:
             A summary of counts and completeness for this run.
@@ -156,7 +171,34 @@ class DiscoveryRunner:
 
         # Shared across robots, sitemap, and gap-crawl requests to this host so a
         # Crawl-delay floor or Retry-After suspension applies uniformly.
-        rate_limiter = HostRateLimiter(min_delay=config.min_delay, max_delay=config.max_delay)
+        rate_limiter = HostRateLimiter(min_delay=config.min_delay, max_delay=config.max_delay, control=control)
+        try:
+            return await self._run_requests(
+                site_name,
+                config,
+                base_url,
+                rate_limiter,
+                summary,
+                is_sitemap_source=is_sitemap_source,
+                config_fingerprint=config_fingerprint,
+            )
+        except OperatorCancelledError:
+            summary.complete = False
+            summary.cancelled = True
+            return summary
+
+    async def _run_requests(  # noqa: PLR0913
+        self,
+        site_name: str,
+        config: CrawlerConfig,
+        base_url: str,
+        rate_limiter: HostRateLimiter,
+        summary: DiscoveryRunSummary,
+        *,
+        is_sitemap_source: bool,
+        config_fingerprint: str,
+    ) -> DiscoveryRunSummary:
+        """Fetch robots/sitemap/gap-crawl URLs and persist them (the cancellable part of a run)."""
         robots = await fetch_robots_rules(
             base_url,
             config.politeness.user_agent,
