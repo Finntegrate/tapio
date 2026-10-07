@@ -120,7 +120,7 @@ The public Tapio page is the canonical source for these roles. Sampo is an emplo
 - Prompts must instruct the model to acknowledge uncertainty and not invent sources.
 - Responses involving permits, benefits, housing, or employment must retain a visible verification reminder.
 - Production launch is blocked on the guardrail policy and tests in [#29](https://github.com/Finntegrate/tapio/issues/29), as well as grounding and citation work in [#28](https://github.com/Finntegrate/tapio/issues/28).
-- Conversation persistence must not be enabled until data retention, deletion, and user consent are designed under the authentication and GDPR workstreams.
+- Conversation persistence follows the [conversation history specification](conversation-history.md), and is not enabled until that specification's [delivery](conversation-history.md#delivery) prerequisites are met, including the lawful basis and the data protection impact assessment.
 
 ## Success metrics
 
