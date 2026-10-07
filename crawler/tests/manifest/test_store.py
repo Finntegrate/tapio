@@ -316,3 +316,42 @@ def test_record_discovery_run_is_independent_per_site(store: ManifestStore) -> N
     store.record_discovery_run("migri", completed_at, complete=True)
 
     assert store.get_last_discovery_run("kela") is None
+
+
+def test_list_retryable_page_returns_failed_eligible_records(store: ManifestStore) -> None:
+    """Only eligible records whose last fetch failed are retryable by default."""
+    store.upsert(_record(canonical_url="https://migri.fi/a", source_url="https://migri.fi/a", fetch_status="failed"))
+    store.upsert(_record(canonical_url="https://migri.fi/b", source_url="https://migri.fi/b", fetch_status="success"))
+    store.upsert(
+        _record(
+            canonical_url="https://migri.fi/c",
+            source_url="https://migri.fi/c",
+            scope_status="inactive_candidate",
+        ),
+    )
+
+    page = store.list_retryable_page("migri")
+
+    assert [record.canonical_url for record in page] == ["https://migri.fi/a"]
+
+
+def test_list_retryable_page_can_include_inactive_candidates_and_paginates(store: ManifestStore) -> None:
+    """``include_inactive`` adds inactive candidates, and the keyset cursor pages through them."""
+    store.upsert(_record(canonical_url="https://migri.fi/a", source_url="https://migri.fi/a", fetch_status="failed"))
+    store.upsert(
+        _record(
+            canonical_url="https://migri.fi/c",
+            source_url="https://migri.fi/c",
+            scope_status="inactive_candidate",
+        ),
+    )
+
+    first = store.list_retryable_page("migri", limit=1, include_inactive=True)
+    second = store.list_retryable_page(
+        "migri",
+        after_canonical_url=first[0].canonical_url,
+        limit=1,
+        include_inactive=True,
+    )
+
+    assert [r.canonical_url for r in first + second] == ["https://migri.fi/a", "https://migri.fi/c"]

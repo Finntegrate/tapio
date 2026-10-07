@@ -31,6 +31,7 @@ from tapio_crawler.config.settings import (
     DEFAULT_CRAWL4AI_BASE_DIRECTORY,
     DEFAULT_DIRS,
 )
+from tapio_crawler.crawler.job_control import JobControl, SiteProgress
 from tapio_crawler.crawler.policy import (
     EXTRACTOR_VERSION,
     MAX_RETRY_COUNT,
@@ -38,7 +39,11 @@ from tapio_crawler.crawler.policy import (
     decide_render,
     retry_backoff_seconds,
 )
-from tapio_crawler.discovery.rate_limiter import HostRateLimiter, resolve_effective_delay
+from tapio_crawler.discovery.rate_limiter import (
+    HostRateLimiter,
+    OperatorCancelledError,
+    resolve_effective_delay,
+)
 from tapio_crawler.discovery.robots import fetch_robots_rules
 from tapio_crawler.discovery.scope import evaluate_scope
 from tapio_crawler.manifest.models import ManifestRecord
@@ -80,6 +85,7 @@ class RenderRunSummary:
         retried: Renders that were scheduled for a future retry (failure or
             an unconfirmed cache-validation fallback).
         complete: Whether the run finished without a fatal interruption.
+        cancelled: Whether an operator cancelled the run before it finished.
         eligible_total: Total eligible manifest records for this site, as of
             run completion.
         current_total: Eligible records with a successful current document,
@@ -98,6 +104,7 @@ class RenderRunSummary:
     status_codes: dict[str, int] = field(default_factory=dict)
     cache_statuses: dict[str, int] = field(default_factory=dict)
     complete: bool = True
+    cancelled: bool = False
     eligible_total: int = 0
     current_total: int = 0
 
@@ -132,12 +139,16 @@ class Crawl4AICrawler:
         self.output_dir = Path(DEFAULT_CONTENT_DIR) / site_name / DEFAULT_DIRS["PARSED_DIR"]
         self.output_dir.mkdir(parents=True, exist_ok=True)
 
-    async def crawl(
+    async def crawl(  # noqa: PLR0913
         self,
         *,
         max_urls: int,
         batch_size: int,
         force: bool = False,
+        retry: bool = False,
+        include_inactive: bool = False,
+        control: JobControl | None = None,
+        progress: SiteProgress | None = None,
     ) -> RenderRunSummary:
         """Render every due manifest record for this site, up to ``max_urls``.
 
@@ -146,14 +157,37 @@ class Crawl4AICrawler:
             batch_size: Manifest page size used while selecting due records.
             force: Ignore each record's refresh schedule and render every
                 eligible record.
+            retry: Instead of the refresh schedule, re-select records whose
+                last fetch failed, ignoring their retry backoff and cap.
+            include_inactive: With ``retry``, also re-select
+                ``inactive_candidate`` records.
+            control: Optional pause/cancel control, checked before each record.
+            progress: Optional live progress object to keep up to date.
 
         Returns:
             A summary of counts and completeness for this run.
         """
         summary = RenderRunSummary(run_id=str(uuid.uuid4()), site_name=self.site_name)
+        if progress is not None:
+            progress.render_summary = summary
 
         base_url = str(self.site_config.base_url).rstrip("/")
-        robots = await fetch_robots_rules(base_url, self.config.politeness.user_agent)
+        rate_limiter = HostRateLimiter(
+            min_delay=self.config.min_delay,
+            max_delay=self.config.max_delay,
+            control=control,
+        )
+        try:
+            robots = await fetch_robots_rules(
+                base_url,
+                self.config.politeness.user_agent,
+                rate_limiter=rate_limiter,
+            )
+        except OperatorCancelledError:
+            summary.cancelled = True
+            summary.complete = False
+            self._finalize_coverage(summary)
+            return summary
         if not robots.reachable and self.config.robots_policy == "require":
             summary.complete = False
             logger.warning(
@@ -162,7 +196,6 @@ class Crawl4AICrawler:
             )
             return summary
 
-        rate_limiter = HostRateLimiter(min_delay=self.config.min_delay, max_delay=self.config.max_delay)
         effective_delay = resolve_effective_delay(
             configured_min_delay=self.config.min_delay,
             configured_max_delay=self.config.max_delay,
@@ -171,14 +204,31 @@ class Crawl4AICrawler:
         rate_limiter.min_delay = effective_delay.min_delay
         rate_limiter.max_delay = effective_delay.max_delay
 
-        due = self._select_due_records(max_urls=max_urls, batch_size=batch_size, force=force, summary=summary)
-        if due:
+        if progress is not None:
+            progress.current_delay = effective_delay.min_delay
+
+        if retry:
+            due = self._select_retry_records(
+                max_urls=max_urls,
+                batch_size=batch_size,
+                include_inactive=include_inactive,
+                summary=summary,
+            )
+        else:
+            due = self._select_due_records(max_urls=max_urls, batch_size=batch_size, force=force, summary=summary)
+        if progress is not None:
+            progress.due_total = len(due)
+        if control is not None and not await control.checkpoint():
+            # A cancel that arrived during setup/selection, even with nothing due.
+            summary.cancelled = True
+            summary.complete = False
+        elif due:
             semaphore = asyncio.Semaphore(self.config.max_concurrent)
             try:
                 async with AsyncWebCrawler(config=self._browser_config()) as crawler:
                     await asyncio.gather(
                         *(
-                            self._render_bounded(crawler, record, decision, rate_limiter, semaphore, summary)
+                            self._render_bounded(crawler, record, decision, rate_limiter, semaphore, summary, control)
                             for record, decision in due
                         ),
                     )
@@ -189,6 +239,41 @@ class Crawl4AICrawler:
         self._finalize_coverage(summary)
         logger.info("Render summary for %s: %s", self.site_name, summary)
         return summary
+
+    def _select_retry_records(
+        self,
+        *,
+        max_urls: int,
+        batch_size: int,
+        include_inactive: bool,
+        summary: RenderRunSummary,
+    ) -> list[tuple[ManifestRecord, RenderDecision]]:
+        """Select failed (and optionally ``inactive_candidate``) records to re-render.
+
+        Unlike ``_select_due_records`` this ignores the refresh schedule,
+        retry backoff, and retry cap: an operator asking for a retry has
+        decided the record should be tried again now.
+        """
+        selected: list[tuple[ManifestRecord, RenderDecision]] = []
+        after = ""
+        while len(selected) < max_urls:
+            page = self.manifest_store.list_retryable_page(
+                self.site_name,
+                after_canonical_url=after,
+                limit=batch_size,
+                include_inactive=include_inactive,
+            )
+            if not page:
+                break
+            for record in page:
+                summary.considered += 1
+                selected.append((record, RenderDecision(CacheMode.WRITE_ONLY, "operator_retry")))
+                if len(selected) >= max_urls:
+                    break
+            after = page[-1].canonical_url
+            if len(page) < batch_size:
+                break
+        return selected
 
     def _select_due_records(
         self,
@@ -234,7 +319,7 @@ class Crawl4AICrawler:
                 break
         return due
 
-    async def _render_bounded(
+    async def _render_bounded(  # noqa: PLR0913, PLR0917
         self,
         crawler: AsyncWebCrawler,
         record: ManifestRecord,
@@ -242,10 +327,25 @@ class Crawl4AICrawler:
         rate_limiter: HostRateLimiter,
         semaphore: asyncio.Semaphore,
         summary: RenderRunSummary,
+        control: JobControl | None = None,
     ) -> None:
-        """Render one record under the run's concurrency limit."""
+        """Render one record under the run's concurrency limit.
+
+        A paused ``control`` holds the record here, before any request is
+        made; a cancelled one skips it and marks the run cancelled/incomplete.
+        """
         async with semaphore:
-            await self._render_one(crawler, record, decision, rate_limiter, summary)
+            if control is not None and not await control.checkpoint():
+                summary.cancelled = True
+                summary.complete = False
+                return
+            try:
+                await self._render_one(crawler, record, decision, rate_limiter, summary)
+            except OperatorCancelledError:
+                # Raised by the limiter after the politeness wait, immediately
+                # before a request would start; nothing was fetched.
+                summary.cancelled = True
+                summary.complete = False
 
     async def _render_one(
         self,

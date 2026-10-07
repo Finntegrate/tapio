@@ -328,6 +328,38 @@ class ManifestStore:
         ).fetchall()
         return [_row_to_record(row) for row in rows]
 
+    def list_retryable_page(
+        self,
+        site_name: str,
+        *,
+        after_canonical_url: str = "",
+        limit: int = 500,
+        include_inactive: bool = False,
+    ) -> list[ManifestRecord]:
+        """Return one keyset-paginated page of records an operator may retry.
+
+        Args:
+            site_name: Name of the configured source site.
+            after_canonical_url: Return records whose ``canonical_url`` sorts
+                strictly after this value. Empty string starts from the
+                beginning.
+            limit: Maximum number of records to return.
+            include_inactive: Also return ``inactive_candidate`` records,
+                not just eligible records whose last fetch failed.
+
+        Returns:
+            Up to ``limit`` records, ordered by ``canonical_url``.
+        """
+        condition = "(scope_status = 'eligible' AND fetch_status = 'failed')"
+        if include_inactive:
+            condition = f"({condition} OR scope_status = 'inactive_candidate')"
+        rows = self._connection.execute(
+            f"SELECT * FROM manifest WHERE site_name = ? AND {condition} "  # noqa: S608 - fixed fragments only
+            "AND canonical_url > ? ORDER BY canonical_url LIMIT ?",
+            (site_name, after_canonical_url, limit),
+        ).fetchall()
+        return [_row_to_record(row) for row in rows]
+
     def rekey(
         self,
         site_name: str,
