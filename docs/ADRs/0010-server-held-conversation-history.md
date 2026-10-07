@@ -1,4 +1,4 @@
-# ADR 0010: The server holds conversation history, encrypted so that losing the key erases it
+# ADR 0010: The server holds conversation history, encrypted and kept only briefly
 
 ## Status
 
@@ -27,6 +27,10 @@ Two further facts bear on it.
 
 **Conversations are encrypted at rest so that destroying a key erases them.** An anonymous conversation is encrypted with a key derived from the session's secret, which only the person's browser holds; the server keeps a hash of the secret, never the secret or the key. Without the browser's cookie the stored conversation is unreadable, to an operator, to someone holding a disk image or backup, or to anyone presenting a legal demand. A registered conversation is encrypted with its own key, which the service holds and destroys when the conversation is deleted or expires. Deletion therefore does not depend on the storage engine overwriting what it removed, though the engine is also configured to.
 
+**Every stored conversation expires automatically, after a short default period.** No conversation is kept indefinitely, and no one has to remember to delete one. Expiry is counted from the last activity, with an absolute maximum from creation that activity cannot extend. The defaults are short, and Finntegrate sets them and their upper bounds as configuration. A registered person can choose a shorter period, or a longer one up to the configured maximum, but never "keep forever". An expired conversation is treated as gone the moment it expires, whether or not the deletion job has run yet.
+
+**Conversations are encrypted in transit on every hop.** Browser to edge, edge to origin, and service to the model provider all use TLS. No hop carries conversation content in plaintext over a network, so the edge and the provider are the only places outside the service that see it, and both are named processors.
+
 **Server-held conversation storage does not go live before its legal basis is settled.** The lawful basis for holding conversation content, anonymous and registered, is decided under [#40](https://github.com/Finntegrate/tapio/issues/40), and a data protection impact assessment is completed, before the beta admits anyone. The model provider and hosting edge are named as processors, and the provider's retention and processing region are settled at the same time.
 
 ## Consequences
@@ -36,6 +40,7 @@ Two further facts bear on it.
 - Forged and inflated history are impossible rather than detected.
 - An anonymous conversation at rest is ciphertext that nobody but the person's browser can open. Closing the browser, ending the session, or expiry makes it permanently unreadable, even where deleted bytes linger on disk or in a backup.
 - Retention and deletion act in one place, with a guarantee that does not depend on the storage engine.
+- Data minimisation holds by default: the service keeps only what a short window of conversation needs, and what it keeps disappears without anyone acting.
 - A legal demand for anonymous conversations can yield nothing readable, and the service can say so truthfully.
 
 ### Negative
@@ -45,6 +50,7 @@ Two further facts bear on it.
 - Losing the browser's cookie loses an anonymous conversation irrecoverably. That is the property working as intended, but it is also a way to lose work.
 - A legal-basis decision and an impact assessment now sit on the path to opening the beta.
 - Encrypting per session or per conversation is more machinery than encrypting a whole database with one key.
+- A registered person working through a permit process that takes longer than the absolute maximum loses the earliest conversations. The interface shows each conversation's expiry so that nothing disappears by surprise.
 
 ### Risks
 

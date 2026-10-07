@@ -15,7 +15,8 @@ The server is the only source of a conversation's history ([ADR 0010](../ADRs/00
 1. A client cannot add, alter, reorder, or inflate any earlier turn.
 2. An anonymous conversation at rest is unreadable without the person's browser.
 3. Deleting or expiring a conversation makes it unreadable everywhere Tapio holds it, whatever the storage engine leaves on disk.
-4. A person sees their message straight away, and a dropped connection never loses an answer the service already paid for.
+4. Every conversation expires automatically after a short default period, and content is encrypted at rest and on every network hop.
+5. A person sees their message straight away, and a dropped connection never loses an answer the service already paid for.
 
 ## Non-goals
 
@@ -101,13 +102,27 @@ A person can end an anonymous session at any time from a control that is always 
 
 ## Retention
 
-| Holder | Rule |
-| --- | --- |
-| Anonymous session cookie | Lasts for the browser session; it has no stored expiry |
-| Anonymous conversation on the server | Deleted after 24 hours idle or 7 days after creation, whichever is first |
-| Registered conversation | Deleted after 90 days idle unless deleted sooner |
+Every stored conversation has an expiry, set when it is created and moved forward by activity, but never past an absolute maximum counted from creation. Nothing is kept indefinitely, and expiry needs no action from anyone.
 
-A scheduled job deletes expired conversations and sessions. Retention values are configuration. The interface shows when a conversation will expire. There are no expiry warnings by email, because the service does not keep an address to send them to ([authentication and tenancy](auth-and-tenancy.md#account-data)).
+| Holder | Default | Absolute maximum | Who can change it |
+| --- | --- | --- | --- |
+| Anonymous session cookie | The browser session; no stored expiry | — | No one |
+| Anonymous conversation | 24 hours after last activity | 7 days after creation | Operators, as configuration |
+| Registered conversation | 30 days after last activity | 12 months after creation | The person, per conversation or as their default, choosing 1, 7, 30, or 90 days after last activity; operators set the choices and the maximum |
+
+The defaults are short on purpose: data minimisation is the default, and keeping more is a choice the person makes. There is no "keep forever" choice. Operators can shorten any value or lower the maximum, and a lowered maximum applies to existing conversations at the next expiry run. Raising a default never extends a conversation that already exists.
+
+An expired conversation is treated as nonexistent from the moment it expires: every read checks the expiry, so nothing is served between expiry and deletion. A job runs at least hourly to delete expired conversations and sessions ([Deletion](#deletion)). The interface shows when each conversation will expire. There are no expiry warnings by email, because the service does not keep an address to send them to ([authentication and tenancy](auth-and-tenancy.md#account-data)).
+
+## Encryption in transit
+
+Conversation content crosses a network only over TLS 1.2 or later:
+
+- browser to the hosting edge, with HSTS so a browser never falls back to plaintext,
+- the hosting edge to the origin, with the origin's certificate verified by the edge,
+- the service to the model provider and to the email processor.
+
+No hop is configured to fall back to plaintext. The edge and the model provider decrypt traffic to do their work, which is why they are listed under [Other holders](#other-holders).
 
 ## Storage
 
@@ -156,7 +171,8 @@ Finntegrate publishes, at least yearly, how many demands it received and how man
 - Plaintext: after a completed turn containing a distinctive test string, neither the database file nor its write-ahead log contains that string.
 - Anonymous key: with the store and every server secret but without the cookie, the conversation cannot be decrypted.
 - Deletion: after deleting a conversation and running maintenance, no row for its `thread_id` remains in any checkpointer table, and for a registered conversation its data key is gone.
-- Retention: the expiry job removes conversations past their bound and leaves those inside it.
+- Retention: the expiry job removes conversations past their bound and leaves those inside it; a conversation past its expiry is not served even before the job runs; activity never extends a conversation past its absolute maximum; a person cannot choose a period above the configured maximum.
+- Transit: the origin refuses plaintext connections, and responses carry HSTS.
 - Crisis: a turn that matched `crisis` and then hit a bound is persisted `completed` with its resources.
 - Claiming: a claimed conversation is readable with the account's data key and no longer with the session key.
 
@@ -177,4 +193,5 @@ Registered conversations follow with accounts ([#31](https://github.com/Finntegr
 | Lawful basis for holding conversation content, and the impact assessment | Privacy and data ([#40](https://github.com/Finntegrate/tapio/issues/40)) | Yes, before the beta opens |
 | Which model provider offers zero data retention or EU processing within the budget, and if none, what the privacy notice says | Engineering, privacy | Yes, before the beta opens |
 | Where the hosting edge processes traffic, and whether that is a third-country transfer | Engineering ([#44](https://github.com/Finntegrate/tapio/issues/44)) | Yes, before the beta opens |
+| Are a 30-day default and a 12-month maximum right for registered conversations, given how long permit processes take | Product and privacy | No; configuration |
 | Whether a 6,000-token window is enough for multi-guide conversations in every supported script | Product and engineering | No; configuration |

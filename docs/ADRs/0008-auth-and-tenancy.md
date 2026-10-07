@@ -42,7 +42,7 @@ Operating budget also rules out a persistent managed database for now, so the de
 
 **Identity and ownership are kept apart from conversation storage.** Accounts, sessions, ownership, and retention live beside the conversation store rather than inside it, so either can change engine without touching the identity model.
 
-**Retention is bounded by default.** Anonymous conversations expire quickly; registered conversations expire after a period of inactivity; an account no one signs in to expires too.
+**Retention is bounded by default.** Every conversation expires automatically after a short default period ([ADR 0010](0010-server-held-conversation-history.md)), and an account no one signs in to expires too.
 
 ## Consequences
 
