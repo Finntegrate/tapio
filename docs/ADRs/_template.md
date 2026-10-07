@@ -27,6 +27,10 @@ Describe the situation that necessitates this decision. Include:
 <!--
 State the decision clearly and concisely: "We will..."
 Then describe what changes as a result.
+
+Keep this durable: state properties, not mechanism. Values, flows, schemas,
+and algorithms belong in the specification, which changes with the
+implementation; this ADR should change only if the decision does.
 -->
 
 ## Consequences

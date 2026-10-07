@@ -10,6 +10,18 @@ An ADR captures a significant architectural decision made during the project: wh
 - **Avoiding re-litigation** — Decisions that were already considered don't need to be re-argued from scratch
 - **Accountability** — Trade-offs are made explicit rather than hidden in commit messages or tribal knowledge
 
+## What belongs in an ADR
+
+An ADR records a durable decision and the reasons for it. It should be short, and once accepted it should rarely need editing: an ADR changes when the decision changes, not when the implementation does.
+
+Anything that would change as implementation proceeds belongs in a living document instead:
+
+- **Specifications** (`docs/specs/`) hold the mechanism: flows, schemas, field names, algorithms, limits and their values, failure modes, and tests.
+- **The PRD** (`docs/PRD.md`) holds what the product must do and for whom.
+- **Tutorials, how-to guides, reference, and explanation** ([Diátaxis](https://diataxis.fr/)) hold everything a reader needs to learn, operate, or look up.
+
+A useful test: if a change to the code would force a change to the ADR without the decision changing, that detail is in the wrong place. State a decision as a property ("deleting a conversation destroys its key") rather than as a mechanism ("keys are derived with HKDF-SHA-256"), and link to the specification for the rest.
+
 ## File naming
 
 ADRs are numbered sequentially and given a short descriptive slug:

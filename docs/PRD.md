@@ -118,13 +118,13 @@ A user can let Tapio route automatically, pick a guide explicitly, or reach one 
 ### 7.6 Access and continuity
 
 - Returning users can pick up a prior conversation rather than starting over (depends on authentication and durable storage — see §9, Roadmap).
-- Using Tapio, including returning to a saved conversation, never requires proving identity or immigration status; authentication is a low-friction, minimal-identity mechanism (e.g. magic link), not an identity-verification step.
-- No PII is stored beyond what a user explicitly types into a conversation — the product does not infer, request, or persist identifying fields (name, nationality, case number, contact details) to enable this feature.
+- Using Tapio, including returning to a saved conversation, never requires proving identity or immigration status; authentication is a low-friction, minimal-identity mechanism (a one-time code sent by email), not an identity-verification step.
+- No PII is stored beyond what a user explicitly types into a conversation — the product does not infer, request, or persist identifying fields (name, nationality, case number, contact details) to enable this feature. The one exception is optional: a person who chooses an account gives an email address to receive a sign-in code, and the product keeps only a keyed hash of it, never the address itself ([ADR 0008](ADRs/0008-auth-and-tenancy.md)).
 - Users can choose their preferred language for the conversation; guide answers and routing respect that choice where source language coverage allows.
 
 ### 7.7 Partner visibility
 
-- Partner organizations that refer people to Tapio can see aggregate, privacy-respecting usage and outcome signals relevant to their own advising work (not individual users' conversations without consent).
+- Partner organizations that refer people to Tapio can see aggregate, privacy-respecting usage and outcome signals relevant to their own advising work (never individual users' conversations). Which signals are reported, and from which events, is fixed in the [authentication and tenancy specification](specs/auth-and-tenancy.md#what-a-partner-can-see); outcome signals are added there only once #45 and #101 define them.
 - Partners can be organized and reported on as distinct entities from individual end users; partner-level reporting is built from aggregate counts, not from identifiable user records.
 
 ## 8. Non-goals
@@ -160,7 +160,7 @@ No usage baseline exists yet; treat these as launch hypotheses to instrument, no
 | User-reported confidence | ≥70% of rated responses marked helpful or clear | Direct signal on whether answers are actually useful |
 | Safety boundary adherence | 0 responses that present a guide as an official/legal authority | A single violation undermines the trust the whole product depends on |
 | Proactive suggestion uptake | ≥30% of proactive suggestions are followed (clicked, asked about, or acted on) | Confirms anticipated needs are actually relevant, not noise |
-| No-PII posture | 0 identifying fields (name, nationality, case number, contact details) collected or required outside what a user volunteers in free text | For at-risk users, this is a safety property, not a compliance checkbox |
+| No-PII posture | 0 identifying fields (name, nationality, case number, contact details) collected or required outside what a user volunteers in free text; the optional sign-in email is kept only as a keyed hash | For at-risk users, this is a safety property, not a compliance checkbox |
 
 ## 11. Open questions
 
@@ -169,5 +169,5 @@ No usage baseline exists yet; treat these as launch hypotheses to instrument, no
 | What is the approved crisis/escalation resource list, and how is it kept current? Governance, cadence, and a draft list are defined in the [crisis/escalation resource spec](specs/crisis-escalation-resources.md); a named owner still needs to sign off before #29 can treat the list as authoritative. | Safety, legal, partnerships | Yes, for broad release — sign-off pending |
 | What consent model applies to pilot usage analytics and partner-visible reporting? | Privacy and data | Yes, before collecting usage data |
 | Which languages and locales does the first public pilot support? | Product and research | No — an English-first pilot can proceed |
-| What does "partner-affiliated" mean for account/tenancy purposes, and how does it interact with individual accounts? | Product and engineering | Yes, before #30/#45 are designed |
+| ~~What does "partner-affiliated" mean for account/tenancy purposes, and how does it interact with individual accounts?~~ Resolved in [ADR 0008](ADRs/0008-auth-and-tenancy.md): affiliation is an opt-in, revocable attribution that counts a person in a partner's aggregates and grants the partner no access to them. | Product and engineering | Resolved |
 | Proactive guidance (§7.2) has to anticipate needs from situational context (permit type, stage, location) without violating the no-PII principle (§5) — is within-conversation, non-persisted context sufficient, or does useful anticipation require something the no-PII posture rules out? | Product, privacy | Yes, before proactive guidance is implemented |
