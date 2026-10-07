@@ -47,6 +47,14 @@ deployment box), measure it: run with `--report-resources` at
 `--max-concurrent-sites 1`, `2`, ... and compare the reported peak RSS/CPU of
 the process tree.
 
+A measurement on a developer Mac (2026-10-07; 2 URLs per site rendered live from
+a temporary manifest, so it captures browser cost, not sustained-crawl cost)
+found peak memory of about 1.7 GiB with one site job at a time and about
+5.9 GiB with all five at once, roughly 1.2 GiB per concurrent browser, at
+10-22% of one core (rendering is bound by the per-host delays, not CPU). RSS
+summed across processes double-counts shared pages, so treat these as an upper
+bound. On a host with under ~8 GiB free, use `--max-concurrent-sites 2` or 3.
+
 ## URL discovery and the manifest
 
 `discover` builds a site's URL inventory and records it in a durable,
