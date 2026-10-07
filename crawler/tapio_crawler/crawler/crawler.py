@@ -172,7 +172,21 @@ class Crawl4AICrawler:
             progress.render_summary = summary
 
         base_url = str(self.site_config.base_url).rstrip("/")
-        robots = await fetch_robots_rules(base_url, self.config.politeness.user_agent)
+        rate_limiter = HostRateLimiter(
+            min_delay=self.config.min_delay,
+            max_delay=self.config.max_delay,
+            control=control,
+        )
+        try:
+            robots = await fetch_robots_rules(
+                base_url,
+                self.config.politeness.user_agent,
+                rate_limiter=rate_limiter,
+            )
+        except OperatorCancelledError:
+            summary.cancelled = True
+            summary.complete = False
+            return summary
         if not robots.reachable and self.config.robots_policy == "require":
             summary.complete = False
             logger.warning(
@@ -181,11 +195,6 @@ class Crawl4AICrawler:
             )
             return summary
 
-        rate_limiter = HostRateLimiter(
-            min_delay=self.config.min_delay,
-            max_delay=self.config.max_delay,
-            control=control,
-        )
         effective_delay = resolve_effective_delay(
             configured_min_delay=self.config.min_delay,
             configured_max_delay=self.config.max_delay,

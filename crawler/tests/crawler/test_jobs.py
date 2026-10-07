@@ -220,3 +220,30 @@ async def test_monitor_resources_records_peaks() -> None:
     assert peak.samples > 0
     assert peak.rss_bytes > 0
     assert peak.active_jobs == 1
+
+
+@pytest.mark.asyncio
+async def test_jobs_sharing_a_host_run_one_after_another(tmp_path: Path) -> None:
+    running = 0
+    peak = 0
+
+    async def discover(name: str, _cfg: SiteConfig, **_k: object) -> DiscoveryRunSummary:
+        nonlocal running, peak
+        running += 1
+        peak = max(peak, running)
+        await asyncio.sleep(0.02)
+        running -= 1
+        return DiscoveryRunSummary(run_id="d", site_name=name)
+
+    render = AsyncMock(side_effect=lambda name, *_a, **_k: RenderRunSummary(run_id="r", site_name=name))
+    same_host = [
+        SiteJob(site_name=name, site_config=SiteConfig(base_url=HttpUrl("https://shared.example")))
+        for name in ("one", "two")
+    ]
+    discovery_patch, render_patch = _patch_runners(AsyncMock(side_effect=discover), render)
+
+    with discovery_patch, render_patch:
+        await run_jobs(same_host, max_urls=10, batch_size=5, store_factory=_factory(tmp_path))
+
+    assert peak == 1
+    assert all(job.progress.phase == "done" for job in same_host)

@@ -614,3 +614,26 @@ async def test_cancel_while_waiting_on_rate_limiter_starts_no_request(tmp_path: 
     store.close()
     assert summary.cancelled
     browser.arun.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_cancelled_control_stops_before_the_robots_request(tmp_path: Path) -> None:
+    store = ManifestStore(path=str(tmp_path / "manifest.db"))
+    seed_record(store)
+    control = JobControl()
+    control.cancel()
+    robots = AsyncMock(return_value=RobotsRules(reachable=True))
+
+    with (
+        patch("tapio_crawler.crawler.crawler.fetch_robots_rules", robots),
+        patch("tapio_crawler.crawler.crawler.DEFAULT_CONTENT_DIR", tmp_path),
+    ):
+        summary = await Crawl4AICrawler("example", site_config(), store).crawl(
+            max_urls=10,
+            batch_size=5,
+            control=control,
+        )
+
+    store.close()
+    assert summary.cancelled
+    assert robots.await_args.kwargs["rate_limiter"].control is control

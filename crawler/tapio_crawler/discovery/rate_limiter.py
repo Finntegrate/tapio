@@ -28,6 +28,10 @@ class Checkpoint(Protocol):
         """Wait out any pause; return ``False`` if the job was cancelled."""
         ...
 
+    async def wait_cancelled(self) -> None:
+        """Block until the job is cancelled."""
+        ...
+
 
 @dataclass
 class EffectiveDelay:
@@ -98,6 +102,24 @@ class HostRateLimiter:
         if self.control is not None and not await self.control.checkpoint():
             raise OperatorCancelledError
 
+    async def _sleep_unless_cancelled(self, seconds: float) -> None:
+        """Sleep, but wake immediately (and raise) if the job is cancelled.
+
+        A long ``Retry-After`` suspension must not hold a cancelled job open.
+        """
+        if self.control is None:
+            await asyncio.sleep(seconds)
+            return
+        sleeper = asyncio.ensure_future(asyncio.sleep(seconds))
+        cancelled = asyncio.ensure_future(self.control.wait_cancelled())
+        try:
+            await asyncio.wait({sleeper, cancelled}, return_when=asyncio.FIRST_COMPLETED)
+        finally:
+            sleeper.cancel()
+            cancelled.cancel()
+        if cancelled.done() and not cancelled.cancelled():
+            raise OperatorCancelledError
+
     async def wait_for_turn(self) -> None:
         """Block until this host's next request may be sent, then reserve it.
 
@@ -108,7 +130,7 @@ class HostRateLimiter:
         async with self._lock:
             wait_seconds = max(0.0, self._next_available_at - time.monotonic())
             if wait_seconds > 0:
-                await asyncio.sleep(wait_seconds)
+                await self._sleep_unless_cancelled(wait_seconds)
             await self._checkpoint()
             self._next_available_at = time.monotonic() + self.min_delay
 

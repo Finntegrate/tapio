@@ -134,3 +134,20 @@ async def test_wait_for_turn_blocks_while_paused_and_raises_on_cancel() -> None:
     control.cancel()
     with pytest.raises(OperatorCancelledError):
         await asyncio.wait_for(waiter, timeout=1)
+
+
+@pytest.mark.asyncio
+async def test_cancel_interrupts_a_long_suspension_wait() -> None:
+    from tapio_crawler.crawler.job_control import JobControl
+    from tapio_crawler.discovery.rate_limiter import OperatorCancelledError
+
+    control = JobControl()
+    limiter = HostRateLimiter(min_delay=0, max_delay=0, control=control)
+    limiter.suspend_for_retry_after("3600")
+
+    waiter = asyncio.ensure_future(limiter.wait_for_turn())
+    await asyncio.sleep(0.02)
+    control.cancel()
+
+    with pytest.raises(OperatorCancelledError):
+        await asyncio.wait_for(waiter, timeout=1)

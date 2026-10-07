@@ -15,6 +15,7 @@ import os
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass, field
 from typing import Literal
+from urllib.parse import urlparse
 
 import psutil
 
@@ -214,9 +215,14 @@ async def run_jobs(  # noqa: PLR0913
         store_factory: Opens one manifest connection per job.
     """
     limit = asyncio.Semaphore(max_concurrent_sites or max(1, len(jobs)))
+    # Each job paces its own requests, so two sites on one host would add up to
+    # more than that host's configured rate; run such jobs one after another.
+    host_locks: dict[str, asyncio.Lock] = {}
 
     async def gated(job: SiteJob) -> None:
-        async with limit:
+        host = urlparse(str(job.site_config.base_url)).hostname or job.site_name
+        host_lock = host_locks.setdefault(host, asyncio.Lock())
+        async with host_lock, limit:
             await _run_job(
                 job,
                 mode=mode,
