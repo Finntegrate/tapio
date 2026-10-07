@@ -130,19 +130,9 @@ A scheduled job deletes expired conversations and expired anonymous sessions. Re
 
 Free-text content in a conversation can include anything the person typed. Account minimization does not reduce that, so the guidance to avoid sharing identifying details (PRD §7.5) and the retention bound are the controls that apply to it.
 
-## Quotas
+## Quotas and abuse controls
 
-Quotas bound cost, particularly for paid tool calls ([#32](https://github.com/Finntegrate/tapio/issues/32)). They are scoped to a principal and, when affiliated, also to a partner organization.
-
-| Scope | Counted against | Notes |
-| --- | --- | --- |
-| Anonymous | The session, plus a coarse network bucket | The tightest limits |
-| Registered | The account | Higher limits |
-| Partner | The organization, in aggregate | A ceiling on affiliated usage, not a per-person allowance |
-
-An anonymous session can be recreated by clearing cookies, so the network bucket exists to bound that. It is derived from a keyed hash of the address truncated to a coarse prefix, with a key that rotates daily, and it is held only in memory or short-lived storage with a time-to-live of at most 24 hours. The address itself is not logged or persisted. The bucket is an abuse signal and is never joined to an account, a conversation, or a partner report.
-
-Exceeding a limit returns a plain-language message saying what happened and when use resumes. The message never implies wrongdoing and, where an organization ceiling is reached, does not blame the individual.
+Budgets, edge limits, the global spend ceiling, and the controls that keep an anonymous endpoint from being used to spend the project's money are specified in [abuse and cost controls](abuse-and-cost-controls.md), under [ADR 0009](../ADRs/0009-abuse-and-cost-controls.md). This specification fixes only what they must not do: any network-derived value is an abuse signal held briefly and never joined to an account, a conversation, or a partner report.
 
 ## Storage
 
@@ -178,7 +168,7 @@ Finntegrate operators, not the public API, can create and retire partner organiz
 - Deletion: after deleting a conversation or account, no checkpoint or ownership row remains.
 - Retention: the expiry job removes conversations past their bound and leaves those inside it.
 - Aggregates: any breakdown, and any pair of breakdowns whose difference could isolate fewer than the minimum, is withheld.
-- Quotas: the network bucket is never persisted past its time-to-live and never appears in an account or partner record.
+- Abuse signals: a network-derived value is never persisted past its time-to-live and never appears in an account or partner record.
 
 ## Delivery
 

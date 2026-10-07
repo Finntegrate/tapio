@@ -60,7 +60,7 @@ Operating budget also rules out a persistent managed database for now, so the de
 
 ### Risks
 
-- Anonymous usage still has to be rate-limited, which tempts collecting a network identifier. A network address is personal data under GDPR, so whatever limits abuse must hold it briefly and not in a form that identifies a person.
+- Anonymous usage still has to be bounded against abuse, which tempts collecting a network identifier. [ADR 0009](0009-abuse-and-cost-controls.md) decides how; whatever it does must hold a network address briefly and not in a form that identifies a person, since it is personal data under GDPR.
 - Small partners produce small aggregates. If the withholding rule is too lenient a partner can infer an individual; if too strict a small partner sees nothing useful. The threshold needs review against real pilot volumes.
 - Free-text conversation content can contain anything a user volunteers. Minimizing account fields does not minimize what is typed into a conversation, so retention and deletion carry most of the protection.
 - Controller status, lawful basis, and data-protection-officer questions are decided in [#40](https://github.com/Finntegrate/tapio/issues/40) and [#101](https://github.com/Finntegrate/tapio/issues/101). This ADR assumes those will not require collecting more than it proposes, and must be revisited if they do.
@@ -93,11 +93,12 @@ Rejected. A list of who a partner referred is exactly the identifiable record th
 
 ### Network-address-based identity for quotas
 
-Rejected as a durable identifier. Retained only as a short-lived abuse signal under the constraint stated in Risks.
+Rejected as a durable identifier. Retained only as a short-lived abuse signal, as [ADR 0009](0009-abuse-and-cost-controls.md) specifies.
 
 ## References
 
 - [Specification: authentication and tenancy](../specs/auth-and-tenancy.md) — the mechanism this decision commits to
+- [ADR 0009: Abuse and cost controls](0009-abuse-and-cost-controls.md)
 - [PRD §5, §7.5–7.7, §11](../PRD.md)
 - [#30: Design auth and tenancy model](https://github.com/Finntegrate/tapio/issues/30)
 - [#16](https://github.com/Finntegrate/tapio/issues/16), [#31](https://github.com/Finntegrate/tapio/issues/31), [#32](https://github.com/Finntegrate/tapio/issues/32), [#35](https://github.com/Finntegrate/tapio/issues/35), [#40](https://github.com/Finntegrate/tapio/issues/40), [#45](https://github.com/Finntegrate/tapio/issues/45), [#46](https://github.com/Finntegrate/tapio/issues/46), [#101](https://github.com/Finntegrate/tapio/issues/101)
