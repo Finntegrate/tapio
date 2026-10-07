@@ -114,6 +114,7 @@ Rejected. It reverses [ADR 0008](0008-auth-and-tenancy.md)'s protective default,
 - [Specification: abuse and cost controls](../specs/abuse-and-cost-controls.md) — the mechanism this decision commits to
 - [ADR 0008: Anonymous by default](0008-auth-and-tenancy.md) and its [specification](../specs/auth-and-tenancy.md)
 - [ADR 0010: Server-held conversation history](0010-server-held-conversation-history.md)
+- [ADR 0011: Privacy and security baseline](0011-privacy-and-security-baseline.md)
 - [Guardrails](../specs/guardrails.md) and [crisis and escalation resources](../specs/crisis-escalation-resources.md)
 - [PRD §5](../PRD.md)
 - [#32: Usage quotas and rate limiting](https://github.com/Finntegrate/tapio/issues/32), [#17: Tool registry and cost guard](https://github.com/Finntegrate/tapio/issues/17), [#16: Checkpointer](https://github.com/Finntegrate/tapio/issues/16), [#37](https://github.com/Finntegrate/tapio/issues/37), [#38](https://github.com/Finntegrate/tapio/issues/38), [#44: Production deployment](https://github.com/Finntegrate/tapio/issues/44)

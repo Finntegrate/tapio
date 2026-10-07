@@ -81,5 +81,6 @@ Rejected as the only control. It protects a stolen disk but not a running host, 
 - [Specification: conversation history](../specs/conversation-history.md) — the mechanism this decision commits to
 - [ADR 0008: Anonymous by default](0008-auth-and-tenancy.md), which owns conversation ownership and principals
 - [ADR 0009: Abuse and cost controls](0009-abuse-and-cost-controls.md), which depends on server-held history
+- [ADR 0011: Privacy and security baseline](0011-privacy-and-security-baseline.md), which limits what conversations may be used for
 - [PRD §5, §7.5–7.6](../PRD.md)
 - [#16: Checkpointer](https://github.com/Finntegrate/tapio/issues/16), [#35: Saved conversations](https://github.com/Finntegrate/tapio/issues/35), [#40: GDPR compliance review](https://github.com/Finntegrate/tapio/issues/40)
