@@ -9,6 +9,9 @@ body:
         Thanks for suggesting an improvement! Please describe the feature and the
         problem it solves.
 
+        If you'd like to see Tapio grow, please also [star the repository](https://github.com/Finntegrate/tapio).
+        It's the easiest way to support the project and helps other people find it.
+
   - type: textarea
     id: problem
     attributes:
