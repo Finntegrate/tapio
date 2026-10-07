@@ -31,7 +31,7 @@ The users are people for whom a leak can mean deportation or exposure to a perse
 
 **People can exercise their rights without being identified.** A registered person can see, export, and delete their conversations and delete their account. An anonymous person can see and delete their conversations and end their session. Tapio does not identify anyone in order to answer a request, and says so (GDPR Art. 11).
 
-**The language model gets the least privilege that lets it answer.** A turn loads only the caller's own conversation. Tools are read-only and cannot reach the identity or conversation stores. Retrieved content and user messages are passed to the model as data, never as instructions. Model output is rendered as text, never as markup that can run in the browser.
+**The language model gets the least privilege that lets it answer.** A turn loads only the caller's own conversation. Tools are read-only and cannot reach the identity or conversation stores. Retrieved content and user messages are treated as untrusted: prompt structure marks them as such, but nothing assumes the model will obey that marking, so the boundary that matters is what the server and tools let a turn reach. Model output is rendered as text, never as markup that can run in the browser.
 
 **Operators are few, strongly authenticated, and accountable.** Access to production, its secrets, and the operator command requires phishing-resistant multi-factor authentication and a personal account. Every operator action is logged and the log is reviewed. Proof of who did what is kept for operators only; recording which person did what is a non-goal for users, because it would contradict anonymity.
 

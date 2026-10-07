@@ -67,9 +67,11 @@ Every data item Tapio holds. An item not listed here may not be stored.
 | Network bucket | Limit attempts and turns from one source | At most 24 hours | Memory only |
 | Operational metrics | Run the service and size its limits | 90 days | Metrics store; no content or identity |
 | Operator audit log | Hold operators accountable | 12 months | Append-only log |
-| Prompts at the model provider | Generate the answer | The provider's terms | Provider |
-| Traffic at the hosting edge | Deliver and protect the service | The edge's terms | Edge |
-| Sign-in mail at the email processor | Deliver one code | The processor's terms | Email processor |
+| Prompts at the model provider | Generate the answer | The bound in the provider's terms, recorded here when chosen | Provider |
+| Traffic at the hosting edge | Deliver and protect the service | The bound in the edge's terms, recorded here when chosen | Edge |
+| Sign-in mail at the email processor | Deliver one code | The bound in the processor's terms, recorded here when chosen | Email processor |
+
+A processor's row is complete only when it states a number of days, or "none" for zero retention, taken from that processor's signed terms, and the transparency notice states the same bound. The beta does not open with a model provider or edge row incomplete, and accounts do not ship with the email processor's row incomplete.
 
 ## Purpose limitation
 
@@ -115,7 +117,7 @@ The model is treated as untrusted. Its input can contain instructions from users
 
 - A turn's graph is given only the caller's own conversation, loaded by the server. No tool accepts a `thread_id`, session, or account as an argument.
 - Registered tools are read-only and free during the beta ([#17](https://github.com/Finntegrate/tapio/issues/17)). No tool holds a handle to the identity or checkpoint store, the secret store, or the operator command.
-- Retrieved passages and user messages are placed in the prompt as delimited data, separately from system instructions.
+- Retrieved passages and user messages are placed in the prompt in delimited sections, separate from system instructions. Delimiters help the model tell the sections apart; they do not stop it following instructions inside them, so no control in this specification relies on them. Isolation is enforced by what the server loads and what the tools can reach.
 - Model output is rendered in the browser as text, or as a restricted Markdown subset with raw HTML disabled and links limited to `https` URLs. Nothing from the model is inserted into the page as HTML.
 
 ## Operators
@@ -131,7 +133,13 @@ A written plan, kept with the operator documentation, names an incident owner an
 1. **Contain:** close the service if needed, stop affected codes, revoke sessions, and rotate affected keys ([auth and tenancy](auth-and-tenancy.md#keys)).
 2. **Assess:** what was reachable, using the purposes register. Anonymous conversation content is unreadable without the browser key, which bounds most assessments.
 3. **Notify:** the Finnish data protection authority within 72 hours where Art. 33 requires it.
-4. **Inform:** affected people where Art. 34 requires it. Anonymous people and registered people cannot be contacted directly, because no address is kept, so information is published on the service's front page and passed to partners to share.
+4. **Inform:** affected people where Art. 34 requires it. No one can be contacted directly, because no address is kept, so Tapio uses public communication as Art. 34(3)(c) allows, through every channel that can reach them:
+   - a notice shown inside the service to every session and account on its next visit, before the first message, until the longest retention period affected has passed,
+   - a notice on the service's front page for the same period,
+   - every partner whose codes admitted affected sessions, asked to pass a prepared, translated message through its own channels to the people it referred,
+   - a statement to the data protection authority of which channels were used and why direct contact was impossible.
+
+   The incident record notes which channels were used and what reach each had (in-service notices shown, partners who confirmed forwarding), and the plan accepts that people who neither return nor stay in contact with a partner cannot be reached. That limit follows from keeping no contact details, and is stated in the privacy notice in advance.
 5. **Learn:** record the incident and update this specification and its tests.
 
 ## Accountability
@@ -151,7 +159,7 @@ A written plan, kept with the operator documentation, names an incident owner an
 
 ## Delivery
 
-Before the beta admits anyone: purpose limitation and the provider's no-training terms, the observability rules and the tracing check, the transparency notice, the language-model restrictions, operator authentication and the audit log, the breach plan, and the CI gate. Export ships with registered accounts.
+Before the beta admits anyone: the lawful basis for each processing purpose ([#40](https://github.com/Finntegrate/tapio/issues/40)) and a completed data protection impact assessment ([conversation history](conversation-history.md#delivery)), processor retention bounds recorded in the purposes register and the notice, purpose limitation and the provider's no-training terms, the observability rules and the tracing check, the transparency notice, the language-model restrictions, operator authentication and the audit log, the breach plan, and the CI gate. Export ships with registered accounts.
 
 ## Open questions
 

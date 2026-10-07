@@ -56,10 +56,12 @@ A signed-in person can delete their account at any time. Deletion removes the ac
 
 ## Sign-in
 
-1. The person types an email address. The server sets a short-lived, random sign-in cookie on that browser and creates a pending sign-in holding a hash of that cookie, the email hash, a hash of a fresh 6-digit code, an expiry of 10 minutes, and an attempt count.
+1. The person types an email address. The server sets a random sign-in cookie on that browser and creates a pending sign-in holding a hash of that cookie, the email hash, a hash of a fresh 6-digit code, an expiry of 10 minutes, and an attempt count. The cookie is named with the `__Host-` prefix, is `HttpOnly`, `Secure`, `SameSite=Strict`, and `Path=/`, and expires after 10 minutes.
 2. The server sends the code to the typed address and discards the address.
-3. The person types the code into the same browser. The server accepts it only if the request carries the sign-in cookie of that pending sign-in, the code matches, the sign-in has not expired, and fewer than 5 attempts have been made. Otherwise the pending sign-in is discarded after the fifth wrong code.
-4. On success the server finds the account by email hash, creating one if none exists, and issues a registered session. The pending sign-in is deleted.
+3. The person types the code into the same browser. The server accepts it only if the request carries the sign-in cookie of that pending sign-in, the code matches, the sign-in has not expired, and fewer than 5 attempts have been made. The fifth wrong code discards the pending sign-in.
+4. On success the server finds or creates the account and issues a registered session, as one write transaction: it looks the address up under every active key version, creates an account only if none matches, and relies on a uniqueness constraint on the email hash so that two concurrent sign-ins for one address cannot create two accounts. The pending sign-in is deleted.
+
+Whenever a pending sign-in ends — success, expiry, or the fifth wrong code — the server deletes it and clears the sign-in cookie.
 
 The response to step 1 is the same whether or not the address has an account. Requests are rate limited per email hash (5 per hour) and per network bucket ([abuse and cost controls](abuse-and-cost-controls.md#rate-limits)).
 
@@ -129,7 +131,7 @@ A partner administrator sees a fixed set of reports for their organization, comp
 
 There are no ad-hoc filters, custom date ranges, or per-code breakdowns, so no two reports can be subtracted to isolate a person. Any figure below a minimum cell size (initially 10) is withheld and reported as "fewer than 10". Guardrail categories (`crisis`, `legal_sensitive`) are never reported to partners. For employer partners, topic breakdowns are withheld entirely, since an employer holds power over the people it refers. Reports are built from aggregate counts, never from rows keyed to a person or conversation, and contain no message content.
 
-Which events feed these counts, and the consent that covers collecting them, is decided in [#101](https://github.com/Finntegrate/tapio/issues/101) and [#45](https://github.com/Finntegrate/tapio/issues/45); this specification only fixes the boundary that they must produce these aggregates and nothing finer.
+Which events feed these counts, and the consent that covers collecting them, is decided in [#101](https://github.com/Finntegrate/tapio/issues/101) and [#45](https://github.com/Finntegrate/tapio/issues/45); this specification only fixes the boundary that they must produce these aggregates and nothing finer. The list above is the whole report set. Outcome signals, which PRD §7.7 anticipates, join it only when those issues define each signal, its source event, and its consent, and every signal added is subject to the same monthly organization-level aggregation, minimum cell size, and exclusions.
 
 ## Conversation ownership
 
@@ -184,7 +186,8 @@ Account deletion is self-service after sign-in, which is the proof that the acco
 - Roles: a partner administrator cannot read any conversation, including those of affiliated users.
 - Account data: no stored row, log line, analytics event, checkpoint, or report contains an email address; a test asserts this against the stores and captured output of a full sign-in and chat flow.
 - Sign-in binding: a correct code submitted from a browser without the pending sign-in's cookie does not sign in and does not claim conversations.
-- Sign-in: codes are single-use, expire, and stop working after five wrong attempts; the response to a request does not reveal whether an address is registered.
+- Sign-in: codes are single-use, expire, and stop working after five wrong attempts; the response to a request does not reveal whether an address is registered; the sign-in cookie is cleared when its pending sign-in ends.
+- Accounts: two concurrent successful sign-ins for one new address produce one account.
 - Affiliation: arriving with a partner code and taking no action stores no affiliation.
 - Reports: no report has a figure below the threshold, a per-code breakdown, a guardrail category, or, for an employer, a topic breakdown.
 - Sessions: signing out everywhere ends every session of the account on its next request.

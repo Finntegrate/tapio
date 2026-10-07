@@ -124,7 +124,7 @@ A user can let Tapio route automatically, pick a guide explicitly, or reach one 
 
 ### 7.7 Partner visibility
 
-- Partner organizations that refer people to Tapio can see aggregate, privacy-respecting usage and outcome signals relevant to their own advising work (never individual users' conversations).
+- Partner organizations that refer people to Tapio can see aggregate, privacy-respecting usage and outcome signals relevant to their own advising work (never individual users' conversations). Which signals are reported, and from which events, is fixed in the [authentication and tenancy specification](specs/auth-and-tenancy.md#what-a-partner-can-see); outcome signals are added there only once #45 and #101 define them.
 - Partners can be organized and reported on as distinct entities from individual end users; partner-level reporting is built from aggregate counts, not from identifiable user records.
 
 ## 8. Non-goals

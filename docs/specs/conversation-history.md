@@ -28,7 +28,7 @@ The server is the only source of a conversation's history ([ADR 0010](../ADRs/00
 
 ### The request
 
-A turn request carries the `thread_id`, the new message, and a client-generated `client_message_id`. Nothing else from the conversation is accepted. A request carrying any history field is rejected with a validation error, not silently ignored, so a client bug is visible rather than masked.
+A turn request carries the `thread_id`, the new message, and a client-generated `client_message_id`. Nothing else from the conversation is accepted. A request carrying any history field, including an empty one, is rejected with a validation error, not silently ignored, so a client bug is visible rather than masked. The current `ChatRequest` schema accepts a `history` list and the `/chat/stream` route forwards it; replacing that schema is part of [delivery](#delivery).
 
 The server loads prior turns from the checkpointer, selects what the model sees (see [What the model sees](#what-the-model-sees)), and runs the turn.
 
@@ -50,13 +50,19 @@ A turn whose guardrail classification matched `crisis` or `legal_sensitive` alwa
 
 ### Disconnects
 
-A turn does not end because the client went away. Once `accepted` it runs to `completed` or `failed` within its bounds, and is persisted. The admission slot is held until the last upstream model call has returned or been aborted, so a disconnect cannot free capacity while spend continues ([abuse and cost controls](abuse-and-cost-controls.md#admission)). A client that reconnects refetches the conversation and sees the answer.
+A turn does not end because the client went away. Once `accepted`, the turn runs in a worker of its own, not inside the response stream, and runs to `completed` or `failed` within its bounds, and is persisted. The stream only observes the turn's progress. This separation is required because the server-sent-events library cancels the response's tasks when the client disconnects, which would otherwise stop the turn with it. The admission slot is held until the last upstream model call has returned or been aborted, so a disconnect cannot free capacity while spend continues ([abuse and cost controls](abuse-and-cost-controls.md#admission)). A client that reconnects refetches the conversation and sees the answer.
 
 ### Duplicate sends
 
 The `client_message_id` exists only to make a retry safe. If a request arrives with a `client_message_id` the server has already seen on that conversation, it returns the existing turn's state or result instead of running the turn again. The id is random, carries no meaning, and is kept only as long as the turn it belongs to.
 
 A conversation runs at most one turn at a time.
+
+### Process failure
+
+If the process stops while a turn is `accepted`, the answer it was producing is lost, even if the provider had already returned it. A retry with the same `client_message_id` then runs the turn again and pays for it again. This is accepted rather than engineered away: it needs a crash at a precise moment, and the turn-start rate bounds what it can cost.
+
+An `accepted` marker never outlives its turn. On startup, and whenever a marker is older than the turn duration plus one model-call timeout ([abuse and cost controls](abuse-and-cost-controls.md#request-bounds)), the marker is treated as `failed` and removed, so a stale marker cannot block the conversation.
 
 ### What the model sees
 
@@ -95,6 +101,8 @@ When an anonymous person signs in and chooses to keep their conversations ([auth
 ## Deletion
 
 Deleting a conversation removes every checkpoint, checkpoint write, and stored blob for its `thread_id`, its ownership record, and, for a registered conversation, its data key. There is no soft delete and no archive. Deletion is idempotent.
+
+Deletion wins over a turn in progress. Deleting a conversation, ending a session, or deleting an account aborts any `accepted` turn it covers. A turn's final write is conditional: in the same transaction, it checks that the conversation's ownership record still exists, and writes nothing if it does not. A turn that finishes after its conversation was deleted therefore cannot recreate content or ownership.
 
 Because the key is destroyed, a deleted conversation is unreadable even where its bytes survive. The store is also configured not to leave them: SQLite runs with `secure_delete` on, the write-ahead log is checkpointed and truncated after each expiry run, and the database is vacuumed on a schedule.
 
@@ -166,8 +174,10 @@ Finntegrate publishes, at least yearly, how many demands it received and how man
 
 - History: a turn request carrying client-supplied history is rejected; the model receives only server-held turns, within the configured window.
 - Lifecycle: a failed turn persists nothing and is absent from the next turn's model input; a completed turn persists message and answer together.
-- Disconnect: closing the stream after acceptance still produces a persisted answer, and the admission slot is not released until the upstream call ends.
+- Disconnect: closing the stream after acceptance, waiting for the turn to finish, and refetching shows the persisted answer, and the admission slot is not released until the upstream call ends.
 - Duplicates: two requests with the same `client_message_id` run one turn.
+- Process failure: after a restart, a leftover `accepted` marker is removed and the conversation accepts a new turn.
+- Deletion during a turn: deleting a conversation, ending its session, or deleting its account while a turn is `accepted` leaves no checkpoint, ownership record, or key for it once the turn ends.
 - Plaintext: after a completed turn containing a distinctive test string, neither the database file nor its write-ahead log contains that string.
 - Anonymous key: with the store and every server secret but without the cookie, the conversation cannot be decrypted.
 - Deletion: after deleting a conversation and running maintenance, no row for its `thread_id` remains in any checkpointer table, and for a registered conversation its data key is gone.
@@ -182,7 +192,7 @@ Before the beta admits anyone:
 
 1. The lawful basis for holding conversation content is decided under [#40](https://github.com/Finntegrate/tapio/issues/40), and a data protection impact assessment covering anonymous conversation storage is completed.
 2. The model provider's retention and processing region, and the hosting edge's, are settled and in the privacy notice.
-3. Server-held, encrypted history replaces the client-supplied `history` field in the chat API, with the client hydration above ([#16](https://github.com/Finntegrate/tapio/issues/16)).
+3. Server-held, encrypted history replaces the client-supplied `history` field in the chat API: `ChatRequest` carries `thread_id`, `message`, and `client_message_id`, rejects any `history` field, and turns run detached from the response stream, with the client hydration above ([#16](https://github.com/Finntegrate/tapio/issues/16)).
 
 Registered conversations follow with accounts ([#31](https://github.com/Finntegrate/tapio/issues/31), [#35](https://github.com/Finntegrate/tapio/issues/35)).
 

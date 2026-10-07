@@ -127,7 +127,7 @@ max cost per call  = max_input_tokens × input_price
                    + max_output_tokens × output_price
 ```
 
-`max_input_tokens` is the largest input any call in a turn can send: the system prompt, the guide's prompt, the retrieved passages (the retrieval count times the largest chunk), the history window, and the message, or the guardrail classifier's prompt and examples with the message if that is larger. Each component has its own configured bound, and their sum is checked at startup.
+`max_input_tokens` is the largest input any call in a turn can send: the system prompt, the guide's prompt, the retrieved passages (the retrieval count times the largest chunk), the history window, the message, and the results of the turn's tool calls (the tool-call bound times the tool-result bound), or the guardrail classifier's prompt and examples with the message if that is larger. Each component has its own configured bound, and their sum is checked at startup.
 
 The worst case for one code is computed the same way, from `max_turns_per_day`.
 
@@ -155,7 +155,9 @@ Applied before a turn runs and enforced during it. Initial values are configurat
 | Orchestration steps | 10 | Graph recursion limit |
 | Model calls per turn | 7: three guardrail checks, each retried once, plus one answer or introduction | Counted at the model client |
 | Tool calls per turn | 3 | Counted per turn |
-| Turn duration | 120 seconds | Stopped; spend so far counts |
+| Tool result | 500 tokens | Truncated before the result enters a prompt, including error text that echoes arguments |
+| Model call duration | 60 seconds | Timeout set on the model client, so a call that cannot be cancelled still ends |
+| Turn duration | 120 seconds | Stopped, aborting in-flight calls; spend so far counts |
 
 Every model the service builds, including the guardrail classifier's and the guardrail introduction's, is built through one factory that attaches a per-turn call counter, so a new call site cannot escape the count. Provider client libraries' own automatic retries are set to zero; retries the service makes are its own and are counted. The model-call bound is the worst case of the current graph and is revised whenever the graph changes.
 
@@ -166,13 +168,13 @@ A message over a bound gets a translated explanation, never a bare status code.
 A turn starts only when it has both a start token and a slot.
 
 - **Turn-start rate.** A service-wide token bucket allows `turn_start_rate_per_minute` turns to start, with a burst of the same size. This is what bounds spend.
-- **Concurrency limit.** At most `concurrency_limit` turns run at once, sized from the provider's own rate limits and response times. A turn holds its slot until its last upstream model call has returned or been aborted, not merely until its client disconnects or its handler is cancelled.
+- **Concurrency limit.** At most `concurrency_limit` turns run at once, sized from the provider's own rate limits and response times. A turn holds its slot until its last upstream model call has returned or been aborted, not merely until its client disconnects or its handler is cancelled. Some calls run in worker threads that ignore cancellation, so the model-call timeout is what guarantees the call ends: a slot is held for at most the turn duration plus one model-call timeout, and `concurrency_limit` is sized with that tail included.
 - **One per session.** A session runs at most one turn at a time. A second request from the same session while a turn is running is refused with "Still answering your last message", and the client prevents it from being sent.
 - **Per-code share.** The sessions of one code hold at most `max_share` of the slots at once, and the code's turns stop starting once it reaches `max_turns_per_day`.
 
 A request that cannot start yet joins a queue. While it waits, the stream sends a `queued` event and the interface shows that the guide will answer in a moment. When a start token and a slot are both free, the queue starts the oldest waiting request whose code is under its share, so one code's backlog never holds up another code's users.
 
-The queue holds at most `queue_limit` requests, and no request waits longer than 20 seconds. Past either bound the request is refused with a plain busy message and the emergency line, and the person's text stays in the input so retrying needs no retyping.
+The queue holds at most `queue_limit` requests, of which one code's sessions may hold at most `max_share`, so a code at its share cannot fill the queue and turn away other codes' users. No request waits longer than 20 seconds. Past either bound the request is refused with a plain busy message and the emergency line, and the person's text stays in the input so retrying needs no retyping.
 
 ## Rate limits
 
@@ -236,7 +238,9 @@ Alerts to Finntegrate operators:
 - Loops: a graph that would exceed its step, model-call, or tool-call bound is stopped at the bound.
 - Spend bound: with clients that disconnect immediately after starting, turns start no faster than the turn-start rate, and no slot is released before its upstream call ends.
 - Admission: with more concurrent requests than slots, at most `concurrency_limit` turns run, waiting requests receive a `queued` event, and a session cannot hold two slots.
-- Fairness: one code's sessions cannot hold more than `max_share` of slots or start more than `max_turns_per_day` turns, and another code's queued request starts ahead of them.
+- Fairness: one code's sessions cannot hold more than `max_share` of slots or of queue positions, or start more than `max_turns_per_day` turns, and another code's queued request starts ahead of them.
+- Tail: a model call that ignores cancellation ends at the model-call timeout, and its slot is released then.
+- Tool results: a tool result longer than its bound, including an error echoing an oversized argument, is truncated before the next model call.
 - Codes: unknown, stopped, expired, and exhausted codes produce byte-identical responses; ending a code's sessions refuses them on their next request; a new code restores an ended session with its conversations; normalization accepts case and hyphen variants.
 - Entry form: attempts beyond the per-bucket limit are refused, and no code becomes unusable because of failed attempts against it.
 - Client address: a forwarding header on a connection not from the edge is ignored.
