@@ -2,6 +2,9 @@
 
 Thank you for considering contributing to Tapio Assistant! This document provides guidelines and instructions for contributing to this project.
 
+> [!TIP]
+> Not every contribution is code. If you haven't already, **[star the repository](https://github.com/Finntegrate/tapio)**. It's the quickest way to support the project, and it helps other contributors, partner organizations, and funders find Tapio. See [Support Tapio](README.md#support-tapio) for more ways to help without writing code.
+
 ## Table of Contents
 
 - [Contributing to Tapio Assistant](#contributing-to-tapio-assistant)

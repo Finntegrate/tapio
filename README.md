@@ -8,6 +8,7 @@
 <!-- ALL-CONTRIBUTORS-BADGE:END -->
 [![Service CI](https://github.com/Finntegrate/tapio/actions/workflows/ci.yaml/badge.svg)](https://github.com/Finntegrate/tapio/actions/workflows/ci.yaml)
 [![License: EUPL-1.2](https://img.shields.io/badge/license-EUPL--1.2-blue.svg)](LICENSE)
+[![GitHub stars](https://img.shields.io/github/stars/Finntegrate/tapio?style=flat-square&logo=github&label=Star)](https://github.com/Finntegrate/tapio/stargazers)
 
 </div>
 <!-- markdownlint-restore -->
@@ -17,6 +18,8 @@
 Moving to a new country means learning an unfamiliar bureaucracy in a language you may not read fluently, from a dozen different authorities that don't talk to each other. Tapio is a first stop: it answers in plain language, tells you exactly which official page an answer came from, and hands you off to a specialist guide when your question crosses into their territory — all without asking who you are.
 
 🔗 **Live roster and product overview:** [finntegrate.org/tapio](https://finntegrate.org/tapio/)
+
+⭐ **If you'd like newcomers to Finland to have a tool like this, [star the repository](https://github.com/Finntegrate/tapio).** It takes one click and it's the easiest way to support the project. [Here's why it helps.](#support-tapio)
 
 > [!NOTE]
 > **Project status:** Tapio is in active development. The coordinator plus four specialists (Ilmarinen, Sampo, Rauni, Otso) are live today; seven more guides on the public roster are planned but not yet built (see [the guide network](#the-guide-network) below). Conversation history, accounts, and proactive guidance are also still on the roadmap — see the [PRD](docs/PRD.md) for what's shipped versus planned.
@@ -90,6 +93,20 @@ cd tapio
 
 Setup, dependencies, running the pipeline, LLM provider configuration, and troubleshooting are all in [CONTRIBUTING.md](CONTRIBUTING.md) — kept there rather than duplicated here so operational detail stays in one place as it changes.
 
+## Support Tapio
+
+Tapio is an open-source, volunteer-driven project with no operating budget. The simplest way to help is to **[star the repository on GitHub](https://github.com/Finntegrate/tapio)**:
+
+- **It makes the project easier to find.** Stars help Tapio show up when people search GitHub for immigration, civic tech, or multi-agent RAG projects, which is how most new contributors find it.
+- **It shows the work matters.** Partner organizations and funders deciding whether to back Tapio look for signs that people care about it. A star is a public, one-click way to show that.
+- **It keeps you in the loop.** Starred repositories show up in your GitHub feed and stars list, so you can come back to Tapio as more guides go live.
+
+Other ways to help that don't need any code:
+
+- **Share Tapio** with someone who works with newcomers to Finland, such as an integration service, NGO, employer, or student union.
+- **Watch the repository** (Watch → Custom → Releases) to hear when new guides ship.
+- **Open an issue** if a guide gave you a wrong, outdated, or unclear answer. Reports from real use are some of the most valuable contributions we get.
+
 ## Contributing
 
 Contributions of any kind are welcome — code, documentation, translations, or source research. See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, code style, and the pull request process.
@@ -121,3 +138,5 @@ Thanks goes to these wonderful people ([emoji key](https://allcontributors.org/d
 <!-- ALL-CONTRIBUTORS-LIST:END -->
 
 This project follows the [all-contributors](https://github.com/all-contributors/all-contributors) specification. Contributions of any kind welcome!
+
+If Tapio is useful to you or the people you work with, [give it a ⭐ on GitHub](https://github.com/Finntegrate/tapio). It helps others find the project.
