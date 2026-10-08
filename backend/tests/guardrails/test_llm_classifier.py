@@ -9,7 +9,7 @@ import pytest
 from langchain_ollama import ChatOllama
 
 from app.guardrails import GuardrailCategory, LLMGuardrailClassifier
-from app.guardrails.llm_classifier import GuardrailCheckResult, _ParseError
+from app.guardrails.llm_classifier import GuardrailCheckResult
 
 _NO_MATCH = GuardrailCheckResult(match=False, subtype="none", reason="")
 
@@ -71,7 +71,7 @@ def _build_classifier(
             raise outcome
         return outcome
 
-    classifier._structured_model = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
     return classifier
 
 
@@ -92,7 +92,7 @@ async def test_classify_runs_all_three_checks() -> None:
         calls.append(prompt)
         return _NO_MATCH
 
-    classifier._structured_model = SimpleNamespace(ainvoke=counting_ainvoke)
+    classifier._structured_model._runnable = SimpleNamespace(ainvoke=counting_ainvoke)
 
     await classifier.classify("Anything")
 
@@ -132,14 +132,14 @@ async def test_classify_fails_open_immediately_on_infra_error_without_retry(infr
     """A connection/timeout/server-level error is message-independent — fail open with no retry."""
     calls: list[str] = []
     classifier = _build_classifier(crisis=infra_error, legal_sensitive=_NO_MATCH, out_of_scope=_NO_MATCH)
-    real_ainvoke = classifier._structured_model.ainvoke
+    real_ainvoke = classifier._structured_model._runnable.ainvoke
 
     async def counting_ainvoke(prompt: str) -> GuardrailCheckResult:
         if "self-harm or" in prompt:
             calls.append(prompt)
         return await real_ainvoke(prompt)
 
-    classifier._structured_model = SimpleNamespace(ainvoke=counting_ainvoke)
+    classifier._structured_model._runnable = SimpleNamespace(ainvoke=counting_ainvoke)
 
     result = await classifier.classify("some message")
 
@@ -250,14 +250,17 @@ async def test_classify_falls_back_to_generated_reason_when_reason_is_blank() ->
     assert result.reason == "LLM classified as out_of_scope (none)."
 
 
-async def test_invoke_treats_an_unexpected_result_type_as_a_parse_error() -> None:
+async def test_classify_treats_an_unexpected_result_type_as_a_parse_error() -> None:
     """`with_structured_output` is expected to return a GuardrailCheckResult; anything else is a parse failure."""
     classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
 
-    async def fake_ainvoke(prompt: str) -> dict[str, bool]:
-        return {"match": True}
+    async def fake_ainvoke(prompt: str) -> dict[str, bool] | GuardrailCheckResult:
+        return {"match": True} if "self-harm or" in prompt else _NO_MATCH
 
-    classifier._structured_model = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
 
-    with pytest.raises(_ParseError):
-        await classifier._invoke("prompt")
+    result = await classifier.classify("some message")
+
+    # Two unparseable crisis responses in a row escalate conservatively.
+    assert result is not None
+    assert result.category is GuardrailCategory.CRISIS

@@ -1,14 +1,16 @@
 """Tests for guardrail interception copy (#29)."""
 
-from unittest.mock import Mock
+import json
 
 import pytest
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, BaseMessage
+from langchain_core.outputs import ChatGeneration, ChatResult
+from langchain_ollama import ChatOllama
+from pydantic import Field, ValidationError
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, CrisisResourceList
-from app.guardrails.responses import _INTRO_TIMEOUT_SECONDS, build_guardrail_response
+from app.guardrails.responses import _INTRO_TIMEOUT_SECONDS, GuardrailIntro, build_guardrail_response
 
 _DRAFT_RESOURCE_LIST = CrisisResourceList(
     version=1,
@@ -28,31 +30,47 @@ _DRAFT_RESOURCE_LIST = CrisisResourceList(
 )
 
 
+class _IntroModel(ChatOllama):
+    """A real ``ChatOllama`` whose provider call is replaced, so the structured-output chain still runs.
+
+    Each reply is the intro text the model "writes", returned as the JSON object Ollama's
+    structured-output mode produces; the last reply repeats once the list runs out.
+    """
+
+    replies: list[str] = Field(default_factory=list)
+    raises: bool = False
+    received: list[list[BaseMessage]] = Field(default_factory=list)
+
+    async def _agenerate(self, messages: list[BaseMessage], *args: object, **kwargs: object) -> ChatResult:
+        self.received.append(messages)
+        if self.raises:
+            msg = "The model call failed."
+            raise RuntimeError(msg)
+        text = self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=json.dumps({"text": text})))])
+
+
 def _patch_chat_model(
     monkeypatch: pytest.MonkeyPatch,
-    intro_text: str | None = "Localized intro text.",
+    intro_text: str | list[str] = "Localized intro text.",
     *,
     raises: bool = False,
-) -> Mock:
+) -> _IntroModel:
     """Patch the model ``_localized_intro`` builds for itself, and return it for assertions.
 
     ``build_guardrail_response`` builds its own short-timeout model per call (see
     ``app.guardrails.responses._localized_intro``) rather than taking an injected one, so
     tests control its behavior by patching the factory function it calls.
     """
-    model = Mock(spec=BaseChatModel)
-    if raises:
-        model.invoke.side_effect = RuntimeError("The model call failed.")
-    else:
-        model.invoke.return_value = AIMessage(content=intro_text)
+    replies = [intro_text] if isinstance(intro_text, str) else intro_text
+    model = _IntroModel(model="test-model", replies=replies, raises=raises)
     monkeypatch.setattr("app.guardrails.responses.build_chat_model", lambda *_args, **_kwargs: model)
     return model
 
 
-def _sent_prompt(model: Mock) -> str:
-    """Extract the prompt text ``_localized_intro`` passed to ``model.invoke``."""
-    messages = model.invoke.call_args.args[0]
-    return messages[-1]["content"]
+def _sent_prompt(model: _IntroModel) -> str:
+    """Extract the prompt text ``_localized_intro`` sent to the model."""
+    return str(model.received[-1][-1].content)
 
 
 async def test_out_of_scope_response_uses_the_localized_intro_only(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -81,6 +99,90 @@ async def test_crisis_response_appends_matching_resources_after_the_localized_in
     assert "General emergency number (112)" in response
     assert "112" in response
     assert "https://mieli.fi" in response
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Visit https://example.fi for help.",
+        "See www.example.com.",
+        "Katso lisää osoitteesta kela.fi.",
+        "Reach out through crisis-help.io today.",
+        "Help is at support.example.co.uk.",
+        "See [the helpline](/crisis) for support.",
+        "Write to help@example.org.",
+        "Soita numeroon 09 2525 0111.",
+        "Call 112 right away.",
+        "Ring +358 40 123 4567.",
+    ],
+)
+def test_guardrail_intro_rejects_contact_details(text: str) -> None:
+    with pytest.raises(ValidationError):
+        GuardrailIntro(text=text)
+
+
+@pytest.mark.parametrize("text", ["", "   "])
+def test_guardrail_intro_rejects_a_blank_intro(text: str) -> None:
+    with pytest.raises(ValidationError):
+        GuardrailIntro(text=text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "This sounds urgent. Please reach out to one of the services below.",
+        "Tämä kuulostaa kiireelliseltä. Ota yhteyttä alla oleviin palveluihin.",
+        "Det här låter brådskande, och hjälpen nedan finns tillgänglig 24/7.",
+        "هذا يبدو عاجلاً. يرجى التواصل مع إحدى الخدمات أدناه.",
+        "Some things, e.g. this, need human help, i.e. a trained person, etc. Please see below.",
+    ],
+)
+def test_guardrail_intro_accepts_plain_text_in_any_language(text: str) -> None:
+    assert GuardrailIntro(text=f"  {text}  ").text == text
+
+
+async def test_crisis_response_retries_an_intro_containing_a_phone_number(monkeypatch: pytest.MonkeyPatch) -> None:
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("mental_health_crisis", "emergency"),
+    )
+    model = _patch_chat_model(monkeypatch, ["Call 0800 123 456 now.", "This sounds urgent."])
+
+    response = await build_guardrail_response(match, "I want to kill myself.")
+
+    assert response.startswith("This sounds urgent.\n\n")
+    assert "0800 123 456" not in response
+    assert len(model.received) == 2
+
+
+async def test_crisis_response_falls_back_when_every_intro_contains_contact_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A model that keeps writing its own contact details never gets them shown."""
+    match = GuardrailMatch(
+        category=GuardrailCategory.CRISIS,
+        reason="risk to life",
+        resource_categories=("mental_health_crisis", "emergency"),
+    )
+    _patch_chat_model(monkeypatch, "Call the helpline at 0800 123 456 or visit https://made-up.example.")
+
+    response = await build_guardrail_response(match, "I want to kill myself.")
+
+    assert response.startswith("Please contact one of these services:\n\n")
+    assert "0800 123 456" not in response
+    assert "made-up.example" not in response
+    assert "MIELI Crisis Helpline" in response
+
+
+async def test_out_of_scope_response_raises_when_every_intro_contains_contact_details(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    match = GuardrailMatch(category=GuardrailCategory.OUT_OF_SCOPE, reason="off-topic")
+    _patch_chat_model(monkeypatch, "Try https://www.example.com instead.")
+
+    with pytest.raises(RuntimeError):
+        await build_guardrail_response(match, "Write me a poem.")
 
 
 async def test_legal_sensitive_response_lists_legal_aid_resources(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -201,11 +303,9 @@ async def test_localized_intro_uses_a_bounded_timeout(monkeypatch: pytest.Monkey
     match = GuardrailMatch(category=GuardrailCategory.OUT_OF_SCOPE, reason="off-topic")
     build_chat_model_calls: list[tuple[object, ...]] = []
 
-    def fake_build_chat_model(*args: object, **kwargs: object) -> Mock:
+    def fake_build_chat_model(*args: object, **kwargs: object) -> _IntroModel:
         build_chat_model_calls.append((args, kwargs))
-        model = Mock(spec=BaseChatModel)
-        model.invoke.return_value = AIMessage(content="Localized intro text.")
-        return model
+        return _IntroModel(model="test-model", replies=["Localized intro text."])
 
     monkeypatch.setattr("app.guardrails.responses.build_chat_model", fake_build_chat_model)
 

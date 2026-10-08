@@ -6,7 +6,11 @@ language the user wrote in — Tapio can't assume every user writes in
 English. Resource contact details (name, phone, hours, URL) are never
 sent through that call: they're formatted deterministically from
 ``crisis_resources.yaml`` and appended verbatim, so a language-generation
-step can't rephrase, translate, or hallucinate a phone number or URL.
+step can't rephrase, translate, or hallucinate a phone number or URL. The
+intro call goes through ``StructuredOutputModel`` (#140) with the
+``GuardrailIntro`` schema, whose validator rejects any intro that contains
+a URL, email address, or phone number anyway. A rejected intro is retried
+once and then handled like any other failed intro call.
 
 Resources are loaded before the intro generation call, not after: a
 crisis/legal-sensitive match with known resources must still surface them
@@ -35,9 +39,10 @@ draft period — but a deployer who wants a hard gate now has one.
 """
 
 import logging
+import re
 from typing import Final
 
-from starlette.concurrency import run_in_threadpool
+from pydantic import BaseModel, Field, field_validator
 
 from app.config import BackendSettings
 from app.config.config_models import RAGConfig
@@ -45,11 +50,58 @@ from app.config.llm_settings import GUARDRAIL_ROLE, LLMSettings
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
-from app.services.chat_model import build_chat_model, build_messages, invoke_text
+from app.services.chat_model import build_chat_model, build_messages
+from app.services.structured_output import StructuredOutputModel
 
 logger = logging.getLogger(__name__)
 
 _APPROVED_STATUS: Final[str] = "approved"
+
+# Anything that reads as a way to reach someone. Each pattern only needs to find where a
+# contact detail is, not match all of it, which keeps every one linear-time. The digit rule
+# deliberately covers short service numbers such as 112 too: every number shown comes from
+# crisis_resources.yaml, never from the model.
+_CONTACT_DETAIL_PATTERNS: Final = (
+    re.compile(r"https?://|www\.|\]\(", re.IGNORECASE),  # URL, or a Markdown link target
+    re.compile(r"\w\.[a-z]{2,}\b", re.IGNORECASE),  # bare domain on any TLD, e.g. crisis-help.io
+    re.compile(r"\w@\w"),  # email address
+    re.compile(r"\d(?:[\s()+-]*\d){2}"),  # phone number: three or more digits
+)
+
+
+class GuardrailIntro(BaseModel):
+    """Structured output schema for the localized guardrail intro."""
+
+    text: str = Field(
+        description=(
+            "The short paragraph, in the same language as the user's message, with no contact "
+            "details, phone numbers, or URLs."
+        )
+    )
+
+    @field_validator("text")
+    @classmethod
+    def _plain_and_contact_free(cls, value: str) -> str:
+        """Reject a blank intro or one carrying contact details the model wrote itself.
+
+        Args:
+            value: The intro text as the model returned it.
+
+        Returns:
+            The text with surrounding whitespace removed.
+
+        Raises:
+            ValueError: If the text is blank or contains a URL, email address, or phone number.
+        """
+        text = value.strip()
+        if not text:
+            msg = "The intro is blank."
+            raise ValueError(msg)
+        if any(pattern.search(text) for pattern in _CONTACT_DETAIL_PATTERNS):
+            msg = "The intro contains contact details; those are appended from crisis_resources.yaml."
+            raise ValueError(msg)
+        return text
+
 
 # A stalled provider call must not leave a chat SSE stream open with no terminal event.
 # Local Ollama CPU inference in manual testing took up to ~45s for a single call, so this
@@ -91,7 +143,8 @@ _INTENT_DESCRIPTIONS_RESOURCES_WITHHELD: dict[GuardrailCategory, str] = {
     GuardrailCategory.CRISIS: (
         "Tell them this sounds urgent and Tapio is not the right place for this kind of support. "
         "Tapio's specific service contacts for this aren't available right now, so tell them to "
-        "contact their country's general emergency number or a local crisis line directly."
+        "contact local emergency services or a local crisis line directly, without naming any "
+        "phone number."
     ),
     GuardrailCategory.LEGAL_SENSITIVE: (
         "Tell them this touches on a legal process Tapio is not qualified to advise on directly. "
@@ -188,7 +241,8 @@ async def _localized_intro(
         A short localized paragraph.
 
     Raises:
-        RuntimeError: If the LLM call fails, times out, or returns something unusable.
+        RuntimeError: If the LLM call fails or times out, or if neither the response nor its
+            one retry fits ``GuardrailIntro`` (blank, or containing contact details).
     """
     prompt = load_prompt(
         "guardrail_response_intro",
@@ -198,24 +252,20 @@ async def _localized_intro(
     messages = build_messages(prompt, system_prompt=None, history=None)
 
     # A short, bounded timeout, baked into a model built fresh for this call (cheap — no
-    # I/O at construction). LangChain chat models don't support a per-call timeout
-    # override, so the app's shared, unbounded-timeout model can't be reused here, and
-    # wrapping this (threadpool-dispatched, synchronous) call in asyncio.timeout() instead
-    # wouldn't actually bound it: AnyIO's to_thread.run_sync ignores cancellation by
-    # default and waits for the worker thread to finish regardless. The timeout has to be
-    # enforced by the model's own client, which is what build_chat_model's timeout does.
+    # I/O at construction), since LangChain chat models don't support a per-call timeout
+    # override and the app's shared model has none. StructuredOutputModel also bounds each
+    # attempt with asyncio.timeout, which holds here because ainvoke is natively async for
+    # every supported provider rather than a synchronous call dispatched to a thread.
     model = build_chat_model(RAGConfig(), LLMSettings(), role=GUARDRAIL_ROLE, timeout=_INTRO_TIMEOUT_SECONDS)
-    try:
-        raw_response = await run_in_threadpool(invoke_text, model, messages)
-    except Exception as error:
-        msg = f"Guardrail response intro generation failed for category {category.value!r}: {error!r}"
-        raise RuntimeError(msg) from error
+    result = await StructuredOutputModel(model, GuardrailIntro, timeout=_INTRO_TIMEOUT_SECONDS).ainvoke(messages)
+    if result.value is None:
+        msg = (
+            f"Guardrail response intro generation failed for category {category.value!r} "
+            f"({result.failure}): {type(result.error).__name__}"
+        )
+        raise RuntimeError(msg) from result.error
 
-    if not raw_response.strip():
-        msg = f"Guardrail response intro generation failed for category {category.value!r}: empty response"
-        raise RuntimeError(msg)
-
-    return raw_response.strip()
+    return result.value.text
 
 
 def _format_resource(resource: CrisisResource) -> str:
