@@ -41,7 +41,7 @@ from starlette.concurrency import run_in_threadpool
 
 from app.config import BackendSettings
 from app.config.config_models import RAGConfig
-from app.config.llm_settings import LLMSettings
+from app.config.llm_settings import GUARDRAIL_ROLE, LLMSettings
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
@@ -204,7 +204,7 @@ async def _localized_intro(
     # wouldn't actually bound it: AnyIO's to_thread.run_sync ignores cancellation by
     # default and waits for the worker thread to finish regardless. The timeout has to be
     # enforced by the model's own client, which is what build_chat_model's timeout does.
-    model = build_chat_model(RAGConfig(), LLMSettings(), timeout=_INTRO_TIMEOUT_SECONDS)
+    model = build_chat_model(RAGConfig(), LLMSettings(), role=GUARDRAIL_ROLE, timeout=_INTRO_TIMEOUT_SECONDS)
     try:
         raw_response = await run_in_threadpool(invoke_text, model, messages)
     except Exception as error:

@@ -209,10 +209,10 @@ class LLMGuardrailClassifier:
         """Bind the structured-output schema onto the shared, already-configured chat model.
 
         Args:
-            model: The same ``BaseChatModel`` instance the RAG pipeline generates with (see
-                ``app.services.chat_model.build_chat_model``), so classification and answer
-                generation use the same configured provider/model/credentials (#9) — not
-                always Ollama.
+            model: A chat model built by ``app.services.chat_model.build_chat_model`` for the
+                guardrail stage, so classification uses the configured provider/model/credentials
+                (#9) — not always Ollama — or the guardrail's own ``TAPIO_LLM_MODEL_OVERRIDES``
+                entry (#139).
         """
         self._structured_model = model.with_structured_output(GuardrailCheckResult)
 
