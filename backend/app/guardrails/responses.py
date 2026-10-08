@@ -57,13 +57,15 @@ logger = logging.getLogger(__name__)
 
 _APPROVED_STATUS: Final[str] = "approved"
 
-# Anything that reads as a way to reach someone: a URL, a bare domain on a TLD a service
-# for people in Finland is likely to use, an email address, or a run of three or more
-# digits. The digit rule deliberately covers short service numbers such as 112 too: every
-# number shown comes from crisis_resources.yaml, never from the model.
-_CONTACT_DETAIL_PATTERN: Final = re.compile(
-    r"https?://|www\.|\S+@\S+\.\w+|\b[\w-]+\.(?:fi|se|eu|com|org|net|info)\b|\d(?:[\s()+-]*\d){2,}",
-    re.IGNORECASE,
+# Anything that reads as a way to reach someone. Each pattern only needs to find where a
+# contact detail is, not match all of it, which keeps every one linear-time. The digit rule
+# deliberately covers short service numbers such as 112 too: every number shown comes from
+# crisis_resources.yaml, never from the model.
+_CONTACT_DETAIL_PATTERNS: Final = (
+    re.compile(r"https?://|www\.", re.IGNORECASE),  # URL
+    re.compile(r"\w\.(?:fi|se|eu|com|org|net|info)\b", re.IGNORECASE),  # bare domain on a likely TLD
+    re.compile(r"\w@\w"),  # email address
+    re.compile(r"\d(?:[\s()+-]*\d){2}"),  # phone number: three or more digits
 )
 
 
@@ -95,7 +97,7 @@ class GuardrailIntro(BaseModel):
         if not text:
             msg = "The intro is blank."
             raise ValueError(msg)
-        if _CONTACT_DETAIL_PATTERN.search(text):
+        if any(pattern.search(text) for pattern in _CONTACT_DETAIL_PATTERNS):
             msg = "The intro contains contact details; those are appended from crisis_resources.yaml."
             raise ValueError(msg)
         return text
