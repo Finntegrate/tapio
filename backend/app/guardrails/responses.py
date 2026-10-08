@@ -62,8 +62,8 @@ _APPROVED_STATUS: Final[str] = "approved"
 # deliberately covers short service numbers such as 112 too: every number shown comes from
 # crisis_resources.yaml, never from the model.
 _CONTACT_DETAIL_PATTERNS: Final = (
-    re.compile(r"https?://|www\.", re.IGNORECASE),  # URL
-    re.compile(r"\w\.(?:fi|se|eu|com|org|net|info)\b", re.IGNORECASE),  # bare domain on a likely TLD
+    re.compile(r"https?://|www\.|\]\(", re.IGNORECASE),  # URL, or a Markdown link target
+    re.compile(r"\w\.[a-z]{2,}\b", re.IGNORECASE),  # bare domain on any TLD, e.g. crisis-help.io
     re.compile(r"\w@\w"),  # email address
     re.compile(r"\d(?:[\s()+-]*\d){2}"),  # phone number: three or more digits
 )

@@ -107,6 +107,9 @@ async def test_crisis_response_appends_matching_resources_after_the_localized_in
         "Visit https://example.fi for help.",
         "See www.example.com.",
         "Katso lisää osoitteesta kela.fi.",
+        "Reach out through crisis-help.io today.",
+        "Help is at support.example.co.uk.",
+        "See [the helpline](/crisis) for support.",
         "Write to help@example.org.",
         "Soita numeroon 09 2525 0111.",
         "Call 112 right away.",
@@ -131,6 +134,7 @@ def test_guardrail_intro_rejects_a_blank_intro(text: str) -> None:
         "Tämä kuulostaa kiireelliseltä. Ota yhteyttä alla oleviin palveluihin.",
         "Det här låter brådskande, och hjälpen nedan finns tillgänglig 24/7.",
         "هذا يبدو عاجلاً. يرجى التواصل مع إحدى الخدمات أدناه.",
+        "Some things, e.g. this, need human help, i.e. a trained person, etc. Please see below.",
     ],
 )
 def test_guardrail_intro_accepts_plain_text_in_any_language(text: str) -> None:
