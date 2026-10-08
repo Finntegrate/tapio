@@ -232,9 +232,10 @@ class TestModelOverrides:
             llm_model_name="claude-haiku-4-5",
             llm_model_overrides={"otso": "ollama:gemma4:latest"},
         )
+        llm_settings = LLMSettings()
 
         with pytest.raises(ValueError, match="cleartext"):
-            build_chat_model(config, LLMSettings(), role="otso")
+            build_chat_model(config, llm_settings, role="otso")
 
 
 class TestRejectCleartextTransport:
