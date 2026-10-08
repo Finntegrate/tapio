@@ -19,7 +19,8 @@ class RAGConfig:
     ``llm_provider``/``llm_model_name`` default from ``LLMSettings`` (env vars
     ``TAPIO_LLM_PROVIDER``/``TAPIO_LLM_MODEL``, see ``app.config.llm_settings``)
     rather than a fixed constant, so the LLM backend is swappable via
-    configuration without a code change (#9).
+    configuration without a code change (#9). ``llm_model_overrides`` likewise
+    defaults from ``TAPIO_LLM_MODEL_OVERRIDES`` (#139).
     """
 
     collection_name: str = DEFAULT_CHROMA_COLLECTION
@@ -27,5 +28,6 @@ class RAGConfig:
     embedding_model_name: str = DEFAULT_EMBEDDING_MODEL
     llm_provider: str = field(default_factory=lambda: LLMSettings().provider)
     llm_model_name: str = field(default_factory=lambda: LLMSettings().model)
+    llm_model_overrides: dict[str, str] = field(default_factory=lambda: LLMSettings().model_overrides)
     max_tokens: int = DEFAULT_MAX_TOKENS
     num_results: int = DEFAULT_NUM_RESULTS

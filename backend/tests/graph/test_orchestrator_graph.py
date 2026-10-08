@@ -11,6 +11,7 @@ from typing import Any
 from unittest import mock
 
 import pytest
+from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, AIMessageChunk
 
 from app.agents import get_agent
@@ -154,3 +155,68 @@ def test_query_stream_does_not_crash_on_an_unrecognized_agent_id(orchestrator_gr
     assert route.agent == get_agent("tapio")
     assert list(response_stream) == [GENERIC_ERROR_MESSAGE]
     assert docs == []
+
+
+def _fake_chat_model(content: str) -> mock.Mock:
+    """A mock chat model whose invoke/stream both answer with ``content``."""
+    model = mock.Mock(spec=BaseChatModel)
+    model.invoke.return_value = AIMessage(content=content)
+    model.stream.return_value = iter([AIMessageChunk(content=content)])
+    return model
+
+
+def test_generate_node_uses_the_routed_guides_model_override(
+    mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
+) -> None:
+    """A guide with its own model (#139) generates with it, not the default."""
+    sampo_model = _fake_chat_model("from sampo's model")
+    graph = TapioOrchestratorGraph(
+        agent_router=AgentRouter(),
+        doc_retrieval_service=mock_doc_retrieval_service,
+        llm_service=mock_llm_service,
+        agent_models={"sampo": sampo_model},
+    )
+
+    _route, response, _docs = graph.query("How do I find work?", agent_id="sampo")
+    _route, stream, _docs = graph.query_stream("How do I find work?", agent_id="sampo")
+
+    assert response == "from sampo's model"
+    assert "".join(stream) == "from sampo's model"
+    mock_llm_service.invoke.assert_not_called()
+    mock_llm_service.stream.assert_not_called()
+
+
+def test_generate_node_falls_back_to_the_default_model(
+    mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
+) -> None:
+    """A guide without an override uses the shared default model."""
+    sampo_model = _fake_chat_model("from sampo's model")
+    graph = TapioOrchestratorGraph(
+        agent_router=AgentRouter(),
+        doc_retrieval_service=mock_doc_retrieval_service,
+        llm_service=mock_llm_service,
+        agent_models={"sampo": sampo_model},
+    )
+
+    _route, response, _docs = graph.query("Where do I renew my residence permit?", agent_id="ilmarinen")
+
+    assert response == "Mocked LLM response"
+    sampo_model.invoke.assert_not_called()
+
+
+def test_check_model_availability_covers_every_guide_model(
+    mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
+) -> None:
+    sampo_model = _fake_chat_model("unused")
+    graph = TapioOrchestratorGraph(
+        agent_router=AgentRouter(),
+        doc_retrieval_service=mock_doc_retrieval_service,
+        llm_service=mock_llm_service,
+        agent_models={"sampo": sampo_model},
+    )
+
+    with mock.patch(
+        "app.graph.orchestrator_graph.check_model_availability",
+        side_effect=lambda model: model is not sampo_model,
+    ):
+        assert graph.check_model_availability() is False

@@ -1,7 +1,7 @@
 """Compiled LangGraph graph fronting Tapio's routing -> retrieval -> generation flow."""
 
 import logging
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from typing import Any, cast
 
 from langchain_core.language_models import BaseChatModel
@@ -31,7 +31,8 @@ class TapioOrchestratorGraph:
     Args:
         agent_router: Router whose keyword-scoring logic backs the routing node.
         doc_retrieval_service: Service backing the retrieval node.
-        llm_service: Service backing the generation node.
+        llm_service: Default chat model backing the generation node.
+        agent_models: Optional per-guide chat models keyed by guide id (#139).
 
     Example:
         >>> from app.factories import RAGOrchestratorFactory
@@ -46,17 +47,21 @@ class TapioOrchestratorGraph:
         agent_router: AgentRouter,
         doc_retrieval_service: DocumentRetrievalService,
         llm_service: BaseChatModel,
+        agent_models: Mapping[str, BaseChatModel] | None = None,
     ) -> None:
         """Build the graph and store the dependencies its nodes close over.
 
         Args:
             agent_router: Router whose keyword-scoring logic backs the routing node.
             doc_retrieval_service: Service backing the retrieval node.
-            llm_service: Service backing the generation node.
+            llm_service: Default chat model backing the generation node.
+            agent_models: Optional per-guide chat models keyed by guide id (#139); a
+                guide without an entry uses ``llm_service``.
         """
         self.agent_router = agent_router
         self.doc_retrieval_service = doc_retrieval_service
         self.llm_service = llm_service
+        self.agent_models = dict(agent_models or {})
         self._compiled_graph = self._build_graph()
         logger.info("Initialized Tapio orchestrator graph")
 
@@ -74,7 +79,7 @@ class TapioOrchestratorGraph:
         # just `state -> partial state`) is exactly what these are.
         builder.add_node("route", make_route_node(self.agent_router))  # type: ignore[call-overload]
         builder.add_node("retrieve", make_retrieve_node(self.doc_retrieval_service))  # type: ignore[call-overload]
-        builder.add_node("generate", make_generate_node(self.llm_service))  # type: ignore[call-overload]
+        builder.add_node("generate", make_generate_node(self.llm_service, self.agent_models))  # type: ignore[call-overload]
         builder.add_edge(START, "route")
         builder.add_edge("route", "retrieve")
         builder.add_edge("retrieve", "generate")
@@ -149,12 +154,12 @@ class TapioOrchestratorGraph:
         return result["route"], stream_generator(), result["retrieved_docs"]
 
     def check_model_availability(self) -> bool:
-        """Check if the LLM model is available.
+        """Check if the default model and every per-guide model are available.
 
         Returns:
-            bool: True if the model is available, False otherwise
+            bool: True if every configured model is available, False otherwise
         """
-        return check_model_availability(self.llm_service)
+        return all(check_model_availability(model) for model in (self.llm_service, *self.agent_models.values()))
 
     def format_documents_for_display(self, documents: list[Any]) -> str:
         """Format retrieved documents for display.

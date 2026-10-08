@@ -8,7 +8,7 @@ methods (#138) - only the wiring between them changed.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -94,11 +94,16 @@ def make_retrieve_node(doc_retrieval_service: DocumentRetrievalService) -> NodeF
     return retrieve_node
 
 
-def make_generate_node(llm_service: BaseChatModel) -> NodeFn:
+def make_generate_node(
+    llm_service: BaseChatModel,
+    agent_models: Mapping[str, BaseChatModel] | None = None,
+) -> NodeFn:
     """Build the specialist generation node: prompts and calls the LLM.
 
     Args:
-        llm_service: Chat model used to generate the response, streamed or not.
+        llm_service: Default chat model used to generate the response, streamed or not.
+        agent_models: Optional per-guide chat models keyed by guide id (#139); a guide
+            without an entry uses ``llm_service``.
 
     Returns:
         A node callable that populates the prompts plus ``response`` or
@@ -116,7 +121,9 @@ def make_generate_node(llm_service: BaseChatModel) -> NodeFn:
             A partial state update setting the prompts plus ``response`` or
             ``response_stream``, depending on ``state["stream"]``.
         """
-        system_prompt = build_system_prompt(state["route"].agent.id)
+        agent_id = state["route"].agent.id
+        model = (agent_models or {}).get(agent_id, llm_service)
+        system_prompt = build_system_prompt(agent_id)
         user_prompt = load_prompt(
             "user_query",
             context=state["context_text"],
@@ -129,14 +136,14 @@ def make_generate_node(llm_service: BaseChatModel) -> NodeFn:
             return {
                 "system_prompt": system_prompt,
                 "user_prompt": user_prompt,
-                "response_stream": stream_text(llm_service, messages),
+                "response_stream": stream_text(model, messages),
             }
 
         logger.info("Generating response with LLM")
         return {
             "system_prompt": system_prompt,
             "user_prompt": user_prompt,
-            "response": invoke_text(llm_service, messages),
+            "response": invoke_text(model, messages),
         }
 
     return generate_node

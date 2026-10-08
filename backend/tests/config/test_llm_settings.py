@@ -1,6 +1,7 @@
 """Tests for LLM provider/model env-var configuration (#9)."""
 
 import pytest
+from pydantic import ValidationError
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
@@ -61,3 +62,27 @@ def test_rag_config_explicit_llm_fields_override_env(monkeypatch: pytest.MonkeyP
 
     assert config.llm_provider == "ollama"
     assert config.llm_model_name == "gemma4:latest"
+
+
+def test_llm_settings_parses_model_overrides_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """TAPIO_LLM_MODEL_OVERRIDES is a JSON object, and RAGConfig picks it up (#139)."""
+    monkeypatch.setenv(
+        "TAPIO_LLM_MODEL_OVERRIDES",
+        '{"sampo": "anthropic:claude-haiku-4-5", "guardrail": "gemma4:e2b"}',
+    )
+
+    assert RAGConfig().llm_model_overrides == {"sampo": "anthropic:claude-haiku-4-5", "guardrail": "gemma4:e2b"}
+
+
+def test_llm_settings_model_overrides_default_to_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.delenv("TAPIO_LLM_MODEL_OVERRIDES", raising=False)
+
+    assert LLMSettings().model_overrides == {}
+
+
+def test_llm_settings_rejects_unknown_override_keys(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A mistyped guide id fails at startup instead of silently using the default model."""
+    monkeypatch.setenv("TAPIO_LLM_MODEL_OVERRIDES", '{"samp": "gpt-4o-mini"}')
+
+    with pytest.raises(ValidationError, match="samp"):
+        LLMSettings()

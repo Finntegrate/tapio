@@ -9,6 +9,7 @@ from langchain_core.embeddings import Embeddings
 from langchain_core.language_models import BaseChatModel
 from langchain_huggingface import HuggingFaceEmbeddings
 
+from app.agents import AGENTS_BY_ID
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
 from app.retrieval import ChromaRetriever
@@ -89,7 +90,7 @@ class RAGOrchestratorFactory:
             num_results=self.config.num_results,
         )
 
-    def create_chat_model(self) -> BaseChatModel:
+    def create_chat_model(self, role: str | None = None) -> BaseChatModel:
         """Create the configured chat model.
 
         Delegates to ``build_chat_model``, which reads ``self.config.llm_provider``
@@ -97,10 +98,27 @@ class RAGOrchestratorFactory:
         matching LangChain chat model, so the LLM backend is swappable via
         configuration without a code change (#9).
 
+        Args:
+            role: Optional guide id or stage whose ``TAPIO_LLM_MODEL_OVERRIDES``
+                entry, if any, replaces the default model (#139).
+
         Returns:
             Configured ``BaseChatModel`` instance.
         """
-        return build_chat_model(self.config, LLMSettings())
+        return build_chat_model(self.config, LLMSettings(), role=role)
+
+    def create_agent_chat_models(self) -> dict[str, BaseChatModel]:
+        """Create one chat model per guide with a model override (#139).
+
+        Returns:
+            Chat models keyed by guide id; guides without an override are omitted and
+            fall back to the default model.
+        """
+        return {
+            agent_id: self.create_chat_model(role=agent_id)
+            for agent_id in self.config.llm_model_overrides
+            if agent_id in AGENTS_BY_ID
+        }
 
     def create_orchestrator(self) -> RAGOrchestrator:
         """Create fully configured RAG orchestrator.
@@ -130,4 +148,5 @@ class RAGOrchestratorFactory:
         return RAGOrchestrator(
             doc_retrieval_service=doc_service,
             llm_service=llm_service,
+            agent_models=self.create_agent_chat_models(),
         )

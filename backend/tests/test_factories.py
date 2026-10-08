@@ -1,4 +1,4 @@
-"""Tests for RAGOrchestratorFactory's chat model selection (#9)."""
+"""Tests for RAGOrchestratorFactory's chat model selection (#9, #139)."""
 
 from langchain_anthropic import ChatAnthropic
 from langchain_ollama import ChatOllama
@@ -56,3 +56,37 @@ def test_create_chat_model_passes_api_base_and_key_for_scaleway(monkeypatch) -> 
     assert str(model.openai_api_base) == "https://api.scaleway.ai/v1"
     assert model.openai_api_key is not None
     assert model.openai_api_key.get_secret_value() == "secret-key"
+
+
+def test_create_agent_chat_models_builds_one_model_per_overridden_guide(monkeypatch) -> None:
+    """Only guides with an override get their own model; stages like the guardrail don't."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    factory = RAGOrchestratorFactory(
+        RAGConfig(
+            llm_provider="ollama",
+            llm_model_name="gemma4:latest",
+            llm_model_overrides={"sampo": "anthropic:claude-haiku-4-5", "guardrail": "gemma4:e2b"},
+        ),
+    )
+
+    models = factory.create_agent_chat_models()
+
+    assert set(models) == {"sampo"}
+    assert isinstance(models["sampo"], ChatAnthropic)
+
+
+def test_create_agent_chat_models_is_empty_without_overrides() -> None:
+    factory = RAGOrchestratorFactory(RAGConfig(llm_model_overrides={}))
+
+    assert factory.create_agent_chat_models() == {}
+
+
+def test_create_chat_model_honors_a_stage_override() -> None:
+    factory = RAGOrchestratorFactory(
+        RAGConfig(
+            llm_provider="ollama", llm_model_name="gemma4:latest", llm_model_overrides={"guardrail": "gemma4:e2b"}
+        ),
+    )
+
+    assert factory.create_chat_model(role="guardrail").model == "gemma4:e2b"
+    assert factory.create_chat_model().model == "gemma4:latest"
