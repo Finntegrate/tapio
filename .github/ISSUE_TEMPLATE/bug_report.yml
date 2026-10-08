@@ -9,6 +9,9 @@ body:
         Thanks for taking the time to report a bug! Please fill out the details below
         so we can reproduce and fix the issue.
 
+        If Tapio is useful to you, please also [star the repository](https://github.com/Finntegrate/tapio).
+        It's the easiest way to support the project and helps other people find it.
+
   - type: textarea
     id: description
     attributes:
