@@ -8,7 +8,8 @@ Rather than a bespoke provider abstraction, the LLM backend is a plain
 site (``RAGOrchestrator``, the graph's generation node, the guardrail
 response builder) depends on ``BaseChatModel`` directly. Swapping providers
 is a ``TAPIO_LLM_PROVIDER``/``TAPIO_LLM_MODEL`` env var change, not a code
-change — see ``app.config.llm_settings`` and ``backend/README.md``.
+change, and ``TAPIO_LLM_MODEL_OVERRIDES`` swaps it per guide or stage (#139)
+— see ``app.config.llm_settings`` and ``backend/README.md``.
 
 The only things LangChain doesn't hand us for free are Tapio-specific: the
 env-var-to-constructor-kwarg wiring (``build_chat_model``), a live
@@ -28,6 +29,7 @@ import ollama
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
+from pydantic import SecretStr
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
@@ -47,15 +49,23 @@ MAX_HISTORY_MESSAGES = 10
 _OLLAMA_PROVIDER = "ollama"
 
 
-def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: float | None = None) -> BaseChatModel:
+def build_chat_model(
+    config: RAGConfig,
+    llm_settings: LLMSettings,
+    *,
+    role: str | None = None,
+    timeout: float | None = None,
+) -> BaseChatModel:
     """Build the chat model selected by ``config``/``llm_settings``.
 
     Args:
         config: Source of the provider/model selection and output-length cap
-            (``llm_provider``, ``llm_model_name``, ``max_tokens``).
+            (``llm_provider``, ``llm_model_name``, ``llm_model_overrides``, ``max_tokens``).
         llm_settings: Source of the ``api_base``/``api_key`` overrides (``TAPIO_LLM_API_BASE``/
             ``TAPIO_LLM_API_KEY``) — a remote/non-default Ollama server for ``"ollama"``, or
             Scaleway and other OpenAI-compatible endpoints with ``TAPIO_LLM_PROVIDER=openai``.
+        role: Optional guide id or stage (see ``app.config.llm_settings.MODEL_OVERRIDE_ROLES``)
+            whose ``config.llm_model_overrides`` entry, if any, replaces the default model (#139).
         timeout: Optional request timeout in seconds, baked into this instance at
             construction (LangChain's chat models don't support a per-call override).
             ``None`` waits indefinitely, matching each provider's own client default.
@@ -63,26 +73,58 @@ def build_chat_model(config: RAGConfig, llm_settings: LLMSettings, *, timeout: f
     Returns:
         A configured ``BaseChatModel``, ready for ``.invoke()``/``.stream()``.
     """
-    _reject_cleartext_transport(config, llm_settings)
+    provider_name, model_name = resolve_model(config, role)
+    if provider_name != config.llm_provider:
+        # TAPIO_LLM_API_BASE/TAPIO_LLM_API_KEY belong to the default provider. An override
+        # on a different provider reaching e.g. a Scaleway URL or key would misroute prompts
+        # or leak a credential, so it falls back to that provider's own SDK env vars instead.
+        llm_settings = llm_settings.model_copy(update={"api_base": None, "api_key": None})
 
-    provider = PROVIDERS.get(config.llm_provider)
+    _reject_cleartext_transport(provider_name, llm_settings)
+
+    provider = PROVIDERS.get(provider_name)
     max_tokens_kwarg = provider.max_tokens_kwarg if provider else "max_tokens"
     kwargs: dict[str, Any] = {
-        "model_provider": config.llm_provider,
+        "model_provider": provider_name,
         "temperature": 0.7,
         "base_url": llm_settings.api_base,
         "api_key": llm_settings.api_key.get_secret_value() if llm_settings.api_key else None,
         max_tokens_kwarg: config.max_tokens,
     }
     if timeout is not None:
-        if config.llm_provider == _OLLAMA_PROVIDER:
+        if provider_name == _OLLAMA_PROVIDER:
             kwargs["client_kwargs"] = {"timeout": timeout}
         else:
             kwargs["timeout"] = timeout
-    return init_chat_model(config.llm_model_name, **kwargs)
+    return init_chat_model(model_name, **kwargs)
 
 
-def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | None:
+def resolve_model(config: RAGConfig, role: str | None = None) -> tuple[str, str]:
+    """Resolve the ``(provider, model)`` pair ``role`` should use.
+
+    An override uses LangChain's own ``provider:model`` form (as ``init_chat_model``
+    accepts, e.g. ``"anthropic:claude-haiku-4-5"``). A value whose prefix isn't a
+    provider Tapio supports — notably an Ollama tag such as ``"gemma4:e4b"`` — is a
+    bare model name on the default provider.
+
+    Args:
+        config: Source of the default provider/model and of ``llm_model_overrides``.
+        role: Optional guide id or stage to look up in ``llm_model_overrides``.
+
+    Returns:
+        The provider name and model identifier to build.
+    """
+    override = config.llm_model_overrides.get(role) if role else None
+    if override is None:
+        return config.llm_provider, config.llm_model_name
+
+    provider_name, separator, model_name = override.partition(":")
+    if separator and provider_name in PROVIDERS:
+        return provider_name, model_name
+    return config.llm_provider, override
+
+
+def _effective_api_base(provider_name: str, llm_settings: LLMSettings) -> str | None:
     """Resolve the API base URL that will actually reach the provider client.
 
     Mirrors each provider's own fallback order: an explicit ``TAPIO_LLM_API_BASE`` first,
@@ -92,7 +134,7 @@ def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | N
     one Tapio's own config layer explicitly sets.
 
     Args:
-        config: Source of the provider selection.
+        provider_name: The provider the model is built for.
         llm_settings: Source of ``api_base``.
 
     Returns:
@@ -101,7 +143,7 @@ def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | N
     if llm_settings.api_base is not None:
         return llm_settings.api_base
 
-    provider = PROVIDERS.get(config.llm_provider)
+    provider = PROVIDERS.get(provider_name)
     for env_var in provider.base_url_env_vars if provider else ():
         value = os.environ.get(env_var)
         if value:
@@ -110,7 +152,7 @@ def _effective_api_base(config: RAGConfig, llm_settings: LLMSettings) -> str | N
     return None
 
 
-def _reject_cleartext_transport(config: RAGConfig, llm_settings: LLMSettings) -> None:
+def _reject_cleartext_transport(provider_name: str, llm_settings: LLMSettings) -> None:
     """Refuse a non-loopback ``http://`` API base (CWE-319).
 
     A deployer who mistypes ``https://`` as ``http://`` for a genuinely remote endpoint
@@ -124,13 +166,13 @@ def _reject_cleartext_transport(config: RAGConfig, llm_settings: LLMSettings) ->
     risk and is left alone.
 
     Args:
-        config: Source of the provider selection.
+        provider_name: The provider the model is built for.
         llm_settings: Source of ``api_base``.
 
     Raises:
         ValueError: If a non-loopback endpoint would be used over plain HTTP.
     """
-    api_base = _effective_api_base(config, llm_settings)
+    api_base = _effective_api_base(provider_name, llm_settings)
     if api_base is None:
         return
 
@@ -153,8 +195,8 @@ def check_model_availability(model: BaseChatModel) -> bool:
     For Ollama, this makes a real (cheap) call to confirm the server is running and the
     configured model is pulled — the same check ``LLMService`` made before #9. For a
     cloud provider, a live call would cost money on every ``/health`` poll, so this only
-    confirms credentials are present (via the provider's standard env var, or an explicit
-    ``TAPIO_LLM_API_KEY``), not that they're valid.
+    confirms the model instance holds a credential (from the provider's standard env var,
+    or the ``TAPIO_LLM_API_KEY`` that ``build_chat_model`` passed it), not that it's valid.
 
     Args:
         model: The chat model to check, as returned by ``build_chat_model``.
@@ -175,11 +217,17 @@ def check_model_availability(model: BaseChatModel) -> bool:
     )
     if env_var is None:
         return True
-    if os.environ.get(env_var):
+
+    # Read the key the instance was actually built with, rather than re-deriving it from the
+    # environment: lc_secrets maps each secret field to its env var (e.g. anthropic_api_key ->
+    # ANTHROPIC_API_KEY), and holds whichever key build_chat_model resolved for this model.
+    field = next((name for name, secret_env in model.lc_secrets.items() if secret_env == env_var), None)
+    secret = getattr(model, field, None) if field else None
+    if isinstance(secret, SecretStr) and secret.get_secret_value():
         return True
 
     logger.warning("%s is not set and no TAPIO_LLM_API_KEY override is configured", env_var)
-    return LLMSettings().api_key is not None
+    return False
 
 
 def _check_ollama_availability(model_name: str, base_url: str | None) -> bool:

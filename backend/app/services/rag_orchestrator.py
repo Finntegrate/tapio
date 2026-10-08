@@ -12,7 +12,7 @@ auto-route. The FastAPI chat route talks to the graph directly (see
 """
 
 import logging
-from collections.abc import Generator
+from collections.abc import Generator, Mapping
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -37,12 +37,14 @@ class RAGOrchestrator:
         self,
         doc_retrieval_service: DocumentRetrievalService,
         llm_service: BaseChatModel,
+        agent_models: Mapping[str, BaseChatModel] | None = None,
     ) -> None:
         """Initialize the RAG orchestrator.
 
         Args:
             doc_retrieval_service: Service for retrieving documents from vector store
-            llm_service: Chat model for LLM generation
+            llm_service: Default chat model for LLM generation
+            agent_models: Optional per-guide chat models keyed by guide id (#139)
 
         Example:
             >>> from app.factories import RAGOrchestratorFactory
@@ -64,6 +66,7 @@ class RAGOrchestrator:
             agent_router=AgentRouter(),
             doc_retrieval_service=doc_retrieval_service,
             llm_service=llm_service,
+            agent_models=agent_models,
         )
 
         logger.info(

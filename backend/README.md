@@ -18,6 +18,7 @@ The LLM backend is a plain [LangChain `BaseChatModel`](https://python.langchain.
 | `TAPIO_LLM_MODEL`    | `gemma4:latest`     | The model identifier, in whatever form the chosen provider expects, e.g. `gemma4:latest` (Ollama), `gpt-4o-mini` (OpenAI), `claude-3-5-haiku-20241022` (Anthropic).                      |
 | `TAPIO_LLM_API_BASE` | unset               | Custom API base URL. For Ollama, points at a remote or non-default Ollama server. Required for Scaleway's Generative APIs and other self-hosted OpenAI-compatible endpoints (used with `TAPIO_LLM_PROVIDER=openai`); unused by OpenAI/Anthropic's own default endpoints. |
 | `TAPIO_LLM_API_KEY`  | unset               | Explicit API key. When unset, each provider's LangChain integration falls back to its own standard environment variable (e.g. `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`).                    |
+| `TAPIO_LLM_MODEL_OVERRIDES` | unset        | JSON object giving individual guides or stages their own model — see [Per-guide and per-stage models](#per-guide-and-per-stage-models) below.                                                |
 
 Example for OpenAI:
 
@@ -43,6 +44,21 @@ export TAPIO_LLM_MODEL=<scaleway-model-id>
 export TAPIO_LLM_API_BASE=https://api.scaleway.ai/v1
 export TAPIO_LLM_API_KEY=...
 ```
+
+### Per-guide and per-stage models
+
+By default every guide and the guardrail share the one model above. `TAPIO_LLM_MODEL_OVERRIDES` gives individual guides or stages their own — for example a small, fast model for guardrail checks and a stronger one for a specialist's answers. Anything without an entry keeps using `TAPIO_LLM_PROVIDER`/`TAPIO_LLM_MODEL`, so this is optional.
+
+Keys are a guide id (`tapio`, `ilmarinen`, `sampo`, `rauni`, `otso`) or `guardrail` (message classification and the localized safety-response intro). An unknown key fails at startup. Values use LangChain's own `provider:model` form, as `init_chat_model` accepts; a value without a provider prefix (such as an Ollama tag like `gemma4:e2b`) uses `TAPIO_LLM_PROVIDER`.
+
+```bash
+export TAPIO_LLM_PROVIDER=ollama
+export TAPIO_LLM_MODEL=gemma4:latest
+export TAPIO_LLM_MODEL_OVERRIDES='{"guardrail": "gemma4:e2b", "ilmarinen": "anthropic:claude-haiku-4-5"}'
+export ANTHROPIC_API_KEY=sk-ant-...
+```
+
+`TAPIO_LLM_API_BASE` and `TAPIO_LLM_API_KEY` apply only to models on `TAPIO_LLM_PROVIDER`. An override on a different provider uses that provider's own environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OLLAMA_HOST`, …), so a key or URL meant for one provider is never sent to another. `GET /health` checks every guide's model.
 
 ## Endpoints
 
