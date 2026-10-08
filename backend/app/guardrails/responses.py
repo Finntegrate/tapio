@@ -143,7 +143,8 @@ _INTENT_DESCRIPTIONS_RESOURCES_WITHHELD: dict[GuardrailCategory, str] = {
     GuardrailCategory.CRISIS: (
         "Tell them this sounds urgent and Tapio is not the right place for this kind of support. "
         "Tapio's specific service contacts for this aren't available right now, so tell them to "
-        "contact their country's general emergency number or a local crisis line directly."
+        "contact local emergency services or a local crisis line directly, without naming any "
+        "phone number."
     ),
     GuardrailCategory.LEGAL_SENSITIVE: (
         "Tell them this touches on a legal process Tapio is not qualified to advise on directly. "
@@ -260,7 +261,7 @@ async def _localized_intro(
     if result.value is None:
         msg = (
             f"Guardrail response intro generation failed for category {category.value!r} "
-            f"({result.failure}): {result.error!r}"
+            f"({result.failure}): {type(result.error).__name__}"
         )
         raise RuntimeError(msg) from result.error
 

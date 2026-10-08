@@ -165,16 +165,20 @@ class StructuredOutputModel[SchemaT: BaseModel]:
             raise TypeError(msg)
         return raw
 
+    # Failures are logged by exception type only. A parser's message carries the model's
+    # completion, and a validator's carries the rejected value, both of which can echo the
+    # user's message — and logs must never hold conversation content (#191).
+
     def _infra_failure(self, error: BaseException, attempt: int) -> StructuredOutputResult[SchemaT]:
-        logger.warning("Structured output for %s failed (infra): %r", self._schema.__name__, error)
+        logger.warning("Structured output for %s failed (infra): %s", self._schema.__name__, type(error).__name__)
         return StructuredOutputResult(failure=StructuredOutputFailure.INFRA, error=error, attempts=attempt)
 
     def _parse_failure(self, error: Exception, attempt: int) -> Exception:
         logger.info(
-            "Structured output for %s did not fit the schema (attempt %d of %d): %r",
+            "Structured output for %s did not fit the schema (attempt %d of %d): %s",
             self._schema.__name__,
             attempt,
             self._max_attempts,
-            error,
+            type(error).__name__,
         )
         return error

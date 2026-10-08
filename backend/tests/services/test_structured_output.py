@@ -9,6 +9,7 @@ reads the SDK's ``parsed`` object (or a ``refusal``), and Anthropic reads a tool
 
 import asyncio
 import json
+import logging
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any, Literal
@@ -258,3 +259,22 @@ async def test_ainvoke_reports_a_stalled_call_as_an_infra_failure(monkeypatch: p
     assert result.failure is StructuredOutputFailure.INFRA
     assert isinstance(result.error, TimeoutError)
     assert result.attempts == 1
+
+
+async def test_logs_failures_without_the_model_output(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture, provider: _Provider, mode: _Mode
+) -> None:
+    """Parser and validator messages carry the completion, which can echo the user's message (#191)."""
+    marker = "kill myself"
+    caplog.set_level(logging.INFO, logger="app.services.structured_output")
+    _stub_replies(
+        monkeypatch,
+        provider,
+        [AIMessage(content=f"I want to {marker}"), provider.respond({"guide": marker, "confident": True})],
+    )
+
+    result = await _call(StructuredOutputModel(provider.build(), Answer), mode)
+
+    assert result.failure is StructuredOutputFailure.PARSE
+    assert caplog.records
+    assert marker not in caplog.text
