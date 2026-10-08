@@ -10,40 +10,35 @@ doesn't scale to real phrasing, so the same illustrative phrases are given to
 the model as examples instead, which generalizes to wording and languages the
 examples don't literally contain.
 
-Each check binds a Pydantic schema via LangChain's structured-output support
-(``BaseChatModel.with_structured_output``) rather than asking for free-text
-JSON and parsing it by hand — the model call itself is constrained to the
-schema, and a failure to produce a valid instance raises instead of silently
-returning malformed text to parse.
+Each check binds a Pydantic schema through ``StructuredOutputModel``
+(``app.services.structured_output``, #140), which wraps LangChain's
+``BaseChatModel.with_structured_output`` rather than asking for free-text JSON
+and parsing it by hand. The model call itself is constrained to the schema,
+and a response that doesn't fit is reported as a failure instead of malformed
+text to parse.
 
 This is the shape a LangGraph input-classifier node is expected to take
 once the app's graph migration lands: parallel branches feeding one
 decision, run before the routing node.
 
-A check's failure is not treated as one undifferentiated case. It is
-split into two kinds (see ``_InfraError``/``_ParseError`` and
-``_invoke``), because they carry different information and call for
-different responses:
+``StructuredOutputModel`` reports two kinds of failure, an infra failure
+(returned at once) and a parse failure (returned after one retry). This module
+decides what each means for a guardrail check:
 
 - An **infra failure** (connection error, timeout, a server-level error
   response) is message-independent — it says nothing about whether this
   particular message is a crisis, and it means the RAG pipeline's own
   generation call is likely to hit the same failure right after, ending
-  the turn at the existing generic-error path anyway. These fail open
-  immediately: the same degradation the RAG pipeline already has for an
-  unreachable model, not a new failure mode.
-- A **parse failure** (the model responded, but its output didn't fit the
-  schema) means the model *was* reachable and *did* respond — this is
-  specific to that one call, not evidence of an outage, so it's retried
-  once before drawing any conclusion (a single malformed response is not
-  unusual and often succeeds on retry). If the retry also fails to parse,
-  that is a real, repeated signal that this check couldn't be completed
-  for this specific message: for the crisis check, that surfaces as a
-  conservative crisis match (with the general ``emergency`` resource)
-  instead of silently falling through to an unguarded RAG answer. The
-  other two checks still fail open on a repeated parse failure — missing
-  an out-of-scope or legal-sensitive redirect is a much smaller cost than
-  a missed crisis.
+  the turn at the existing generic-error path anyway. These fail open:
+  the same degradation the RAG pipeline already has for an unreachable
+  model, not a new failure mode.
+- A **parse failure** after the retry is a real, repeated signal that this
+  check couldn't be completed for this specific message: for the crisis
+  check, that surfaces as a conservative crisis match (with the general
+  ``emergency`` resource) instead of silently falling through to an
+  unguarded RAG answer. The other two checks still fail open on a repeated
+  parse failure — missing an out-of-scope or legal-sensitive redirect is a
+  much smaller cost than a missed crisis.
 """
 
 import asyncio
@@ -51,40 +46,14 @@ import logging
 from dataclasses import dataclass
 from typing import Final
 
-import httpx
 from langchain_core.language_models import BaseChatModel
 from pydantic import BaseModel, Field
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.prompts import load_prompt
-from app.services.llm_providers import PROVIDERS
-
-# Each provider's SDK wraps connection failures in its own exception type rather than
-# raising a raw httpx error (see app.services.llm_providers.PROVIDERS for the
-# per-provider types, e.g. why openai/anthropic each list an APIStatusError alongside
-# their APIConnectionError). httpx.RequestError and TimeoutError aren't provider-specific
-# — Ollama's client raises them directly for a connection failure or a stalled request,
-# without wrapping. Without these, an infra failure would fall through to _ParseError
-# and, after a retry, the crisis check would escalate to a conservative match for an
-# ordinary request instead of failing open like every other infra failure.
-_PROVIDER_INFRA_ERROR_TYPES: Final[tuple[type[BaseException], ...]] = tuple(
-    error_type for provider in PROVIDERS.values() for error_type in provider.infra_error_types
-)
-_INFRA_ERROR_TYPES: Final[tuple[type[BaseException], ...]] = (
-    httpx.RequestError,
-    TimeoutError,
-    *_PROVIDER_INFRA_ERROR_TYPES,
-)
+from app.services.structured_output import StructuredOutputFailure, StructuredOutputModel
 
 logger = logging.getLogger(__name__)
-
-
-class _InfraError(Exception):
-    """A check's model call failed for reasons unrelated to the message itself."""
-
-
-class _ParseError(Exception):
-    """The model responded, but its output didn't fit the expected schema."""
 
 
 class GuardrailCheckResult(BaseModel):
@@ -214,7 +183,9 @@ class LLMGuardrailClassifier:
                 (#9) — not always Ollama — or the guardrail's own ``TAPIO_LLM_MODEL_OVERRIDES``
                 entry (#139).
         """
-        self._structured_model = model.with_structured_output(GuardrailCheckResult)
+        self._structured_model = StructuredOutputModel(
+            model, GuardrailCheckResult, parse_retries=1, timeout=_CHECK_TIMEOUT_SECONDS
+        )
 
     async def classify(self, message: str) -> GuardrailMatch | None:
         """Run all three category checks concurrently and return the highest-priority match.
@@ -252,50 +223,14 @@ class LLMGuardrailClassifier:
             examples=check.render_examples(),
             message=message,
         )
-        try:
-            result = await self._invoke(prompt)
-        except _InfraError:
+        result = await self._structured_model.ainvoke(prompt)
+        if result.failure is StructuredOutputFailure.INFRA:
             logger.warning("Guardrail check %s failed (infra); failing open.", check.category)
             return None
-        except _ParseError:
-            logger.info("Guardrail check %s got an unparseable response; retrying once.", check.category)
-            try:
-                result = await self._invoke(prompt)
-            except _InfraError:
-                logger.warning("Guardrail check %s retry failed (infra); failing open.", check.category)
-                return None
-            except _ParseError:
-                return self._degraded_result(check)
+        if result.value is None:
+            return self._degraded_result(check)
 
-        return self._to_match(check, result)
-
-    async def _invoke(self, prompt: str) -> GuardrailCheckResult:
-        """Call the structured-output model once, categorizing any failure.
-
-        Args:
-            prompt: The fully-rendered check prompt.
-
-        Returns:
-            The parsed, schema-valid result.
-
-        Raises:
-            _InfraError: A connection, timeout, or server-level failure — message-independent,
-                and the same failure the RAG pipeline's own generation call would likely hit too.
-            _ParseError: The model responded, but its output didn't fit the expected schema —
-                specific to this call, not evidence that the model/connection is unreachable.
-        """
-        try:
-            async with asyncio.timeout(_CHECK_TIMEOUT_SECONDS):
-                result = await self._structured_model.ainvoke(prompt)
-        except _INFRA_ERROR_TYPES as error:
-            raise _InfraError from error
-        except Exception as error:
-            raise _ParseError from error
-
-        if not isinstance(result, GuardrailCheckResult):
-            msg = f"Unexpected structured-output result type: {type(result)!r}"
-            raise _ParseError(msg)
-        return result
+        return self._to_match(check, result.value)
 
     @staticmethod
     def _degraded_result(check: _CheckSpec) -> GuardrailMatch | None:

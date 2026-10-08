@@ -2,7 +2,7 @@
 
 from collections.abc import Iterator
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +15,7 @@ from app.dependencies import get_guardrail_classifier, get_orchestrator, get_orc
 from app.graph.orchestrator_graph import TapioOrchestratorGraph
 from app.guardrails import GuardrailClassifierProtocol, LLMGuardrailClassifier
 from app.guardrails.llm_classifier import GuardrailCheckResult
+from app.guardrails.responses import GuardrailIntro
 from app.main import app
 
 # ============================================================================
@@ -103,7 +104,9 @@ def _stub_guardrail_intro_model(monkeypatch: pytest.MonkeyPatch) -> None:
     it per test to control the generated intro text.
     """
     model = Mock(spec=BaseChatModel)
-    model.invoke.return_value = AIMessage(content="Mocked guardrail intro.")
+    model.with_structured_output.return_value.ainvoke = AsyncMock(
+        return_value=GuardrailIntro(text="Mocked guardrail intro.")
+    )
     monkeypatch.setattr("app.guardrails.responses.build_chat_model", lambda *_args, **_kwargs: model)
 
 
@@ -192,7 +195,7 @@ def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
             return GuardrailCheckResult(match=True, subtype="none", reason="Off-topic creative writing request.")
         return GuardrailCheckResult(match=False, subtype="none", reason="")
 
-    classifier._structured_model = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
     return classifier
 
 
