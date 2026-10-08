@@ -7,6 +7,7 @@ from langchain_anthropic import ChatAnthropic
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
+from pydantic import SecretStr
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
@@ -385,9 +386,20 @@ class TestCheckModelAvailability:
         credential source build_chat_model actually uses for an explicit key (see its own
         tests), so it's the one check_model_availability needs to recognize as configured."""
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.setenv("TAPIO_LLM_PROVIDER", "openai")
-        monkeypatch.setenv("TAPIO_LLM_API_KEY", "secret-key")
         model = ChatOpenAI(model="gpt-4o-mini", api_key="secret-key")
+
+        assert check_model_availability(model) is True
+
+    def test_explicit_key_counts_whatever_the_env_default_provider_is(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        """Availability follows the config the model was built from, not TAPIO_LLM_PROVIDER."""
+        monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+        monkeypatch.setenv("TAPIO_LLM_PROVIDER", "ollama")
+        config = RAGConfig(llm_provider="openai", llm_model_name="gpt-4o-mini")
+
+        model = build_chat_model(config, LLMSettings(api_key="secret-key"))
 
         assert check_model_availability(model) is True
 
@@ -398,16 +410,22 @@ class TestCheckModelAvailability:
         """build_chat_model only passes TAPIO_LLM_API_KEY to the default provider (#139), so a
         per-guide override on another provider still needs that provider's own env var."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.setenv("TAPIO_LLM_PROVIDER", "ollama")
-        monkeypatch.setenv("TAPIO_LLM_API_KEY", "ollama-proxy-key")
-        model = ChatAnthropic(model="claude-haiku-4-5")
+        config = RAGConfig(
+            llm_provider="ollama",
+            llm_model_name="gemma4:latest",
+            llm_model_overrides={"sampo": "anthropic:claude-haiku-4-5"},
+        )
+
+        model = build_chat_model(config, LLMSettings(api_key="ollama-proxy-key"), role="sampo")
 
         assert check_model_availability(model) is False
 
     def test_openai_unavailable_with_no_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
-        monkeypatch.delenv("TAPIO_LLM_API_KEY", raising=False)
-        model = ChatOpenAI(model="gpt-4o-mini", api_key="placeholder-not-from-env-or-settings")
+        # ChatOpenAI refuses to construct without a key, so blank one out on a built instance.
+        model = ChatOpenAI(model="gpt-4o-mini", api_key="placeholder").model_copy(
+            update={"openai_api_key": SecretStr("")},
+        )
 
         assert check_model_availability(model) is False
 
@@ -427,9 +445,8 @@ class TestCheckModelAvailability:
     def test_anthropic_available_via_tapio_llm_api_key_override(self, monkeypatch: pytest.MonkeyPatch) -> None:
         """TAPIO_LLM_API_KEY counts even though it isn't ANTHROPIC_API_KEY itself."""
         monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
-        monkeypatch.setenv("TAPIO_LLM_PROVIDER", "anthropic")
-        monkeypatch.setenv("TAPIO_LLM_API_KEY", "secret-key")
-        model = ChatAnthropic(model="claude-3-5-haiku-20241022")
+        config = RAGConfig(llm_provider="anthropic", llm_model_name="claude-3-5-haiku-20241022")
+        model = build_chat_model(config, LLMSettings(api_key="secret-key"))
 
         assert check_model_availability(model) is True
 

@@ -29,6 +29,7 @@ import ollama
 from langchain.chat_models import init_chat_model
 from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
+from pydantic import SecretStr
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
@@ -194,8 +195,8 @@ def check_model_availability(model: BaseChatModel) -> bool:
     For Ollama, this makes a real (cheap) call to confirm the server is running and the
     configured model is pulled — the same check ``LLMService`` made before #9. For a
     cloud provider, a live call would cost money on every ``/health`` poll, so this only
-    confirms credentials are present (via the provider's standard env var, or an explicit
-    ``TAPIO_LLM_API_KEY``), not that they're valid.
+    confirms the model instance holds a credential (from the provider's standard env var,
+    or the ``TAPIO_LLM_API_KEY`` that ``build_chat_model`` passed it), not that it's valid.
 
     Args:
         model: The chat model to check, as returned by ``build_chat_model``.
@@ -206,23 +207,27 @@ def check_model_availability(model: BaseChatModel) -> bool:
     if isinstance(model, ChatOllama):
         return _check_ollama_availability(model.model or "", model.base_url)
 
-    provider_name, env_var = next(
+    env_var = next(
         (
-            (name, provider.credential_env_var)
-            for name, provider in PROVIDERS.items()
+            provider.credential_env_var
+            for provider in PROVIDERS.values()
             if provider.credential_env_var and isinstance(model, provider.model_type)
         ),
-        (None, None),
+        None,
     )
     if env_var is None:
         return True
-    if os.environ.get(env_var):
+
+    # Read the key the instance was actually built with, rather than re-deriving it from the
+    # environment: lc_secrets maps each secret field to its env var (e.g. anthropic_api_key ->
+    # ANTHROPIC_API_KEY), and holds whichever key build_chat_model resolved for this model.
+    field = next((name for name, secret_env in model.lc_secrets.items() if secret_env == env_var), None)
+    secret = getattr(model, field, None) if field else None
+    if isinstance(secret, SecretStr) and secret.get_secret_value():
         return True
 
-    # build_chat_model only passes TAPIO_LLM_API_KEY to the default provider's models.
-    llm_settings = LLMSettings()
     logger.warning("%s is not set and no TAPIO_LLM_API_KEY override is configured", env_var)
-    return provider_name == llm_settings.provider and llm_settings.api_key is not None
+    return False
 
 
 def _check_ollama_availability(model_name: str, base_url: str | None) -> bool:
