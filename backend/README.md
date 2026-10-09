@@ -10,7 +10,7 @@ Run `uv sync`, then `uv run uvicorn app.main:app --reload --port 8000`. It reads
 
 ### LLM provider (`TAPIO_LLM_` env vars)
 
-The LLM backend is a plain [LangChain `BaseChatModel`](https://python.langchain.com/docs/concepts/chat_models/), selected at runtime via LangChain's own [`init_chat_model`](https://python.langchain.com/docs/how_to/chat_models_universal_init/) — no custom provider abstraction, and no code change needed to switch between a local Ollama model and a cloud provider (#9). `TAPIO_LLM_PROVIDER`'s values are exactly the provider names LangChain itself recognizes.
+The LLM backend is a plain [LangChain `BaseChatModel`](https://python.langchain.com/docs/concepts/chat_models/), selected at runtime via LangChain's own [`init_chat_model`](https://python.langchain.com/docs/how_to/chat_models_universal_init/) — no custom provider abstraction, and no code change needed to switch between a local Ollama model and a cloud provider (#9). `TAPIO_LLM_PROVIDER` supports `ollama`, `openai`, and `anthropic`. OpenAI compatible endpoints can be configured through `TAPIO_LLM_API_BASE`.
 
 | Variable            | Default            | Purpose                                                                                                                                                                                    |
 | -------------------- | ------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -49,7 +49,7 @@ export TAPIO_LLM_API_KEY=...
 
 By default every guide and the guardrail share the one model above. `TAPIO_LLM_MODEL_OVERRIDES` gives individual guides or stages their own — for example a small, fast model for guardrail checks and a stronger one for a specialist's answers. Anything without an entry keeps using `TAPIO_LLM_PROVIDER`/`TAPIO_LLM_MODEL`, so this is optional.
 
-Keys are a guide id (`tapio`, `ilmarinen`, `sampo`, `rauni`, `otso`) or `guardrail` (message classification and the localized safety-response intro). An unknown key fails at startup. Values use LangChain's own `provider:model` form, as `init_chat_model` accepts; a value without a provider prefix (such as an Ollama tag like `gemma4:e2b`) uses `TAPIO_LLM_PROVIDER`.
+Keys are a guide id (`tapio`, `ilmarinen`, `sampo`, `rauni`, `otso`) or `guardrail` (message classification and the localized safety-response intro). An unknown key fails at startup. Provider prefixed values use `provider:model` syntax and support only `ollama`, `openai`, and `anthropic`. Unsupported LangChain providers and likely provider typos are rejected at startup. Bare model names use `TAPIO_LLM_PROVIDER`. Ollama tags such as `gemma4:e2b` remain valid when Ollama is the default provider.
 
 ```bash
 export TAPIO_LLM_PROVIDER=ollama
