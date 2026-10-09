@@ -37,12 +37,25 @@ class ChromaRetriever:
             persist_directory=persist_directory,
         )
 
-    def query(self, query_text: str, n_results: int = 5) -> list[Document]:
-        """Return the nearest documents for a user query."""
+    def query(self, query_text: str, n_results: int = 5, *, raise_on_error: bool = False) -> list[Document]:
+        """Return the nearest documents for a user query.
+
+        Args:
+            query_text: The text to search for.
+            n_results: Maximum number of documents to return.
+            raise_on_error: If False (the default, used by the live chat
+                path), a vector-store failure is logged and treated the same
+                as a genuine no-results query, so a single user turn never
+                crashes on an infrastructure hiccup. Callers that need to
+                tell "no results" apart from "the store is broken" — such as
+                the offline evaluation scripts — should pass True.
+        """
         try:
             results = self.vector_db.similarity_search(query=query_text, k=n_results)
         except Exception:
             logger.exception("Failed to query vector store")
+            if raise_on_error:
+                raise
             return []
 
         for document in results:
