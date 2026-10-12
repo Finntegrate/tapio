@@ -1,6 +1,6 @@
 # Guardrails for sensitive and off-topic queries — policy
 
-**Status:** Initial implementation
+**Status:** Implemented
 
 **Owner:** Finntegrate
 

@@ -1,6 +1,6 @@
 # Conversation history — specification
 
-**Status:** Accepted, not yet implemented
+**Status:** Accepted
 
 **Owner:** Finntegrate
 

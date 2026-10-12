@@ -1,6 +1,6 @@
 # Multi-agent chat experience — feature specification
 
-**Status:** Initial implementation
+**Status:** Implemented
 
 **Owner:** Finntegrate
 

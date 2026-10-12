@@ -1,6 +1,6 @@
 # Authentication and tenancy — specification
 
-**Status:** Accepted, not yet implemented
+**Status:** Accepted
 
 **Owner:** Finntegrate
 
