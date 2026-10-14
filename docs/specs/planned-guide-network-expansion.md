@@ -1,6 +1,6 @@
 # Planned guide network expansion — scope and build order
 
-**Status:** Scoping (no build started)
+**Status:** Draft
 
 **Owner:** Finntegrate
 

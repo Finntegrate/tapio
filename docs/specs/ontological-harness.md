@@ -1,6 +1,6 @@
 # Ontological harness for the guide network
 
-**Status:** Proposal, not yet reviewed
+**Status:** Proposed
 
 **Milestone:** Proposed for 2.1.0, ahead of further guide development
 

@@ -1,6 +1,6 @@
 # Crisis and escalation resource list — governance
 
-**Status:** Draft — initial candidate list populated, pending sign-off from a named safety/legal/partnerships owner
+**Status:** Draft
 
 **Owner:** Safety, legal, and partnerships (PRD §11)
 
