@@ -86,3 +86,38 @@ def test_llm_settings_rejects_unknown_override_keys(monkeypatch: pytest.MonkeyPa
 
     with pytest.raises(ValidationError, match="samp"):
         LLMSettings()
+
+
+@pytest.mark.parametrize(
+    "override",
+    [
+        "google_genai:gemini-2.5-flash",
+        "antropic:claude-haiku-4-5",
+    ],
+)
+def test_llm_settings_rejects_unsupported_or_typoed_provider_prefixes(
+    monkeypatch: pytest.MonkeyPatch, override: str
+) -> None:
+    monkeypatch.setenv("TAPIO_LLM_MODEL_OVERRIDES", f'{{"sampo": "{override}"}}')
+
+    with pytest.raises(ValidationError):
+        LLMSettings()
+
+
+def test_llm_settings_preserves_ollama_model_tags(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "ollama")
+    monkeypatch.setenv("TAPIO_LLM_MODEL_OVERRIDES", '{"guardrail": "gemma4:e2b"}')
+
+    assert LLMSettings().model_overrides == {"guardrail": "gemma4:e2b"}
+
+
+def test_llm_settings_rejects_unknown_prefixed_override_for_cloud_provider(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("TAPIO_LLM_MODEL_OVERRIDES", '{"sampo": "custom:model"}')
+
+    with pytest.raises(ValidationError, match="custom"):
+        LLMSettings()

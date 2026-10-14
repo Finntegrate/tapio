@@ -1,8 +1,9 @@
 """Environment-driven LLM provider configuration (#9, #139)."""
 
+from difflib import get_close_matches
 from typing import Final
 
-from pydantic import SecretStr, field_validator
+from pydantic import SecretStr, ValidationInfo, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.agents.definitions import AGENTS_BY_ID
@@ -13,6 +14,44 @@ GUARDRAIL_ROLE: Final = "guardrail"
 
 MODEL_OVERRIDE_ROLES: Final = frozenset({*AGENTS_BY_ID, GUARDRAIL_ROLE})
 """Every key ``TAPIO_LLM_MODEL_OVERRIDES`` accepts: a guide id, or a non-guide LLM stage."""
+
+
+SUPPORTED_MODEL_PROVIDERS: Final = frozenset({"ollama", "openai", "anthropic"})
+"""Providers Tapio has configured integrations for."""
+
+LANGCHAIN_MODEL_PROVIDERS: Final = frozenset(
+    {
+        "openai",
+        "anthropic",
+        "azure_openai",
+        "azure_ai",
+        "google_vertexai",
+        "google_genai",
+        "anthropic_bedrock",
+        "bedrock",
+        "bedrock_converse",
+        "cohere",
+        "fireworks",
+        "together",
+        "mistralai",
+        "huggingface",
+        "groq",
+        "ollama",
+        "google_anthropic_vertex",
+        "deepseek",
+        "ibm",
+        "nvidia",
+        "xai",
+        "openrouter",
+        "perplexity",
+        "upstage",
+        "baseten",
+        "litellm",
+        "meta",
+        "langsmith",
+    }
+)
+"""Provider prefixes recognized by the installed LangChain interface."""
 
 
 class LLMSettings(BaseSettings):
@@ -56,20 +95,58 @@ class LLMSettings(BaseSettings):
 
     @field_validator("model_overrides")
     @classmethod
-    def _reject_unknown_roles(cls, value: dict[str, str]) -> dict[str, str]:
-        """Fail at startup on a mistyped key, rather than silently using the default model.
-
-        Args:
-            value: The parsed ``TAPIO_LLM_MODEL_OVERRIDES`` mapping.
-
-        Returns:
-            ``value``, unchanged.
-
-        Raises:
-            ValueError: If a key is neither a guide id nor ``"guardrail"``.
-        """
-        unknown = sorted(set(value) - MODEL_OVERRIDE_ROLES)
-        if unknown:
-            msg = f"Unknown TAPIO_LLM_MODEL_OVERRIDES keys {unknown}; expected any of {sorted(MODEL_OVERRIDE_ROLES)}"
+    def _validate_model_overrides(cls, value: dict[str, str], info: ValidationInfo) -> dict[str, str]:
+        """Validate override roles and provider prefixes at startup."""
+        unknown_roles = sorted(set(value) - MODEL_OVERRIDE_ROLES)
+        if unknown_roles:
+            msg = (
+                f"Unknown TAPIO_LLM_MODEL_OVERRIDES keys {unknown_roles}; "
+                f"expected any of {sorted(MODEL_OVERRIDE_ROLES)}"
+            )
             raise ValueError(msg)
+
+        default_provider = info.data.get("provider", DEFAULT_LLM_PROVIDER)
+
+        for role, override in value.items():
+            prefix, separator, model_name = override.partition(":")
+            if not separator:
+                continue
+
+            if prefix in SUPPORTED_MODEL_PROVIDERS:
+                if not model_name.strip():
+                    msg = (
+                        f"Invalid TAPIO_LLM_MODEL_OVERRIDES value for {role!r}: "
+                        f"provider {prefix!r} requires a model name"
+                    )
+                    raise ValueError(msg)
+                continue
+
+            if prefix in LANGCHAIN_MODEL_PROVIDERS:
+                msg = (
+                    f"Unsupported provider {prefix!r} in TAPIO_LLM_MODEL_OVERRIDES "
+                    f"for {role!r}. Supported providers: "
+                    f"{sorted(SUPPORTED_MODEL_PROVIDERS)}"
+                )
+                raise ValueError(msg)
+
+            likely_typo = get_close_matches(prefix.lower(), sorted(SUPPORTED_MODEL_PROVIDERS), n=1, cutoff=0.78)
+            if likely_typo:
+                msg = (
+                    f"Unknown provider prefix {prefix!r} in TAPIO_LLM_MODEL_OVERRIDES "
+                    f"for {role!r}. Did you mean {likely_typo[0]!r}? "
+                    f"Supported providers: {sorted(SUPPORTED_MODEL_PROVIDERS)}"
+                )
+                raise ValueError(msg)
+
+            # Ollama model identifiers commonly contain a colon for their tag,
+            # for example gemma4:e2b. Preserve unknown tags for the Ollama default.
+            if default_provider == "ollama":
+                continue
+
+            msg = (
+                f"Unknown provider prefix {prefix!r} in TAPIO_LLM_MODEL_OVERRIDES "
+                f"for {role!r}. Supported providers: {sorted(SUPPORTED_MODEL_PROVIDERS)}"
+            )
+            raise ValueError(msg)
+
         return value
