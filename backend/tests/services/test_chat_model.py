@@ -1,5 +1,6 @@
 """Tests for building and using the configured LangChain chat model (#9)."""
 
+import logging
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -420,6 +421,31 @@ class TestCheckModelAvailability:
         model = build_chat_model(config, LLMSettings(api_key="ollama-proxy-key"), role="sampo")
 
         assert check_model_availability(model) is False
+
+    def test_missing_credential_warning_names_the_role_and_model(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        model = ChatAnthropic(model="claude-haiku-4-5")
+
+        with caplog.at_level(logging.WARNING, logger="app.services.chat_model"):
+            assert check_model_availability(model, role="guardrail", tapio_key_applies=False) is False
+
+        assert "guardrail model claude-haiku-4-5 has no credential; set ANTHROPIC_API_KEY" in caplog.text
+        assert "TAPIO_LLM_API_KEY" not in caplog.text
+
+    def test_missing_credential_warning_suggests_tapio_llm_api_key_for_the_default_provider(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        model = ChatAnthropic(model="claude-haiku-4-5")
+
+        with caplog.at_level(logging.WARNING, logger="app.services.chat_model"):
+            assert check_model_availability(model) is False
+
+        assert "default model claude-haiku-4-5 has no credential; set ANTHROPIC_API_KEY or TAPIO_LLM_API_KEY" in (
+            caplog.text
+        )
 
     def test_openai_unavailable_with_no_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)

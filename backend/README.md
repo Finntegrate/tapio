@@ -58,11 +58,11 @@ export TAPIO_LLM_MODEL_OVERRIDES='{"guardrail": "gemma4:e2b", "ilmarinen": "anth
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-`TAPIO_LLM_API_BASE` and `TAPIO_LLM_API_KEY` apply only to models on `TAPIO_LLM_PROVIDER`. An override on a different provider uses that provider's own environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OLLAMA_HOST`, …), so a key or URL meant for one provider is never sent to another. `GET /health` checks every guide's model.
+`TAPIO_LLM_API_BASE` and `TAPIO_LLM_API_KEY` apply only to models on `TAPIO_LLM_PROVIDER`. An override on a different provider uses that provider's own environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OLLAMA_HOST`, …), so a key or URL meant for one provider is never sent to another. `GET /health` checks the default model, every guide's model, and the guardrail's model, and reports each one under `models`.
 
 ## Endpoints
 
-- `GET /health` — checks Ollama/model availability.
+- `GET /health` — checks model availability: `model_available` is true only if every configured model is available, and `models` breaks it down by role (`default`, each overridden guide, `guardrail`).
 - `GET /agents` — the guide roster (id, name, title, category, summary, color).
 - `POST /chat/stream` — Server-Sent Events chat stream. Emits `routing`, `citation`, `token` (repeated), and `done` events per turn, or `error` on failure.
 

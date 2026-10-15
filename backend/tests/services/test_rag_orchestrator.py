@@ -176,7 +176,7 @@ def test_rag_orchestrator_check_model_availability(rag_orchestrator):
         result = rag_orchestrator.check_model_availability()
 
     # Verify it was checked against this orchestrator's own chat model
-    mock_check.assert_called_once_with(rag_orchestrator.llm_service)
+    mock_check.assert_called_once_with(rag_orchestrator.llm_service, role="default", tapio_key_applies=True)
 
     # Verify the result
     assert result is True
