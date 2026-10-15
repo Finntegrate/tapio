@@ -51,7 +51,7 @@ from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
 from app.services.chat_model import build_chat_model, build_messages
-from app.services.structured_output import StructuredOutputModel
+from app.services.structured_output import StructuredOutputModel, render_json_shape
 
 logger = logging.getLogger(__name__)
 
@@ -247,6 +247,7 @@ async def _localized_intro(
     prompt = load_prompt(
         "guardrail_response_intro",
         intent_description=intent_descriptions[category],
+        json_shape=render_json_shape(GuardrailIntro),
         message=message,
     )
     messages = build_messages(prompt, system_prompt=None, history=None)
