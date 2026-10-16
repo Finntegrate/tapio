@@ -51,7 +51,7 @@ from pydantic import BaseModel, Field
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.prompts import load_prompt
-from app.services.structured_output import StructuredOutputFailure, StructuredOutputModel
+from app.services.structured_output import StructuredOutputFailure, StructuredOutputModel, render_json_shape
 
 logger = logging.getLogger(__name__)
 
@@ -63,6 +63,9 @@ class GuardrailCheckResult(BaseModel):
     subtype: str = Field(description="One of the check's allowed subtype options, or 'none'.")
     reason: str = Field(description="One short phrase explaining the decision, or an empty string if match is false.")
 
+
+# Rendered from the schema so the prompt can't describe a different shape than the call enforces.
+_JSON_SHAPE: Final[str] = render_json_shape(GuardrailCheckResult)
 
 _SUBTYPE_RESOURCE_CATEGORIES: Final[dict[str, tuple[str, ...]]] = {
     "self_harm": ("mental_health_crisis", "emergency"),
@@ -221,6 +224,7 @@ class LLMGuardrailClassifier:
             criteria_description=check.criteria_description,
             subtype_options=check.subtype_options,
             examples=check.render_examples(),
+            json_shape=_JSON_SHAPE,
             message=message,
         )
         result = await self._structured_model.ainvoke(prompt)

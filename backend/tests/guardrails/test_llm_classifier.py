@@ -1,5 +1,6 @@
 """Tests for the parallel, structured-output LLM guardrail classification stage (#29)."""
 
+import re
 from collections.abc import Sequence
 from types import SimpleNamespace
 
@@ -10,6 +11,8 @@ from langchain_ollama import ChatOllama
 
 from app.guardrails import GuardrailCategory, LLMGuardrailClassifier
 from app.guardrails.llm_classifier import GuardrailCheckResult
+from app.services.structured_output import render_json_shape
+from tests.prompts.shape import shape_field_names
 
 _NO_MATCH = GuardrailCheckResult(match=False, subtype="none", reason="")
 
@@ -264,3 +267,23 @@ async def test_classify_treats_an_unexpected_result_type_as_a_parse_error() -> N
     # Two unparseable crisis responses in a row escalate conservatively.
     assert result is not None
     assert result.category is GuardrailCategory.CRISIS
+
+
+async def test_check_prompt_shows_the_schemas_exact_fields() -> None:
+    """The prompt's JSON shape comes from GuardrailCheckResult, so it can't drift from it."""
+    prompts: list[str] = []
+    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
+
+    async def capturing_ainvoke(prompt: str) -> GuardrailCheckResult:
+        prompts.append(prompt)
+        return _NO_MATCH
+
+    classifier._structured_model._runnable = SimpleNamespace(ainvoke=capturing_ainvoke)
+
+    await classifier.classify("some message")
+
+    assert len(prompts) == 3
+    for prompt in prompts:
+        assert render_json_shape(GuardrailCheckResult) in prompt
+        assert shape_field_names(prompt) == set(GuardrailCheckResult.model_fields)
+        assert not re.search(r"\$\w", prompt), "unsubstituted template variable left in the prompt"
