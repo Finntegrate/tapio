@@ -5,10 +5,12 @@ from app.tools.datetime_tool import add_calendar_days, get_current_datetime
 from app.tools.registry import ToolRegistry, ToolSpec
 
 # Every tool Tapio knows about. Adding one here, with its cost tier and any env vars
-# it needs, is the only code change; whether it's available is configuration.
+# it needs, is the only code change; whether it's available is configuration. During
+# the beta every shipped tool must be read-only and free (privacy and security baseline);
+# tests/tools/test_boundaries.py enforces that.
 TOOL_SPECS: tuple[ToolSpec, ...] = (
-    ToolSpec(get_current_datetime, CostTier.FREE),
-    ToolSpec(add_calendar_days, CostTier.FREE),
+    ToolSpec(get_current_datetime, CostTier.FREE, read_only=True),
+    ToolSpec(add_calendar_days, CostTier.FREE, read_only=True),
 )
 
 ALL_TOOLS = [spec.tool for spec in TOOL_SPECS]

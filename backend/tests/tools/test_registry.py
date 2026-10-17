@@ -31,9 +31,9 @@ def paid_tool() -> str:
 
 
 SPECS = (
-    ToolSpec(free_tool, CostTier.FREE),
-    ToolSpec(metered_tool, CostTier.METERED),
-    ToolSpec(paid_tool, CostTier.PAID, required_env_vars=("PAID_API_KEY",)),
+    ToolSpec(free_tool, CostTier.FREE, read_only=True),
+    ToolSpec(metered_tool, CostTier.METERED, read_only=True),
+    ToolSpec(paid_tool, CostTier.PAID, required_env_vars=("PAID_API_KEY",), read_only=True),
 )
 
 
@@ -81,7 +81,7 @@ def test_an_unknown_disabled_name_fails_at_startup() -> None:
 
 def test_a_duplicate_name_fails_at_registration() -> None:
     with pytest.raises(ValueError, match="registered twice"):
-        ToolRegistry((*SPECS, ToolSpec(free_tool, CostTier.FREE)))
+        ToolRegistry((*SPECS, ToolSpec(free_tool, CostTier.FREE, read_only=True)))
 
 
 def test_invocations_are_logged_with_their_tier_but_not_their_input(caplog: pytest.LogCaptureFixture) -> None:

@@ -11,13 +11,14 @@ its name and cost tier on every call, so tool spend is visible in the logs.
 import logging
 import os
 from collections.abc import Iterable, Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 from langchain_core.callbacks import BaseCallbackHandler
 from langchain_core.tools import BaseTool
 
 from app.config.tool_settings import CostTier, ToolSettings
+from app.tools.boundaries import check_tool_boundaries
 
 logger = logging.getLogger(__name__)
 
@@ -31,11 +32,14 @@ class ToolSpec:
         cost_tier: What a call costs (see ``CostTier``).
         required_env_vars: Env vars that must all be set for the tool to be available,
             e.g. the API key of the service it calls.
+        read_only: Whether the tool is free of side effects. Required, with no default, so
+            every tool's author states it; registration rejects ``False``.
     """
 
     tool: BaseTool
     cost_tier: CostTier
     required_env_vars: tuple[str, ...] = ()
+    read_only: bool = field(kw_only=True)
 
     @property
     def name(self) -> str:
@@ -63,7 +67,8 @@ class ToolRegistry:
         environ: Where to look up each tool's required env vars; defaults to ``os.environ``.
 
     Raises:
-        ValueError: If two specs share a name, or ``settings.disabled`` names an unknown tool.
+        ValueError: If two specs share a name, a tool crosses a boundary in
+            ``app.tools.boundaries``, or ``settings.disabled`` names an unknown tool.
     """
 
     def __init__(
@@ -80,10 +85,12 @@ class ToolRegistry:
             environ: Where to look up each tool's required env vars; defaults to ``os.environ``.
 
         Raises:
-            ValueError: If two specs share a name, or ``settings.disabled`` names an unknown tool.
+            ValueError: If two specs share a name, a tool crosses a boundary in
+                ``app.tools.boundaries``, or ``settings.disabled`` names an unknown tool.
         """
         self._specs: dict[str, ToolSpec] = {}
         for spec in specs:
+            check_tool_boundaries(spec.tool, read_only=spec.read_only)
             if spec.name in self._specs:
                 msg = f"Tool {spec.name!r} is registered twice"
                 raise ValueError(msg)
