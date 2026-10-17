@@ -1,5 +1,7 @@
 """Tests for RAGOrchestratorFactory's chat model selection (#9, #139)."""
 
+from unittest.mock import Mock, patch
+
 from langchain_anthropic import ChatAnthropic
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
@@ -90,3 +92,40 @@ def test_create_chat_model_honors_a_stage_override() -> None:
 
     assert factory.create_chat_model(role="guardrail").model == "gemma4:e2b"
     assert factory.create_chat_model().model == "gemma4:latest"
+
+
+def test_guardrail_shares_default_model_without_an_override() -> None:
+    factory = RAGOrchestratorFactory(RAGConfig(llm_provider="ollama", llm_model_name="gemma4:latest"))
+
+    assert factory.guardrail_shares_default_model() is True
+
+
+def test_guardrail_does_not_share_default_model_with_its_own_override() -> None:
+    factory = RAGOrchestratorFactory(
+        RAGConfig(
+            llm_provider="ollama",
+            llm_model_name="gemma4:latest",
+            llm_model_overrides={"guardrail": "anthropic:claude-haiku-4-5"},
+        ),
+    )
+
+    assert factory.guardrail_shares_default_model() is False
+
+
+def test_create_orchestrator_holds_the_guardrail_model_for_health_checks() -> None:
+    """The orchestrator's graph holds the exact guardrail model it was given, for /health."""
+    factory = RAGOrchestratorFactory(
+        RAGConfig(
+            llm_provider="ollama", llm_model_name="gemma4:latest", llm_model_overrides={"guardrail": "gemma4:e2b"}
+        ),
+    )
+    guardrail_model = factory.create_chat_model(role="guardrail")
+
+    with (
+        patch.object(factory, "create_embeddings", return_value=Mock()),
+        patch.object(factory, "create_retriever", return_value=Mock()),
+    ):
+        orchestrator = factory.create_orchestrator(guardrail_model=guardrail_model)
+
+    assert orchestrator.graph.guardrail_model is guardrail_model
+    assert orchestrator.graph.llm_service.model == "gemma4:latest"

@@ -189,7 +189,12 @@ def _reject_cleartext_transport(provider_name: str, llm_settings: LLMSettings) -
     raise ValueError(msg)
 
 
-def check_model_availability(model: BaseChatModel) -> bool:
+def check_model_availability(
+    model: BaseChatModel,
+    *,
+    role: str = "default",
+    tapio_key_applies: bool = True,
+) -> bool:
     """Check whether ``model``'s provider is reachable and correctly configured.
 
     For Ollama, this makes a real (cheap) call to confirm the server is running and the
@@ -200,6 +205,11 @@ def check_model_availability(model: BaseChatModel) -> bool:
 
     Args:
         model: The chat model to check, as returned by ``build_chat_model``.
+        role: Which model this is (``"default"``, a guide id, or a stage such as
+            ``"guardrail"``), named in the warning so an operator can tell which one is down.
+        tapio_key_applies: Whether ``build_chat_model`` would have passed this model
+            ``TAPIO_LLM_API_KEY``, which is true only for the default provider (#139). When
+            false, the warning names only the provider's own env var.
 
     Returns:
         bool: True if the provider appears ready to serve requests.
@@ -226,8 +236,14 @@ def check_model_availability(model: BaseChatModel) -> bool:
     if isinstance(secret, SecretStr) and secret.get_secret_value():
         return True
 
-    logger.warning("%s is not set and no TAPIO_LLM_API_KEY override is configured", env_var)
+    hint = f"{env_var} or TAPIO_LLM_API_KEY" if tapio_key_applies else env_var
+    logger.warning("%s model %s has no credential; set %s", role, _model_name(model), hint)
     return False
+
+
+def _model_name(model: BaseChatModel) -> str:
+    """Best-effort model identifier for log messages, across providers' differing field names."""
+    return str(getattr(model, "model", None) or getattr(model, "model_name", None) or type(model).__name__)
 
 
 def _check_ollama_availability(model_name: str, base_url: str | None) -> bool:
