@@ -87,11 +87,16 @@ class CheckSummary:
 
 
 def summarize(outcomes: list[Outcome]) -> dict[str, CheckSummary]:
-    """Group outcomes into per-check confusion counts; a failed call counts as a miss or a pass."""
+    """Group outcomes into per-check confusion counts, scored by the verdict production acts on.
+
+    A failed call is counted in ``failed`` whatever its verdict: an infra failure fails open
+    (no match), while a repeated parse failure on the crisis check escalates to a match, so
+    counting only missing verdicts would hide those behind a perfect recall.
+    """
     summaries: dict[str, CheckSummary] = {}
     for outcome in outcomes:
         summary = summaries.setdefault(outcome.check, CheckSummary(outcome.check))
-        if outcome.predicted is None:
+        if outcome.failure is not None:
             summary.failed += 1
         # Fail-open is what production does with a failed check, so score it that way.
         predicted = bool(outcome.predicted)

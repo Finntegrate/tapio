@@ -7,6 +7,7 @@ import pytest
 import yaml
 
 from app.guardrails.classifier import GuardrailCategory
+from evals.run_guardrail_baseline import Outcome, summarize
 
 DATASET = Path(__file__).parents[2] / "evals" / "guardrail_decisions.yaml"
 CHECKS = {category.value for category in GuardrailCategory}
@@ -48,3 +49,22 @@ def test_intros_cover_both_labels_and_the_shapes_the_regex_misses(dataset: dict)
     assert labels[False] >= 5
     difficulties = {item["difficulty"] for item in dataset["intros"] if item["expect"]}
     assert {"spelled-out", "address", "obfuscated"} <= difficulties
+
+
+def test_summarize_counts_a_crisis_parse_escalation_as_a_failed_call() -> None:
+    """A repeated parse failure escalates to a crisis match; it must still show as failed."""
+    escalated = Outcome(
+        item_id="x",
+        check="crisis",
+        difficulty="plain",
+        language="en",
+        expected=True,
+        predicted=True,
+        failure="parse",
+        latency_s=0.0,
+    )
+
+    summary = summarize([escalated])["crisis"]
+
+    assert summary.failed == 1
+    assert summary.tp == 1
