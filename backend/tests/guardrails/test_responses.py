@@ -1,6 +1,7 @@
 """Tests for guardrail interception copy (#29)."""
 
 import json
+import re
 
 import pytest
 from langchain_core.messages import AIMessage, BaseMessage
@@ -11,6 +12,8 @@ from pydantic import Field, ValidationError
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, CrisisResourceList
 from app.guardrails.responses import _INTRO_TIMEOUT_SECONDS, GuardrailIntro, build_guardrail_response
+from app.services.structured_output import render_json_shape
+from tests.prompts.shape import shape_field_names
 
 _DRAFT_RESOURCE_LIST = CrisisResourceList(
     version=1,
@@ -416,3 +419,15 @@ async def test_legal_sensitive_response_uses_no_resources_fallback_when_unmatche
     response = await build_guardrail_response(match, "I was denied asylum.")
 
     assert response == "Please contact your local emergency services or a trusted support line directly."
+
+
+async def test_intro_prompt_shows_the_schemas_exact_fields(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The prompt's JSON shape comes from GuardrailIntro, so it can't drift from it."""
+    model = _patch_chat_model(monkeypatch)
+
+    await build_guardrail_response(GuardrailMatch(category=GuardrailCategory.OUT_OF_SCOPE, reason="r"), "Hi")
+
+    prompt = _sent_prompt(model)
+    assert render_json_shape(GuardrailIntro) in prompt
+    assert shape_field_names(prompt) == set(GuardrailIntro.model_fields)
+    assert not re.search(r"\$\w", prompt), "unsubstituted template variable left in the prompt"

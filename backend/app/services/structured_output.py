@@ -28,6 +28,7 @@ guardrail response intro decide differently from the same result.
 """
 
 import asyncio
+import json
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
@@ -52,6 +53,28 @@ INFRA_ERROR_TYPES: Final[tuple[type[BaseException], ...]] = (
     TimeoutError,
     *(error_type for provider in PROVIDERS.values() for error_type in provider.infra_error_types),
 )
+
+
+def render_json_shape(schema: type[BaseModel]) -> str:
+    """Render ``schema``'s expected JSON object as one line, for a prompt to show the model.
+
+    Each field appears with its JSON type and ``Field`` description, so a prompt built from
+    this always names the fields the call is actually constrained to, rather than a
+    hand-written copy that drifts when the schema changes. Only flat schemas are supported.
+
+    Args:
+        schema: The Pydantic model the structured-output call is constrained to.
+
+    Returns:
+        A single-line JSON-like shape, e.g. ``{"text": <string: The paragraph.>}``.
+    """
+    properties = schema.model_json_schema()["properties"]
+    fields = []
+    for name, field in schema.model_fields.items():
+        json_type = properties[name].get("type", "value")
+        hint = f"{json_type}: {field.description}" if field.description else json_type
+        fields.append(f"{json.dumps(name)}: <{hint}>")
+    return "{" + ", ".join(fields) + "}"
 
 
 class StructuredOutputFailure(StrEnum):

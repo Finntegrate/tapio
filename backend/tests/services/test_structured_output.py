@@ -25,12 +25,13 @@ from langchain_core.messages import AIMessage
 from langchain_core.outputs import ChatGeneration, ChatResult
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 from app.services.structured_output import (
     StructuredOutputFailure,
     StructuredOutputModel,
     StructuredOutputResult,
+    render_json_shape,
 )
 
 _KNOWN_GUIDES = frozenset({"ilmarinen", "sampo"})
@@ -278,3 +279,15 @@ async def test_logs_failures_without_the_model_output(
     assert result.failure is StructuredOutputFailure.PARSE
     assert caplog.records
     assert marker not in caplog.text
+
+
+class _ShapeSchema(BaseModel):
+    flag: bool = Field(description="Whether it applies.")
+    label: str = Field(description="A short label.")
+    count: int
+
+
+def test_render_json_shape_names_each_field_with_its_type_and_description() -> None:
+    assert render_json_shape(_ShapeSchema) == (
+        '{"flag": <boolean: Whether it applies.>, "label": <string: A short label.>, "count": <integer>}'
+    )
