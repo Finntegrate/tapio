@@ -68,6 +68,43 @@ def test_registration_rejects_a_restricted_store_passed_as_a_default_argument() 
         ToolRegistry([ToolSpec(peeking, CostTier.FREE, read_only=True)])
 
 
+class _Wrapper:
+    def __init__(self, inner: object) -> None:
+        self.inner = inner
+
+
+@pytest.mark.parametrize(
+    "holder",
+    [
+        pytest.param(lambda store: [store], id="in-a-list"),
+        pytest.param(lambda store: {"stores": (store,)}, id="in-a-nested-container"),
+        pytest.param(lambda store: _Wrapper(_Wrapper(store)), id="in-an-object-field"),
+    ],
+)
+def test_registration_rejects_a_restricted_store_held_indirectly(holder: object) -> None:
+    held = holder(_FakeCheckpointStore())  # type: ignore[operator]
+
+    @tool
+    def indirect() -> str:
+        """Return what the held value is."""
+        return type(held).__name__
+
+    with pytest.raises(ValueError, match="restricted handles"):
+        ToolRegistry([ToolSpec(indirect, CostTier.FREE, read_only=True)])
+
+
+def test_registration_handles_a_reference_cycle() -> None:
+    cycle: list[object] = []
+    cycle.append(cycle)
+
+    @tool
+    def cyclic() -> str:
+        """Return the cycle's length."""
+        return str(len(cycle))
+
+    ToolRegistry([ToolSpec(cyclic, CostTier.FREE, read_only=True)])
+
+
 def test_registration_rejects_a_tool_that_is_not_read_only() -> None:
     @tool
     def delete_everything() -> str:

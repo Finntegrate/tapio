@@ -13,7 +13,9 @@ registration and rejects one that could reach another person's data:
 - a tool not declared read-only.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterator, Mapping
+from functools import partial
+from types import FunctionType, MethodType, ModuleType
 from typing import Any, Final
 
 from langchain_core.tools import BaseTool
@@ -60,17 +62,65 @@ def check_tool_boundaries(tool: BaseTool, *, read_only: bool) -> None:
 
 
 def _reachable_values(tool: BaseTool) -> Iterator[Any]:
-    """Yield the values a tool's code can reach without importing anything new.
+    """Yield every value a tool's code can reach without importing anything new.
 
-    Covers the tool's own fields and, for its function (and coroutine), the closure cells,
-    default arguments, and bound ``self``. A module-level global isn't covered: a store
-    held that way is shared process state, which the stores themselves must not expose.
+    Starts from the tool's own fields and, for its function (and coroutine), the closure
+    cells, default arguments, and bound ``self``, then walks into containers, object
+    fields, and nested functions, so a store wrapped in a list or another object is still
+    found. Each object is visited once (cycles are safe), and the walk stops at
+    ``_MAX_DEPTH`` levels. A module-level global isn't covered: a store held that way is
+    shared process state, which the stores themselves must not expose.
     """
-    yield from vars(tool).values()
+    roots: list[Any] = [*vars(tool).values()]
     for function in (getattr(tool, "func", None), getattr(tool, "coroutine", None)):
-        if function is None:
+        if function is not None:
+            roots.extend(_function_values(function))
+
+    seen: set[int] = set()
+    stack = [(value, 0) for value in roots]
+    while stack:
+        value, depth = stack.pop()
+        if id(value) in seen or isinstance(value, _LEAF_TYPES):
             continue
-        yield getattr(function, "__self__", None)
-        yield from (cell.cell_contents for cell in getattr(function, "__closure__", None) or ())
-        yield from getattr(function, "__defaults__", None) or ()
-        yield from (getattr(function, "__kwdefaults__", None) or {}).values()
+        seen.add(id(value))
+        yield value
+        if depth < _MAX_DEPTH:
+            stack.extend((child, depth + 1) for child in _children(value))
+
+
+# Values that can't hold a handle, or whose contents are code rather than state.
+_LEAF_TYPES: Final = (str, bytes, int, float, complex, bool, type(None), type, ModuleType)
+
+# Deep enough for a store inside a wrapper inside a container; bounded so a tool holding
+# e.g. a chat model doesn't walk that model's whole client graph.
+_MAX_DEPTH: Final = 6
+
+
+def _function_values(function: Any) -> Iterator[Any]:
+    """Yield what a function closes over: bound ``self``, closure cells, and defaults."""
+    yield getattr(function, "__self__", None)
+    for cell in getattr(function, "__closure__", None) or ():
+        try:
+            yield cell.cell_contents
+        except ValueError:  # an empty cell, for a variable not yet assigned
+            continue
+    yield from getattr(function, "__defaults__", None) or ()
+    yield from (getattr(function, "__kwdefaults__", None) or {}).values()
+
+
+def _children(value: Any) -> Iterator[Any]:
+    """Yield the values directly inside ``value``: container items, fields, or a function's captures."""
+    if isinstance(value, Mapping):
+        yield from value.keys()
+        yield from value.values()
+    elif isinstance(value, (list, tuple, set, frozenset)):
+        yield from value
+    elif isinstance(value, FunctionType | MethodType | partial):
+        yield from _function_values(getattr(value, "func", value))
+        yield from getattr(value, "args", ())
+        yield from (getattr(value, "keywords", None) or {}).values()
+    else:
+        yield from (getattr(value, "__dict__", None) or {}).values()
+        for slot in getattr(type(value), "__slots__", ()):
+            if hasattr(value, slot):
+                yield getattr(value, slot)
