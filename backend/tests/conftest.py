@@ -125,6 +125,7 @@ def mock_rag_orchestrator() -> Mock:
 
     orchestrator.query_stream.return_value = (iter(["Mocked ", "response"]), [mock_doc])
     orchestrator.check_model_availability.return_value = True
+    orchestrator.check_model_statuses.return_value = {"default": True}
     return orchestrator
 
 

@@ -26,12 +26,18 @@ decision, run before the routing node.
 decides what each means for a guardrail check:
 
 - An **infra failure** (connection error, timeout, a server-level error
-  response) is message-independent — it says nothing about whether this
-  particular message is a crisis, and it means the RAG pipeline's own
-  generation call is likely to hit the same failure right after, ending
-  the turn at the existing generic-error path anyway. These fail open:
-  the same degradation the RAG pipeline already has for an unreachable
-  model, not a new failure mode.
+  response, including a provider's 401 for a missing key) is
+  message-independent — it says nothing about whether this particular
+  message is a crisis. These fail open. When the guardrail shares the
+  generation model, that's the same degradation the RAG pipeline already
+  has for an unreachable model: its own generation call is likely to hit
+  the same failure right after, ending the turn at the generic-error path
+  anyway. When ``TAPIO_LLM_MODEL_OVERRIDES`` gives the guardrail its own
+  model (#139), that no longer holds: generation can keep answering while
+  every check is skipped, so the guardrail is effectively off. That case
+  logs at error level rather than warning, and ``/health`` reports the
+  guardrail model separately so a broken one doesn't hide behind a
+  healthy generation model.
 - A **parse failure** after the retry is a real, repeated signal that this
   check couldn't be completed for this specific message: for the crisis
   check, that surfaces as a conservative crisis match (with the general
@@ -177,7 +183,7 @@ _CHECK_TIMEOUT_SECONDS: Final[float] = 60.0
 class LLMGuardrailClassifier:
     """Classify a message with three parallel, example-guided, structured-output LLM checks."""
 
-    def __init__(self, model: BaseChatModel) -> None:
+    def __init__(self, model: BaseChatModel, *, shares_generation_model: bool = True) -> None:
         """Bind the structured-output schema onto the shared, already-configured chat model.
 
         Args:
@@ -185,7 +191,11 @@ class LLMGuardrailClassifier:
                 guardrail stage, so classification uses the configured provider/model/credentials
                 (#9) — not always Ollama — or the guardrail's own ``TAPIO_LLM_MODEL_OVERRIDES``
                 entry (#139).
+            shares_generation_model: Whether ``model`` is the same provider/model the RAG
+                pipeline generates with. If not, an infra failure means generation carries on
+                unguarded, so it's logged at error level (see the module docstring).
         """
+        self._infra_log_level = logging.WARNING if shares_generation_model else logging.ERROR
         self._structured_model = StructuredOutputModel(
             model, GuardrailCheckResult, parse_retries=1, timeout=_CHECK_TIMEOUT_SECONDS
         )
@@ -229,7 +239,7 @@ class LLMGuardrailClassifier:
         )
         result = await self._structured_model.ainvoke(prompt)
         if result.failure is StructuredOutputFailure.INFRA:
-            logger.warning("Guardrail check %s failed (infra); failing open.", check.category)
+            logger.log(self._infra_log_level, "Guardrail check %s failed (infra); failing open.", check.category)
             return None
         if result.value is None:
             return self._degraded_result(check)

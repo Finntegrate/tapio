@@ -29,15 +29,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         Control back to FastAPI once startup state is attached to ``app.state``.
     """
     factory = RAGOrchestratorFactory(RAGConfig())
-    orchestrator = factory.create_orchestrator()
+    # Built once, through the same factory as the orchestrator, so the guardrail's LLM checks run
+    # against the configured provider/credentials, not always Ollama (#9), or its own
+    # TAPIO_LLM_MODEL_OVERRIDES entry (#139); the orchestrator holds it too so /health checks it.
+    guardrail_model = factory.create_chat_model(role=GUARDRAIL_ROLE)
+    orchestrator = factory.create_orchestrator(guardrail_model=guardrail_model)
     app.state.orchestrator = orchestrator
     # The chat route talks to the graph directly (see app.graph, OrchestratorGraphDep);
-    # app.state.orchestrator itself is kept for /health and for LLMGuardrailClassifier below.
+    # app.state.orchestrator itself is kept for /health.
     app.state.orchestrator_graph = orchestrator.graph
-    # Built through the same factory as the orchestrator, so the guardrail's LLM checks run
-    # against the configured provider/credentials, not always Ollama (#9), unless
-    # TAPIO_LLM_MODEL_OVERRIDES gives the guardrail stage its own model (#139).
-    app.state.guardrail_classifier = LLMGuardrailClassifier(factory.create_chat_model(role=GUARDRAIL_ROLE))
+    app.state.guardrail_classifier = LLMGuardrailClassifier(
+        guardrail_model, shares_generation_model=factory.guardrail_shares_default_model()
+    )
     logger.info("Tapio backend started")
     yield
 
