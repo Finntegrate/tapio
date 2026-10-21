@@ -52,9 +52,7 @@ resources:
       Finnish: 09 2525 0111, 24/7 (from abroad +358 9 2525 0111).
       Swedish (Kristelefon): 09 2525 0112, Mon and Wed 16-20, Tue, Thu and
       Fri 9-13. English: 09 2525 0116, Fridays 9 am-1 pm (the only English
-      hours MIELI lists). The Arabic/Ukrainian/Russian numbers previously
-      listed (0113/0114/0115) no longer appear on MIELI's own pages as of
-      this review and are intentionally omitted.
+      hours MIELI lists).
     languages: [fi, sv, en]
     hours: "24/7 in Finnish; limited hours in Swedish and English"
 
@@ -72,7 +70,7 @@ resources:
     url: "https://nollalinja.fi/en/"
     phone: "116 016"
     phone_notes: >-
-      The old number 080 005 005 still works and routes to Nollalinja.
+      080 005 005 also routes to Nollalinja.
     # ISO 639 codes: prs = Dari, fa = Farsi, ckb = Sorani. Note that
     # nollalinja.fi's own URL slugs swap Dari and Farsi; do not derive
     # codes from its URLs.
@@ -115,8 +113,7 @@ resources:
       Victims of serious violent crime or sexual crime may get a state-paid
       trial counsel regardless of their finances. Also covers asylum and
       immigration matters. Note: asylum applications submitted on or after
-      12 June 2026 follow a changed process under Migri's separate
-      before/after guidance.
+      12 June 2026 follow Migri's separate before/after guidance.
     url: "https://www.oikeuspalveluvirasto.fi/en/legal-aid/"
     phone: null
     phone_notes: >-
@@ -180,9 +177,9 @@ resources:
       application questions. Not a crisis line, but the correct escalation
       point for authoritative case guidance rather than Tapio answering as
       if qualified to give it. All calls are recorded. Contact numbers are
-      topic-specific and have changed more than once recently; treat this
-      entry as a candidate for a shorter-than-quarterly review cadence
-      given the pace of change and the 12 June 2026 asylum-process reform.
+      topic-specific; treat this entry as a candidate for a
+      shorter-than-quarterly review cadence given the pace of change and
+      the 12 June 2026 asylum-process reform.
     url: "https://migri.fi/en/telephone-service1"
     phone: null
     phone_notes: >-
