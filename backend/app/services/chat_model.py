@@ -33,7 +33,7 @@ from pydantic import SecretStr
 
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
-from app.services.llm_providers import PROVIDERS
+from app.services.llm_providers import PROVIDERS, apply_timeout
 
 logger = logging.getLogger(__name__)
 
@@ -42,11 +42,6 @@ _LOOPBACK_HOSTS: Final = {"localhost", "127.0.0.1", "::1"}
 
 # Cap on prior turns included as context, to avoid overflowing the model's context window.
 MAX_HISTORY_MESSAGES = 10
-
-# ChatOllama has no top-level `timeout` field — a bare `timeout=` kwarg is silently
-# dropped. Its request timeout instead goes through `client_kwargs`, forwarded verbatim
-# to the underlying httpx client. Every other provider accepts `timeout` directly.
-_OLLAMA_PROVIDER = "ollama"
 
 
 def build_chat_model(
@@ -92,10 +87,7 @@ def build_chat_model(
         max_tokens_kwarg: config.max_tokens,
     }
     if timeout is not None:
-        if provider_name == _OLLAMA_PROVIDER:
-            kwargs["client_kwargs"] = {"timeout": timeout}
-        else:
-            kwargs["timeout"] = timeout
+        apply_timeout(provider, kwargs, timeout)
     return init_chat_model(model_name, **kwargs)
 
 
