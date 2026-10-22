@@ -13,6 +13,8 @@ from pydantic import SecretStr
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
 from app.services.chat_model import (
+    GENERATION_TEMPERATURE,
+    GUARDRAIL_TEMPERATURE,
     build_chat_model,
     build_messages,
     check_model_availability,
@@ -150,6 +152,28 @@ class TestBuildChatModel:
         model = build_chat_model(config, LLMSettings(), timeout=30.0)
 
         assert model.request_timeout == 30.0
+
+
+class TestTemperatureByRole:
+    """Safety classification wants the same verdict every time; generation wants variety (#207)."""
+
+    def test_the_guardrail_stage_samples_at_the_guardrail_temperature(self) -> None:
+        model = build_chat_model(RAGConfig(llm_provider="ollama"), LLMSettings(), role="guardrail")
+
+        assert model.temperature == GUARDRAIL_TEMPERATURE == 0.0
+
+    @pytest.mark.parametrize("role", [None, "ilmarinen"])
+    def test_generation_keeps_the_generation_temperature(self, role: str | None) -> None:
+        model = build_chat_model(RAGConfig(llm_provider="ollama"), LLMSettings(), role=role)
+
+        assert model.temperature == GENERATION_TEMPERATURE
+
+    def test_a_guardrail_override_on_another_provider_still_samples_at_the_guardrail_temperature(self) -> None:
+        config = RAGConfig(llm_provider="ollama", llm_model_overrides={"guardrail": "anthropic:claude-haiku-4-5"})
+
+        model = build_chat_model(config, LLMSettings(), role="guardrail")
+
+        assert model.temperature == GUARDRAIL_TEMPERATURE
 
 
 class TestModelOverrides:

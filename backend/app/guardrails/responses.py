@@ -50,7 +50,7 @@ from app.config.llm_settings import GUARDRAIL_ROLE, LLMSettings
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.guardrails.resources import CrisisResource, load_crisis_resources
 from app.prompts import load_prompt
-from app.services.chat_model import build_chat_model, build_messages
+from app.services.chat_model import GUARDRAIL_RETRY_TEMPERATURE, build_chat_model, build_messages
 from app.services.structured_output import StructuredOutputModel, render_json_shape
 
 logger = logging.getLogger(__name__)
@@ -258,7 +258,9 @@ async def _localized_intro(
     # attempt with asyncio.timeout, which holds here because ainvoke is natively async for
     # every supported provider rather than a synchronous call dispatched to a thread.
     model = build_chat_model(RAGConfig(), LLMSettings(), role=GUARDRAIL_ROLE, timeout=_INTRO_TIMEOUT_SECONDS)
-    result = await StructuredOutputModel(model, GuardrailIntro, timeout=_INTRO_TIMEOUT_SECONDS).ainvoke(messages)
+    result = await StructuredOutputModel(
+        model, GuardrailIntro, timeout=_INTRO_TIMEOUT_SECONDS, retry_temperature=GUARDRAIL_RETRY_TEMPERATURE
+    ).ainvoke(messages)
     if result.value is None:
         msg = (
             f"Guardrail response intro generation failed for category {category.value!r} "
