@@ -167,3 +167,28 @@ def test_document_retrieval_similarity_search(tmp_chroma_db, mock_embeddings):
     for doc in results:
         assert hasattr(doc, "page_content")
         assert len(doc.page_content) > 0
+
+
+def test_query_swallows_errors_by_default(tmp_chroma_db, mock_embeddings):
+    """The live chat path must survive a broken vector store, not crash a user's turn."""
+    chroma_store = ChromaRetriever(
+        collection_name="test_swallow",
+        embeddings=mock_embeddings,
+        persist_directory=tmp_chroma_db,
+    )
+    with patch.object(chroma_store.vector_db, "similarity_search", side_effect=RuntimeError("store is down")):
+        assert chroma_store.query("anything") == []
+
+
+def test_query_raises_when_raise_on_error_is_set(tmp_chroma_db, mock_embeddings):
+    """Callers that need to tell a real failure apart from a genuine empty result can opt in."""
+    chroma_store = ChromaRetriever(
+        collection_name="test_raise",
+        embeddings=mock_embeddings,
+        persist_directory=tmp_chroma_db,
+    )
+    with (
+        patch.object(chroma_store.vector_db, "similarity_search", side_effect=RuntimeError("store is down")),
+        pytest.raises(RuntimeError, match="store is down"),
+    ):
+        chroma_store.query("anything", raise_on_error=True)
