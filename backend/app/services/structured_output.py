@@ -32,7 +32,7 @@ import json
 import logging
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Final
+from typing import Any, Final
 
 import httpx
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
@@ -116,6 +116,7 @@ class StructuredOutputModel[SchemaT: BaseModel]:
         *,
         parse_retries: int = 1,
         timeout: float | None = None,
+        retry_temperature: float | None = None,
     ) -> None:
         """Bind ``schema`` onto ``model``.
 
@@ -127,9 +128,18 @@ class StructuredOutputModel[SchemaT: BaseModel]:
             timeout: Optional per-call bound in seconds for ``ainvoke``. ``invoke`` can't
                 enforce one from outside the call, so a synchronous caller relies on the
                 timeout baked into ``model`` by ``build_chat_model(timeout=...)``.
+            retry_temperature: Optional temperature for the retries after a parse failure.
+                A model sampling at or near 0 would otherwise repeat the response that just
+                failed, so a retry could never succeed (#207). ``None`` retries with ``model``
+                as it is.
         """
         self._schema = schema
         self._runnable = model.with_structured_output(schema)
+        self._retry_runnable = (
+            self._runnable
+            if retry_temperature is None
+            else model.model_copy(update={"temperature": retry_temperature}).with_structured_output(schema)
+        )
         self._max_attempts = parse_retries + 1
         self._timeout = timeout
 
@@ -145,7 +155,7 @@ class StructuredOutputModel[SchemaT: BaseModel]:
         last_error: Exception | None = None
         for attempt in range(1, self._max_attempts + 1):
             try:
-                value = self._validated(self._runnable.invoke(model_input))
+                value = self._validated(self._runnable_for(attempt).invoke(model_input))
             except INFRA_ERROR_TYPES as error:
                 return self._infra_failure(error, attempt)
             except Exception as error:  # Each provider's parser raises its own type.
@@ -169,7 +179,7 @@ class StructuredOutputModel[SchemaT: BaseModel]:
         for attempt in range(1, self._max_attempts + 1):
             try:
                 async with asyncio.timeout(self._timeout):
-                    value = self._validated(await self._runnable.ainvoke(model_input))
+                    value = self._validated(await self._runnable_for(attempt).ainvoke(model_input))
             except INFRA_ERROR_TYPES as error:
                 return self._infra_failure(error, attempt)
             except Exception as error:  # Each provider's parser raises its own type.
@@ -179,6 +189,10 @@ class StructuredOutputModel[SchemaT: BaseModel]:
         return StructuredOutputResult(
             failure=StructuredOutputFailure.PARSE, error=last_error, attempts=self._max_attempts
         )
+
+    def _runnable_for(self, attempt: int) -> Any:
+        """The first attempt uses the model as given; retries use the retry temperature, if set."""
+        return self._runnable if attempt == 1 else self._retry_runnable
 
     def _validated(self, raw: object) -> SchemaT:
         # Anthropic's tool parser returns None, rather than raising, when the model answers

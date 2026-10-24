@@ -32,7 +32,7 @@ from langchain_ollama import ChatOllama
 from pydantic import SecretStr
 
 from app.config.config_models import RAGConfig
-from app.config.llm_settings import LLMSettings
+from app.config.llm_settings import GUARDRAIL_ROLE, LLMSettings
 from app.services.llm_providers import PROVIDERS
 
 logger = logging.getLogger(__name__)
@@ -47,6 +47,16 @@ MAX_HISTORY_MESSAGES = 10
 # dropped. Its request timeout instead goes through `client_kwargs`, forwarded verbatim
 # to the underlying httpx client. Every other provider accepts `timeout` directly.
 _OLLAMA_PROVIDER = "ollama"
+
+# Answer generation wants some variety in wording; safety classification wants the same
+# message to get the same verdict every time (#207), so the guardrail stage samples greedily.
+GENERATION_TEMPERATURE: Final = 0.7
+GUARDRAIL_TEMPERATURE: Final = 0.0
+
+# A structured-output retry after a parse failure has to be able to come out differently;
+# at GUARDRAIL_TEMPERATURE it would repeat the same malformed response. Warm enough to vary,
+# still well below generation's.
+GUARDRAIL_RETRY_TEMPERATURE: Final = 0.4
 
 
 def build_chat_model(
@@ -66,6 +76,8 @@ def build_chat_model(
             Scaleway and other OpenAI-compatible endpoints with ``TAPIO_LLM_PROVIDER=openai``.
         role: Optional guide id or stage (see ``app.config.llm_settings.MODEL_OVERRIDE_ROLES``)
             whose ``config.llm_model_overrides`` entry, if any, replaces the default model (#139).
+            The guardrail stage is built at ``GUARDRAIL_TEMPERATURE``, everything else at
+            ``GENERATION_TEMPERATURE`` (#207).
         timeout: Optional request timeout in seconds, baked into this instance at
             construction (LangChain's chat models don't support a per-call override).
             ``None`` waits indefinitely, matching each provider's own client default.
@@ -86,7 +98,7 @@ def build_chat_model(
     max_tokens_kwarg = provider.max_tokens_kwarg if provider else "max_tokens"
     kwargs: dict[str, Any] = {
         "model_provider": provider_name,
-        "temperature": 0.7,
+        "temperature": GUARDRAIL_TEMPERATURE if role == GUARDRAIL_ROLE else GENERATION_TEMPERATURE,
         "base_url": llm_settings.api_base,
         "api_key": llm_settings.api_key.get_secret_value() if llm_settings.api_key else None,
         max_tokens_kwarg: config.max_tokens,
