@@ -76,6 +76,14 @@ def summary(
 
 
 @app.command()
+def sources(
+    source: Annotated[Path | None, typer.Option("--source", help="Register source to describe.")] = None,
+) -> None:
+    """Print how many observations cite each declared source, and which none do."""
+    typer.echo(json.dumps(validation.source_coverage(loading.load_register(source)), indent=2))
+
+
+@app.command()
 def generate(
     check: Annotated[
         bool,
