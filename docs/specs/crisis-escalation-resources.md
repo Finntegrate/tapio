@@ -30,6 +30,7 @@ The list lives in [`backend/app/config/crisis_resources.yaml`](../../backend/app
 1. Open a PR editing `backend/app/config/crisis_resources.yaml` directly — not this document.
 2. Cite a primary source (the organization's own site) for any new or changed contact detail; do not carry forward a number or URL from a secondary aggregator without checking it against the organization's own page.
 3. Get sign-off from the current safety/legal/partnerships owner before merging.
+4. State the current fact only. Describe what the service offers today, not what a previous review listed, dropped, or corrected — no "previously listed", "no longer", "removed", or "as of this review" — so the file stays a canonical description of the resource rather than an audit trail of corrections. When a contact detail genuinely is gone, delete it and say nothing about it.
 
 ## Consumption
 
