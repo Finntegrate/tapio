@@ -76,7 +76,9 @@ def _build_classifier(
             raise outcome
         return outcome
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=fake_ainvoke
+    )
     return classifier
 
 
@@ -97,7 +99,9 @@ async def test_classify_runs_all_three_checks() -> None:
         calls.append(prompt)
         return _NO_MATCH
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=counting_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=counting_ainvoke
+    )
 
     await classifier.classify("Anything")
 
@@ -144,7 +148,9 @@ async def test_classify_fails_open_immediately_on_infra_error_without_retry(infr
             calls.append(prompt)
         return await real_ainvoke(prompt)
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=counting_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=counting_ainvoke
+    )
 
     result = await classifier.classify("some message")
 
@@ -288,7 +294,9 @@ async def test_classify_treats_an_unexpected_result_type_as_a_parse_error() -> N
     async def fake_ainvoke(prompt: str) -> dict[str, bool] | GuardrailCheckResult:
         return {"match": True} if "self-harm or" in prompt else _NO_MATCH
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=fake_ainvoke
+    )
 
     result = await classifier.classify("some message")
 
@@ -306,7 +314,9 @@ async def test_check_prompt_shows_the_schemas_exact_fields() -> None:
         prompts.append(prompt)
         return _NO_MATCH
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=capturing_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=capturing_ainvoke
+    )
 
     await classifier.classify("some message")
 

@@ -196,7 +196,9 @@ def fake_guardrail_classifier() -> GuardrailClassifierProtocol:
             return GuardrailCheckResult(match=True, subtype="none", reason="Off-topic creative writing request.")
         return GuardrailCheckResult(match=False, subtype="none", reason="")
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=fake_ainvoke
+    )
     return classifier
 
 

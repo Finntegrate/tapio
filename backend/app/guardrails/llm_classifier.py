@@ -57,6 +57,7 @@ from pydantic import BaseModel, Field
 
 from app.guardrails.classifier import GuardrailCategory, GuardrailMatch
 from app.prompts import load_prompt
+from app.services.chat_model import GUARDRAIL_RETRY_TEMPERATURE
 from app.services.structured_output import StructuredOutputFailure, StructuredOutputModel, render_json_shape
 
 logger = logging.getLogger(__name__)
@@ -197,7 +198,11 @@ class LLMGuardrailClassifier:
         """
         self._infra_log_level = logging.WARNING if shares_generation_model else logging.ERROR
         self._structured_model = StructuredOutputModel(
-            model, GuardrailCheckResult, parse_retries=1, timeout=_CHECK_TIMEOUT_SECONDS
+            model,
+            GuardrailCheckResult,
+            parse_retries=1,
+            timeout=_CHECK_TIMEOUT_SECONDS,
+            retry_temperature=GUARDRAIL_RETRY_TEMPERATURE,
         )
 
     async def classify(self, message: str) -> GuardrailMatch | None:
