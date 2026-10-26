@@ -7,9 +7,9 @@ not persist rendered Markdown (that is Requirement 3/Phase 2's job).
 from __future__ import annotations
 
 import logging
-from collections.abc import AsyncIterator, Callable
+from collections.abc import AsyncGenerator, Callable
 from dataclasses import dataclass, field
-from typing import Any, Final
+from typing import Any
 
 from crawl4ai import AsyncWebCrawler, BrowserConfig, CacheMode, CrawlerRunConfig
 from crawl4ai.deep_crawling import BFSDeepCrawlStrategy
@@ -48,10 +48,6 @@ class GapCrawlResult:
 
 CheckpointSaver = Callable[[dict[str, Any]], None]
 
-# Crawl4AI reports its state after every page; saving it that often would mean a database
-# write per page, so it's saved every few pages, and always when the crawl is cancelled.
-_SAVE_EVERY_N_PAGES: Final = 10
-
 
 async def discover_via_gap_crawl(  # noqa: PLR0913
     gap_crawl: GapCrawlConfig,
@@ -71,11 +67,12 @@ async def discover_via_gap_crawl(  # noqa: PLR0913
     or sitemap fetches already made for this host - rather than resetting
     host spacing with its own values.
 
-    Each seed is crawled in turn with Crawl4AI's resumable BFS strategy (#178). Its crawl
-    state, plus the URLs found so far, is handed to ``save_checkpoint`` as the crawl goes,
-    and a later call given that ``checkpoint`` continues where it stopped instead of
-    starting over. A pause holds the crawl between pages; a cancel stops it, saves the
-    checkpoint, and returns a cancelled result.
+    Each seed is crawled in turn with Crawl4AI's resumable BFS strategy (#178). A
+    checkpoint is saved at each BFS level boundary, the only point where Crawl4AI's
+    state can be resumed from without skipping pages, and a later call given that
+    ``checkpoint`` continues from the level it stopped in. A pause holds the crawl
+    between pages; a cancel stops it mid-level and closes the stream, which cancels
+    the requests in flight.
 
     Args:
         gap_crawl: Seeds and bounds for the crawl.
@@ -86,7 +83,7 @@ async def discover_via_gap_crawl(  # noqa: PLR0913
         control: Optional pause/cancel control.
         checkpoint: A checkpoint saved by an earlier, unfinished call, to resume from.
         save_checkpoint: Called with the checkpoint to persist as the crawl goes.
-        progress: Updated with pages visited and queued, for the progress line.
+        progress: Updated with pages crawled and queued, for the progress line.
 
     Returns:
         The URLs found, and whether the crawl finished, completed cleanly, or was cancelled.
@@ -106,7 +103,6 @@ async def discover_via_gap_crawl(  # noqa: PLR0913
         verbose=False,
     )
 
-    complete = True
     try:
         async with AsyncWebCrawler(config=browser_config) as crawler:
             await rate_limiter.wait_for_turn()
@@ -124,8 +120,11 @@ async def discover_via_gap_crawl(  # noqa: PLR0913
                     semaphore_count=max_concurrent,
                     verbose=False,
                 )
-                complete = await crawl.collect(await crawler.arun(seed, config=run_config)) and complete
-                if control is not None and control.cancelled:
+                stopped = await crawl.collect(
+                    await crawler.arun(seed, config=run_config),
+                    should_stop=(lambda: control.cancelled) if control is not None else None,
+                )
+                if stopped or (control is not None and control.cancelled):
                     crawl.save()
                     return GapCrawlResult(urls=crawl.discovered, complete=False, cancelled=True, finished=False)
                 crawl.finish(seed)
@@ -134,25 +133,35 @@ async def discover_via_gap_crawl(  # noqa: PLR0913
         raise
     except Exception:
         logger.exception("Gap-crawl discovery failed for %s", gap_crawl.seed_urls)
+        crawl.all_succeeded = False
         crawl.save()
         return GapCrawlResult(urls=crawl.discovered, complete=False, finished=False)
 
-    return GapCrawlResult(urls=crawl.discovered, complete=complete)
+    return GapCrawlResult(urls=crawl.discovered, complete=crawl.all_succeeded)
 
 
 @dataclass
 class _Checkpoint:
-    """What a resumable gap crawl saves: Crawl4AI's state per seed, and the URLs found so far.
+    """What a resumable gap crawl saves, and the bookkeeping behind it.
 
-    Crawl4AI's state records which pages were visited but not which succeeded, so the
-    discovered URLs are kept alongside it; otherwise pages found before a cancel would be
-    skipped as visited on resume and never recorded.
+    ``seed_states`` holds, per seed, the last Crawl4AI state that is safe to resume from.
+    Crawl4AI reports state after every page, but mid-level that state is not resumable:
+    its ``visited`` already holds the whole current level while its ``pending`` holds only
+    the next level, so resuming from it would skip the current level's unprocessed pages.
+    The state reported for the last page of a level is safe (``pending`` is then the full
+    next level), as is Crawl4AI's own final state on a cancel, so only those are kept.
+
+    ``discovered`` and ``all_succeeded`` are kept alongside, because Crawl4AI's state
+    records which pages were visited but not which succeeded: without them, pages found
+    before a stop would be skipped as visited on resume and never recorded, and a failure
+    before the stop would be forgotten.
     """
 
     saver: CheckpointSaver | None
     seed_states: dict[str, dict[str, Any]] = field(default_factory=dict)
     finished_seeds: list[str] = field(default_factory=list)
     discovered: list[str] = field(default_factory=list)
+    all_succeeded: bool = True
 
     @classmethod
     def load(cls, saved: dict[str, Any] | None, saver: CheckpointSaver | None) -> _Checkpoint:
@@ -162,25 +171,41 @@ class _Checkpoint:
             seed_states=dict(saved.get("seeds", {})),
             finished_seeds=list(saved.get("finished_seeds", [])),
             discovered=list(saved.get("discovered", [])),
+            all_succeeded=bool(saved.get("all_succeeded", True)),
         )
 
     def save(self) -> None:
         if self.saver is not None:
             self.saver(
-                {"seeds": self.seed_states, "finished_seeds": self.finished_seeds, "discovered": self.discovered}
+                {
+                    "seeds": self.seed_states,
+                    "finished_seeds": self.finished_seeds,
+                    "discovered": self.discovered,
+                    "all_succeeded": self.all_succeeded,
+                }
             )
 
-    async def collect(self, raw: Any) -> bool:
-        """Record each successful result's URL once; return whether every page succeeded."""
-        all_succeeded = True
+    async def collect(self, raw: Any, *, should_stop: Callable[[], bool] | None) -> bool:
+        """Record each successful result's URL once, until the stream ends or ``should_stop``.
+
+        Returns:
+            True if it stopped early. The stream is closed either way, which cancels any
+            requests Crawl4AI still has in flight.
+        """
         seen = set(self.discovered)
-        async for result in _results(raw):
-            if not result.success:
-                all_succeeded = False
-            elif result.url not in seen:
-                seen.add(result.url)
-                self.discovered.append(result.url)
-        return all_succeeded
+        results = _results(raw)
+        try:
+            async for result in results:
+                if not result.success:
+                    self.all_succeeded = False
+                elif result.url not in seen:
+                    seen.add(result.url)
+                    self.discovered.append(result.url)
+                if should_stop is not None and should_stop():
+                    return True
+        finally:
+            await results.aclose()
+        return False
 
     def finish(self, seed: str) -> None:
         self.finished_seeds.append(seed)
@@ -197,25 +222,27 @@ def _strategy(
     progress: DiscoveryProgress | None,
 ) -> BFSDeepCrawlStrategy:
     """Build one seed's BFS strategy, wired to resume, report, pause, and cancel."""
-    pages = 0
+    previous: dict[str, Any] | None = None
 
     async def on_state_change(state: dict[str, Any]) -> None:
-        nonlocal pages
-        crawl.seed_states[seed] = state
-        pages += 1
+        nonlocal previous
         if progress is not None:
-            progress.visited = len(state.get("visited", ()))
+            progress.visited = int(state.get("pages_crawled", 0))
             progress.queued = len(state.get("pending", ()))
-        cancelled = control is not None and control.cancelled
-        if cancelled or pages % _SAVE_EVERY_N_PAGES == 0:
+        safe = state if state.get("cancelled") else _level_boundary(previous, state)
+        if safe is not None:
+            crawl.seed_states[seed] = safe
             crawl.save()
+        previous = state
         if control is not None:
             # Crawl4AI awaits this between pages, so waiting out a pause here holds the crawl.
             await control.checkpoint()
 
     return BFSDeepCrawlStrategy(
         max_depth=gap_crawl.max_depth,
-        max_pages=gap_crawl.max_pages,
+        # Crawl4AI 0.9's stream mode stops *before* yielding the page that reaches
+        # max_pages, so one more lets exactly max_pages pages through.
+        max_pages=gap_crawl.max_pages + 1,
         include_external=False,
         filter_chain=FilterChain(_build_filters(scope)),
         resume_state=crawl.seed_states.get(seed),
@@ -224,7 +251,21 @@ def _strategy(
     )
 
 
-async def _results(raw: Any) -> AsyncIterator[CrawlResult]:
+def _level_boundary(previous: dict[str, Any] | None, state: dict[str, Any]) -> dict[str, Any] | None:
+    """Return ``previous`` if ``state`` is the first report of a new BFS level, else ``None``.
+
+    Within a level, ``pending`` (the next level being built) only grows. A new level starts
+    a fresh ``pending`` whose URLs are all new, so it no longer contains the previous
+    report's ``pending`` - and that previous report, the last of its level, is resumable.
+    """
+    if previous is None:
+        return None
+    before = {item["url"] for item in previous.get("pending", ())}
+    after = {item["url"] for item in state.get("pending", ())}
+    return previous if before and not before <= after else None
+
+
+async def _results(raw: Any) -> AsyncGenerator[CrawlResult]:
     """Yield crawl results whether Crawl4AI returned a stream, a list, or a single result."""
     if hasattr(raw, "__aiter__"):
         async for result in raw:

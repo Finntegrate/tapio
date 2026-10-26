@@ -92,8 +92,9 @@ class DiscoveryProgress:
     """How far a deep-crawl discovery has got, from Crawl4AI's own crawl state (#178).
 
     Attributes:
-        visited: Pages the crawl has visited so far, including any from a resumed run.
-        queued: Pages found but not yet visited.
+        visited: Pages crawled so far, including any from a resumed run (Crawl4AI's
+            ``pages_crawled``; its ``visited`` set also counts links merely queued).
+        queued: Pages queued for the next BFS level.
         resumed: Whether this run continued from a saved checkpoint.
     """
 
@@ -130,7 +131,7 @@ class SiteProgress:
         crawl = self.discovery
         if self.phase == "discovery" and (crawl.visited or crawl.queued):
             resumed = " (resumed)" if crawl.resumed else ""
-            parts.append(f"visited {crawl.visited}; queued {crawl.queued}{resumed}")
+            parts.append(f"crawled {crawl.visited}; queued {crawl.queued}{resumed}")
         summary = self.render_summary
         if summary is not None and self.phase in ("render", "done", "incomplete", "cancelled"):
             parts.append(
