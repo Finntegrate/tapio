@@ -60,3 +60,13 @@ def test_progress_describe_during_render_includes_counts_and_delay() -> None:
     )
 
     assert progress.describe() == "[migri] render | rendered 3/10; saved 2; failed 1; retried 1 | delay 1.5s"
+
+
+def test_progress_describe_during_a_deep_crawl_shows_visited_and_queued() -> None:
+    progress = SiteProgress(site_name="tyomarkkinatori", phase="discovery")
+    progress.discovery.visited, progress.discovery.queued = 120, 340
+
+    assert progress.describe() == "[tyomarkkinatori] discovery | visited 120; queued 340"
+
+    progress.discovery.resumed = True
+    assert progress.describe(paused=True) == "[tyomarkkinatori] discovery (paused) | visited 120; queued 340 (resumed)"

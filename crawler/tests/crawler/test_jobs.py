@@ -122,7 +122,7 @@ async def test_max_concurrent_sites_limits_simultaneous_jobs(tmp_path: Path) -> 
 async def test_cancel_during_discovery_stops_the_job_without_rendering(tmp_path: Path) -> None:
     started = asyncio.Event()
 
-    async def discover(name: str, _cfg: SiteConfig, *, control: JobControl) -> DiscoveryRunSummary:
+    async def discover(name: str, _cfg: SiteConfig, *, control: JobControl, **_: object) -> DiscoveryRunSummary:
         started.set()
         await control.wait_cancelled()
         return DiscoveryRunSummary(run_id="d", site_name=name, complete=False, cancelled=True)

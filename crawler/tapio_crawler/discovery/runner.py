@@ -16,7 +16,7 @@ from datetime import UTC, datetime, timedelta
 import httpx
 
 from tapio_crawler.config.config_models import CrawlerConfig, SiteConfig
-from tapio_crawler.crawler.job_control import JobControl
+from tapio_crawler.crawler.job_control import DiscoveryProgress, JobControl
 from tapio_crawler.discovery.gap_crawl import discover_via_gap_crawl
 from tapio_crawler.discovery.rate_limiter import (
     HostRateLimiter,
@@ -129,6 +129,7 @@ class DiscoveryRunner:
         site_config: SiteConfig,
         *,
         control: JobControl | None = None,
+        progress: DiscoveryProgress | None = None,
     ) -> DiscoveryRunSummary:
         """Discover URLs for ``site_name`` and record them in the manifest.
 
@@ -139,7 +140,9 @@ class DiscoveryRunner:
             control: Optional pause/cancel control, consulted before every
                 robots, sitemap, and gap-crawl request. A cancel lets the
                 request in flight finish, starts no further ones, and
-                returns an incomplete, cancelled summary.
+                returns an incomplete, cancelled summary. A cancelled gap crawl keeps
+                its checkpoint, so the next run resumes it (#178).
+            progress: Optional gap-crawl progress to update for the progress line.
 
         Returns:
             A summary of counts and completeness for this run.
@@ -181,6 +184,8 @@ class DiscoveryRunner:
                 summary,
                 is_sitemap_source=is_sitemap_source,
                 config_fingerprint=config_fingerprint,
+                control=control,
+                progress=progress,
             )
         except OperatorCancelledError:
             summary.complete = False
@@ -197,6 +202,8 @@ class DiscoveryRunner:
         *,
         is_sitemap_source: bool,
         config_fingerprint: str,
+        control: JobControl | None = None,
+        progress: DiscoveryProgress | None = None,
     ) -> DiscoveryRunSummary:
         """Fetch robots/sitemap/gap-crawl URLs and persist them (the cancellable part of a run)."""
         robots = await fetch_robots_rules(
@@ -226,10 +233,14 @@ class DiscoveryRunner:
         rate_limiter.max_delay = effective_delay.max_delay
 
         discovered_urls, lastmod_by_url, source_tag = await self._discover_urls(
+            site_name,
             config,
             robots,
             rate_limiter,
             summary,
+            config_fingerprint=config_fingerprint,
+            control=control,
+            progress=progress,
         )
         self._persist_discovered_urls(
             site_name,
@@ -289,12 +300,17 @@ class DiscoveryRunner:
         summary.cached = True
         return summary
 
-    async def _discover_urls(
+    async def _discover_urls(  # noqa: PLR0913
         self,
+        site_name: str,
         config: CrawlerConfig,
         robots: RobotsRules,
         rate_limiter: HostRateLimiter,
         summary: DiscoveryRunSummary,
+        *,
+        config_fingerprint: str,
+        control: JobControl | None = None,
+        progress: DiscoveryProgress | None = None,
     ) -> tuple[list[str], dict[str, datetime | None], DiscoverySource]:
         """Dispatch to sitemap or gap-crawl discovery and update run counts."""
         if config.discovery.source == "sitemap":
@@ -314,13 +330,23 @@ class DiscoveryRunner:
             lastmod_by_url = {entry.url: entry.lastmod for entry in sitemap_result.urls}
             return discovered_urls, lastmod_by_url, "sitemap"
 
+        store = self._manifest_store
         gap_result = await discover_via_gap_crawl(
             config.gap_crawl,
             config.scope,
             user_agent=config.politeness.user_agent,
             rate_limiter=rate_limiter,
             max_concurrent=config.max_concurrent,
+            control=control,
+            checkpoint=store.get_deep_crawl_checkpoint(site_name, config_fingerprint),
+            save_checkpoint=lambda state: store.save_deep_crawl_checkpoint(site_name, config_fingerprint, state),
+            progress=progress,
         )
+        if gap_result.cancelled:
+            # The checkpoint holds every URL found so far; the next run resumes and records them.
+            raise OperatorCancelledError
+        if gap_result.finished:
+            store.clear_deep_crawl_checkpoint(site_name)
         summary.complete = gap_result.complete
         return gap_result.urls, {}, "deep_crawl"
 

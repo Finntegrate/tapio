@@ -12,7 +12,7 @@ import sqlite3
 import time
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any, Final, TypeVar
 
@@ -73,6 +73,17 @@ _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS manifest (
     {", ".join(f"{name} INTEGER" if name in _INTEGER_COLUMNS else f"{name} TEXT" for name in _COLUMNS)},
     PRIMARY KEY (site_name, canonical_url)
+);
+"""
+
+# One saved deep-crawl checkpoint per site: Crawl4AI's crawl state per seed plus the URLs
+# found so far, so a cancelled or crashed gap crawl resumes instead of starting over (#178).
+_DEEP_CRAWL_CHECKPOINT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS deep_crawl_checkpoint (
+    site_name TEXT PRIMARY KEY,
+    config_fingerprint TEXT NOT NULL,
+    state TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 """
 
@@ -138,6 +149,7 @@ class ManifestStore:
         self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute(_SCHEMA)
         self._connection.execute(_DISCOVERY_RUN_SCHEMA)
+        self._connection.execute(_DEEP_CRAWL_CHECKPOINT_SCHEMA)
         self._add_missing_columns()
         self._add_missing_discovery_run_columns()
 
@@ -231,6 +243,59 @@ class ManifestStore:
                 "complete = excluded.complete, config_fingerprint = excluded.config_fingerprint",
                 (site_name, completed_at.isoformat(), int(complete), config_fingerprint),
             )
+        )
+
+    def save_deep_crawl_checkpoint(self, site_name: str, config_fingerprint: str, state: dict[str, Any]) -> None:
+        """Save ``site_name``'s deep-crawl checkpoint, replacing any earlier one.
+
+        Args:
+            site_name: Name of the configured source site.
+            config_fingerprint: Fingerprint of the discovery settings the crawl runs under.
+            state: The checkpoint, JSON-serializable.
+        """
+        self._with_lock_retry(
+            lambda: self._connection.execute(
+                "INSERT INTO deep_crawl_checkpoint (site_name, config_fingerprint, state, updated_at) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT (site_name) DO UPDATE SET "
+                "config_fingerprint = excluded.config_fingerprint, state = excluded.state, "
+                "updated_at = excluded.updated_at",
+                (site_name, config_fingerprint, json.dumps(state), datetime.now(UTC).isoformat()),
+            )
+        )
+
+    def get_deep_crawl_checkpoint(self, site_name: str, config_fingerprint: str) -> dict[str, Any] | None:
+        """Return ``site_name``'s saved checkpoint, if it was saved under the same settings.
+
+        A checkpoint from different discovery settings would resume the wrong crawl, so it
+        is discarded and ``None`` returned.
+
+        Args:
+            site_name: Name of the configured source site.
+            config_fingerprint: Fingerprint of the current discovery settings.
+
+        Returns:
+            The checkpoint, or ``None`` if there is none or it is stale.
+        """
+        row = self._connection.execute(
+            "SELECT config_fingerprint, state FROM deep_crawl_checkpoint WHERE site_name = ?",
+            (site_name,),
+        ).fetchone()
+        if row is None:
+            return None
+        if row["config_fingerprint"] != config_fingerprint:
+            self.clear_deep_crawl_checkpoint(site_name)
+            return None
+        state: dict[str, Any] = json.loads(row["state"])
+        return state
+
+    def clear_deep_crawl_checkpoint(self, site_name: str) -> None:
+        """Delete ``site_name``'s checkpoint, once its crawl has run to the end.
+
+        Args:
+            site_name: Name of the configured source site.
+        """
+        self._with_lock_retry(
+            lambda: self._connection.execute("DELETE FROM deep_crawl_checkpoint WHERE site_name = ?", (site_name,))
         )
 
     def get_last_discovery_run(self, site_name: str) -> LastDiscoveryRun | None:

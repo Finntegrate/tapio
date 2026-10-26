@@ -437,3 +437,26 @@ def test_a_rekey_that_never_gets_the_lock_leaves_the_old_row_in_place(
 
     assert store.get("migri", old.canonical_url) is not None
     assert store.get("migri", new.canonical_url) is None
+
+
+def test_a_deep_crawl_checkpoint_round_trips(store: ManifestStore) -> None:
+    state = {"seeds": {"https://example.com": {"visited": ["a"], "pending": []}}, "discovered": ["a"]}
+
+    store.save_deep_crawl_checkpoint("migri", "fp-1", state)
+
+    assert store.get_deep_crawl_checkpoint("migri", "fp-1") == state
+
+
+def test_a_checkpoint_saved_under_other_settings_is_discarded(store: ManifestStore) -> None:
+    store.save_deep_crawl_checkpoint("migri", "fp-old", {"discovered": ["a"]})
+
+    assert store.get_deep_crawl_checkpoint("migri", "fp-new") is None
+    assert store.get_deep_crawl_checkpoint("migri", "fp-old") is None  # deleted, not just skipped
+
+
+def test_clearing_a_checkpoint_removes_it(store: ManifestStore) -> None:
+    store.save_deep_crawl_checkpoint("migri", "fp-1", {"discovered": []})
+
+    store.clear_deep_crawl_checkpoint("migri")
+
+    assert store.get_deep_crawl_checkpoint("migri", "fp-1") is None
