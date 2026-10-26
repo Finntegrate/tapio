@@ -1,10 +1,13 @@
 """Tests for LLM provider/model env-var configuration (#9)."""
 
+import json
+import re
+
 import pytest
 from pydantic import ValidationError
 
 from app.config.config_models import RAGConfig
-from app.config.llm_settings import LLMSettings
+from app.config.llm_settings import LANGCHAIN_PROVIDERS, LLMSettings
 
 
 def test_llm_settings_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -86,3 +89,49 @@ def test_llm_settings_rejects_unknown_override_keys(monkeypatch: pytest.MonkeyPa
 
     with pytest.raises(ValidationError, match="samp"):
         LLMSettings()
+
+
+def test_langchain_provider_list_is_still_readable() -> None:
+    """LANGCHAIN_PROVIDERS reads a private LangChain name; an upgrade that renames it must fail here."""
+    assert {"ollama", "openai", "anthropic", "google_genai"} <= LANGCHAIN_PROVIDERS
+
+
+@pytest.mark.parametrize(
+    ("default_provider", "value", "message"),
+    [
+        ("ollama", "google_genai:gemini-2.5-flash", "not supported by Tapio; supported providers are"),
+        ("ollama", "antropic:claude-haiku-4-5", "did you mean 'anthropic'"),
+        ("anthropic", "opneai:gpt-4o-mini", "did you mean 'openai'"),
+        ("ollama", "olama:gemma4:e2b", "did you mean 'ollama'"),
+        ("openai", "ft:gpt-4o-mini:org::abc", "prefix the value with one of"),
+    ],
+)
+def test_llm_settings_rejects_overrides_that_would_reach_the_wrong_provider(
+    monkeypatch: pytest.MonkeyPatch, default_provider: str, value: str, message: str
+) -> None:
+    """Without this, the value is sent to the default provider under a nonsense model id."""
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", default_provider)
+    monkeypatch.setenv("TAPIO_LLM_MODEL_OVERRIDES", json.dumps({"guardrail": value}))
+
+    with pytest.raises(ValidationError, match=re.escape(message)):
+        LLMSettings()
+
+
+@pytest.mark.parametrize(
+    ("default_provider", "value"),
+    [
+        ("ollama", "gemma4:e2b"),
+        ("ollama", "llama3:8b"),  # two edits from "ollama", so not mistaken for a typo
+        ("ollama", "mistral:7b"),  # LangChain's provider is "mistralai", not "mistral"
+        ("ollama", "gpt-4o-mini"),
+        ("openai", "anthropic:claude-haiku-4-5"),
+        ("openai", "openai:ft:gpt-4o-mini:org::abc"),
+    ],
+)
+def test_llm_settings_accepts_valid_overrides(
+    monkeypatch: pytest.MonkeyPatch, default_provider: str, value: str
+) -> None:
+    monkeypatch.setenv("TAPIO_LLM_PROVIDER", default_provider)
+    monkeypatch.setenv("TAPIO_LLM_MODEL_OVERRIDES", json.dumps({"guardrail": value}))
+
+    assert LLMSettings().model_overrides == {"guardrail": value}
