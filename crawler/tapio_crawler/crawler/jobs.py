@@ -147,7 +147,9 @@ async def _run_discovery(job: SiteJob, store: ManifestStore) -> bool:
     Pause and cancel are enforced inside discovery, before each request, so a
     cancel lets the request in flight finish rather than aborting it.
     """
-    job.discovery = await DiscoveryRunner(store).run(job.site_name, job.site_config, control=job.control)
+    job.discovery = await DiscoveryRunner(store).run(
+        job.site_name, job.site_config, control=job.control, progress=job.progress.discovery
+    )
     return not job.discovery.cancelled
 
 

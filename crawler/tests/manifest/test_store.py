@@ -355,3 +355,108 @@ def test_list_retryable_page_can_include_inactive_candidates_and_paginates(store
     )
 
     assert [r.canonical_url for r in first + second] == ["https://migri.fi/a", "https://migri.fi/c"]
+
+
+class _FlakyConnection:
+    """Wraps a real connection; raises ``error`` on the first ``failures`` matching statements."""
+
+    def __init__(self, real: sqlite3.Connection, *, failures: int, match: str, error: str) -> None:
+        self._real = real
+        self._remaining = failures
+        self._match = match
+        self._error = error
+        self.attempts = 0
+
+    def execute(self, sql: str, *args: object) -> sqlite3.Cursor:
+        if self._match in sql:
+            self.attempts += 1
+            if self._remaining > 0:
+                self._remaining -= 1
+                raise sqlite3.OperationalError(self._error)
+        return self._real.execute(sql, *args)
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(self._real, name)
+
+
+def _flaky(store: ManifestStore, *, failures: int, match: str, error: str = "database is locked") -> _FlakyConnection:
+    flaky = _FlakyConnection(store._connection, failures=failures, match=match, error=error)
+    store._connection = flaky  # type: ignore[assignment]
+    return flaky
+
+
+@pytest.fixture
+def no_sleep(monkeypatch: pytest.MonkeyPatch) -> list[float]:
+    """Record retry waits instead of sleeping through them."""
+    waits: list[float] = []
+    monkeypatch.setattr("tapio_crawler.manifest.store.time.sleep", waits.append)
+    return waits
+
+
+def test_a_write_that_hits_a_transient_lock_is_retried(store: ManifestStore, no_sleep: list[float]) -> None:
+    flaky = _flaky(store, failures=2, match="INSERT INTO manifest")
+
+    store.upsert(_record())
+
+    assert flaky.attempts == 3
+    assert no_sleep == [0.5, 1.0]
+    assert store.get("migri", _record().canonical_url) is not None
+
+
+def test_a_lock_that_outlasts_every_retry_is_raised(store: ManifestStore, no_sleep: list[float]) -> None:
+    flaky = _flaky(store, failures=10, match="INSERT INTO discovery_run")
+
+    with pytest.raises(sqlite3.OperationalError, match="locked"):
+        store.record_discovery_run("migri", datetime.now(UTC), complete=True)
+
+    assert flaky.attempts == 4  # one try plus three retries
+    assert no_sleep == [0.5, 1.0, 2.0]
+
+
+def test_other_operational_errors_are_not_retried(store: ManifestStore, no_sleep: list[float]) -> None:
+    flaky = _flaky(store, failures=1, match="INSERT INTO manifest", error="disk I/O error")
+
+    with pytest.raises(sqlite3.OperationalError, match="disk I/O"):
+        store.save(_record())
+
+    assert flaky.attempts == 1
+    assert no_sleep == []
+
+
+def test_a_rekey_that_never_gets_the_lock_leaves_the_old_row_in_place(
+    store: ManifestStore, no_sleep: list[float]
+) -> None:
+    """The delete and insert are one unit: a failed rekey must not lose the record."""
+    old = _record()
+    store.upsert(old)
+    new = _record(canonical_url="https://migri.fi/en/moved")
+    _flaky(store, failures=10, match="INSERT INTO manifest")
+
+    with pytest.raises(sqlite3.OperationalError):
+        store.rekey("migri", old.canonical_url, new)
+
+    assert store.get("migri", old.canonical_url) is not None
+    assert store.get("migri", new.canonical_url) is None
+
+
+def test_a_deep_crawl_checkpoint_round_trips(store: ManifestStore) -> None:
+    state = {"seeds": {"https://example.com": {"visited": ["a"], "pending": []}}, "discovered": ["a"]}
+
+    store.save_deep_crawl_checkpoint("migri", "fp-1", state)
+
+    assert store.get_deep_crawl_checkpoint("migri", "fp-1") == state
+
+
+def test_a_checkpoint_saved_under_other_settings_is_discarded(store: ManifestStore) -> None:
+    store.save_deep_crawl_checkpoint("migri", "fp-old", {"discovered": ["a"]})
+
+    assert store.get_deep_crawl_checkpoint("migri", "fp-new") is None
+    assert store.get_deep_crawl_checkpoint("migri", "fp-old") is None  # deleted, not just skipped
+
+
+def test_clearing_a_checkpoint_removes_it(store: ManifestStore) -> None:
+    store.save_deep_crawl_checkpoint("migri", "fp-1", {"discovered": []})
+
+    store.clear_deep_crawl_checkpoint("migri")
+
+    assert store.get_deep_crawl_checkpoint("migri", "fp-1") is None
