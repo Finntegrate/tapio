@@ -136,8 +136,11 @@ def install_content_free_exception_logging() -> None:
 
 
 def quiet_content_logging_libraries() -> None:
-    """Hold the libraries that log conversation content at DEBUG to INFO and above."""
+    """Hold the libraries that log conversation content at DEBUG to INFO and above.
+
+    Always sets an explicit level: a logger left at NOTSET inherits from the root, so a
+    later switch of the root to DEBUG would let it log content again.
+    """
     for name in CONTENT_LOGGING_LIBRARIES:
         logger = logging.getLogger(name)
-        if logger.getEffectiveLevel() < logging.INFO:
-            logger.setLevel(logging.INFO)
+        logger.setLevel(max(logger.getEffectiveLevel(), logging.INFO))

@@ -87,6 +87,21 @@ def test_logged_exceptions_carry_no_message(caplog: pytest.LogCaptureFixture) ->
     assert "ValueError at" in caplog.text
 
 
+def test_a_later_switch_of_the_root_to_debug_cannot_unquiet_them() -> None:
+    root = logging.getLogger()
+    original = root.level
+    library = logging.getLogger("sse_starlette")
+    library.setLevel(logging.NOTSET)
+    try:
+        root.setLevel(logging.WARNING)
+        quiet_content_logging_libraries()
+        root.setLevel(logging.DEBUG)
+
+        assert not logging.getLogger("sse_starlette.sse").isEnabledFor(logging.DEBUG)
+    finally:
+        root.setLevel(original)
+
+
 def test_libraries_that_log_content_are_held_at_info_even_under_debug() -> None:
     logging.getLogger("sse_starlette").setLevel(logging.DEBUG)
 
