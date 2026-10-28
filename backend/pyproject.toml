@@ -30,6 +30,7 @@ dependencies = [
     "langchain>=1.4.1",
     "langchain-openai>=1.6.2",
     "langchain-anthropic>=1.7.2",
+    "holidays>=0.60",
 ]
 
 [project.scripts]
