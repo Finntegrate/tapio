@@ -1,7 +1,7 @@
 """Tool registry package for Tapio's agent tools."""
 
 from app.config.tool_settings import CostTier, ToolSettings
-from app.tools.datetime_tool import add_calendar_days, get_current_datetime
+from app.tools.datetime_tool import add_business_days, add_calendar_days, get_current_datetime
 from app.tools.registry import ToolRegistry, ToolSpec
 
 # Every tool Tapio knows about. Adding one here, with its cost tier and any env vars
@@ -9,6 +9,7 @@ from app.tools.registry import ToolRegistry, ToolSpec
 TOOL_SPECS: tuple[ToolSpec, ...] = (
     ToolSpec(get_current_datetime, CostTier.FREE),
     ToolSpec(add_calendar_days, CostTier.FREE),
+    ToolSpec(add_business_days, CostTier.FREE),
 )
 
 ALL_TOOLS = [spec.tool for spec in TOOL_SPECS]
@@ -33,6 +34,7 @@ __all__ = [
     "ToolRegistry",
     "ToolSettings",
     "ToolSpec",
+    "add_business_days",
     "add_calendar_days",
     "build_tool_registry",
     "get_current_datetime",

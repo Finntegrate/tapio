@@ -73,6 +73,7 @@ Which tools the agents may call is configuration, not code (`app.tools`). A tool
 | --- | --- | --- |
 | `get_current_datetime` | free | nothing |
 | `add_calendar_days` | free | nothing |
+| `add_business_days` | free | nothing (Finnish holidays from the bundled [`holidays`](https://pypi.org/project/holidays/) package, 1853-2100) |
 
 Each call is logged with the tool's name and cost tier (never its input, which can contain user text).
 
