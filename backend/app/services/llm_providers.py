@@ -4,11 +4,12 @@ Adding a provider used to mean touching four separate provider-keyed maps across
 files: the max-tokens kwarg, base-URL fallback env vars, and credential env var in
 ``app.services.chat_model``, plus the infra-error exception types in
 ``app.guardrails.llm_classifier``. This module is the single per-provider table both
-read from instead.
+read from instead — including the ways a provider's constructor kwargs differ from
+the common case, such as how the request timeout is wired (#164).
 """
 
 from dataclasses import dataclass
-from typing import Final
+from typing import Any, Final
 
 import anthropic
 import ollama
@@ -18,6 +19,10 @@ from langchain_core.language_models import BaseChatModel
 from langchain_ollama import ChatOllama
 from langchain_openai import ChatOpenAI
 
+# The constructor kwarg carrying the request timeout for a provider that takes it
+# top-level, which is what LangChain's own provider integrations expect.
+DEFAULT_TIMEOUT_KWARG: Final = "timeout"
+
 
 @dataclass(frozen=True, slots=True)
 class ProviderConfig:
@@ -26,6 +31,9 @@ class ProviderConfig:
     Args:
         model_type: The LangChain ``BaseChatModel`` subclass this provider constructs.
         max_tokens_kwarg: The constructor kwarg name for the output-length cap.
+        timeout_kwarg: The constructor kwarg name carrying the request timeout, or
+            ``None`` for a provider whose chat model has no top-level timeout field
+            and takes the timeout nested under ``client_kwargs`` instead.
         base_url_env_vars: Env vars this provider's own SDK falls back to for its API
             base URL, in fallback order.
         credential_env_var: The env var this provider's own SDK reads its credential
@@ -39,6 +47,12 @@ class ProviderConfig:
     # init_chat_model forwards kwargs verbatim, so a provider whose max-output-length
     # field isn't named max_tokens (e.g. ChatOllama's num_predict) has to be mapped.
     max_tokens_kwarg: str = "max_tokens"
+
+    # The constructor kwarg carrying the request timeout, or None for a provider whose
+    # chat model has no top-level timeout field: ChatOllama's request timeout belongs
+    # to its underlying httpx client, so it goes through `client_kwargs`, forwarded
+    # verbatim — a bare `timeout=` kwarg is silently dropped.
+    timeout_kwarg: str | None = DEFAULT_TIMEOUT_KWARG
 
     # Each provider's own SDK falls back to these env vars for its API base URL when
     # neither an explicit kwarg nor TAPIO_LLM_API_BASE is set. The cleartext-transport
@@ -64,6 +78,9 @@ PROVIDERS: Final[dict[str, ProviderConfig]] = {
     "ollama": ProviderConfig(
         model_type=ChatOllama,
         max_tokens_kwarg="num_predict",
+        # ChatOllama has no top-level timeout field — its request timeout goes to the
+        # underlying httpx client through client_kwargs.
+        timeout_kwarg=None,
         # ollama.Client reads OLLAMA_HOST as its API base fallback.
         base_url_env_vars=("OLLAMA_HOST",),
         infra_error_types=(ollama.ResponseError,),
@@ -88,3 +105,25 @@ PROVIDERS: Final[dict[str, ProviderConfig]] = {
         infra_error_types=(anthropic.APIConnectionError, anthropic.APIStatusError),
     ),
 }
+
+
+def apply_timeout(provider: ProviderConfig | None, kwargs: dict[str, Any], timeout: float) -> None:
+    """Apply a request timeout to constructor kwargs the way the provider takes it.
+
+    A provider whose chat model has no top-level timeout field has its timeout nested
+    under ``client_kwargs`` instead, which LangChain forwards verbatim to the
+    provider's underlying HTTP client. Which of the two applies is a per-provider
+    table entry, so no caller needs a provider-specific branch (#164).
+
+    Args:
+        provider: The provider's table entry, or ``None`` for a provider LangChain
+            supports but Tapio has no entry for — those take the plain top-level
+            ``timeout`` kwarg.
+        kwargs: The constructor kwargs to add the timeout to, in place.
+        timeout: The request timeout in seconds.
+    """
+    timeout_kwarg = provider.timeout_kwarg if provider else DEFAULT_TIMEOUT_KWARG
+    if timeout_kwarg is None:
+        kwargs["client_kwargs"] = {"timeout": timeout}
+    else:
+        kwargs[timeout_kwarg] = timeout
