@@ -77,6 +77,22 @@ Which tools the agents may call is configuration, not code (`app.tools`). A tool
 
 Each call is logged with the tool's name and cost tier (never its input, which can contain user text).
 
+## Agent tools
+
+Which tools the agents may call is configuration, not code (`app.tools`). A tool is available only if it is not disabled, its cost tier is within the allowed maximum, and every env var it needs is set.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `TAPIO_TOOLS_DISABLED` | `[]` | JSON list of tool names to switch off, e.g. `'["add_calendar_days"]'`. An unknown name fails at startup. |
+| `TAPIO_TOOLS_MAX_COST_TIER` | `free` | Most expensive tier allowed: `free`, `metered`, or `paid`. The default never spends money on tools. |
+
+| Tool | Cost tier | Needs |
+| --- | --- | --- |
+| `get_current_datetime` | free | nothing |
+| `add_calendar_days` | free | nothing |
+
+Each call is logged with the tool's name and cost tier (never its input, which can contain user text).
+
 ## Endpoints
 
 - `GET /health` — checks model availability: `model_available` is true only if every configured model is available, and `models` breaks it down by role (`default`, each overridden guide, `guardrail`).
