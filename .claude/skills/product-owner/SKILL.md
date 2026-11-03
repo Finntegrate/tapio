@@ -37,8 +37,10 @@ Every write this skill makes — to the PRD file or to the project board — is 
 
    ```bash
    gh issue list --repo Finntegrate/tapio --state open --json number,title,labels --limit 100
-   gh project item-list 2 --owner Finntegrate --format json --limit 200
+   gh project item-list 2 --owner Finntegrate --format json --limit 1000
    ```
+
+   Check the output's `totalCount` against the number of `items`: if it's larger, the board has outgrown the limit and the list is incomplete, so raise `--limit` to `totalCount`.
 
 3. For each roadmap theme in §9, check: is its linked issue still open, does it have Priority and Size set on the board, and does its Milestone field (if any) still make sense? Flag anything missing — a PM tracking this by hand would notice a "P0" item with no Size just as easily as a themeless orphan issue.
 4. Note open issues that don't map to any roadmap theme — not necessarily a problem, but worth surfacing.
