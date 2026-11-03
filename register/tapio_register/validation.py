@@ -19,7 +19,7 @@ from typing import Any
 from urllib.parse import urlparse
 
 from tapio_register import paths
-from tapio_register.generated.term_register_model import Concept, Observation, TermRegister
+from tapio_register.generated.term_register_model import Concept, Observation, SourceId, TermRegister
 from tapio_register.loading import KIND_PREFIXES, enum_value, read_source
 
 #: Longest a label can be before it reads as a definition rather than a term.
@@ -381,4 +381,31 @@ def summarize(register: TermRegister) -> dict[str, Any]:
         "by_kind": dict(sorted(by_kind.items())),
         "by_guide": dict(sorted(by_guide.items())),
         "observations_by_source": dict(sorted(by_source.items())),
+    }
+
+
+def source_coverage(register: TermRegister) -> dict[str, Any]:
+    """Count observations per declared source, including the ones nothing cites (#175).
+
+    Kept apart from ``summarize``, whose output is frozen into every release manifest:
+    adding a field there would make each shipped edition fail its own verification.
+
+    Args:
+        register: The register to describe.
+
+    Returns:
+        The observation total, a count for every ``SourceId`` in schema order (zero
+        included), the sources never observed, and the most-cited source's share.
+    """
+    counts = dict.fromkeys((source.value for source in SourceId), 0)
+    for concept in register.concepts:
+        for observation in concept.observations:
+            counts[enum_value(observation.source)] += 1
+    total = sum(counts.values())
+    top = max(counts, key=counts.__getitem__)
+    return {
+        "observation_count": total,
+        "by_source": counts,
+        "never_observed": [source for source, count in counts.items() if count == 0],
+        "most_cited": {"source": top, "share": round(counts[top] / total, 3) if total else 0.0},
     }

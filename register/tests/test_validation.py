@@ -4,7 +4,7 @@ import pytest
 from pydantic import ValidationError
 
 from tapio_register.generated.term_register_model import TermRegister
-from tapio_register.validation import check_integrity, normalize_label, summarize
+from tapio_register.validation import check_integrity, normalize_label, source_coverage, summarize
 from tests.conftest import concept
 
 
@@ -219,6 +219,16 @@ def test_summary_counts_what_the_register_covers(register):
     assert summary["by_kind"] == {"organization": 1, "permit": 2}
     assert summary["by_guide"] == {"ilmarinen": 3}
     assert summary["observations_by_source"] == {"migri": 3}
+
+
+def test_source_coverage_lists_every_declared_source_including_unused_ones(register):
+    coverage = source_coverage(register)
+    assert coverage["observation_count"] == 3
+    assert coverage["by_source"]["migri"] == 3
+    assert coverage["by_source"]["kela"] == 0
+    assert "kela" in coverage["never_observed"]
+    assert "migri" not in coverage["never_observed"]
+    assert coverage["most_cited"] == {"source": "migri", "share": 1.0}
 
 
 def test_shipped_schema_accepts_a_well_formed_register(tmp_path, register_dict):

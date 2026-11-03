@@ -291,3 +291,37 @@ def test_render_json_shape_names_each_field_with_its_type_and_description() -> N
     assert render_json_shape(_ShapeSchema) == (
         '{"flag": <boolean: Whether it applies.>, "label": <string: A short label.>, "count": <integer>}'
     )
+
+
+class _TemperatureRecordingModel(ChatOllama):
+    """A real ChatOllama whose provider call records the temperature it ran at (#207)."""
+
+    replies: list[str] = Field(default_factory=list)
+    temperatures: list[float | None] = Field(default_factory=list)
+
+    async def _agenerate(self, messages: Any, *args: object, **kwargs: object) -> ChatResult:
+        self.temperatures.append(self.temperature)
+        text = self.replies.pop(0) if len(self.replies) > 1 else self.replies[0]
+        return ChatResult(generations=[ChatGeneration(message=AIMessage(content=text))])
+
+
+async def test_a_retry_runs_at_the_retry_temperature() -> None:
+    """At temperature 0 a retry would repeat the response that just failed to parse."""
+    model = _TemperatureRecordingModel(
+        model="test-model", temperature=0.0, replies=[json.dumps(_WRONG_TYPES), json.dumps(_VALID)]
+    )
+
+    result = await StructuredOutputModel(model, Answer, retry_temperature=0.4).ainvoke("q")
+
+    assert result.value == Answer(**_VALID)
+    assert model.temperatures == [0.0, 0.4]
+
+
+async def test_without_a_retry_temperature_a_retry_reuses_the_model_as_given() -> None:
+    model = _TemperatureRecordingModel(
+        model="test-model", temperature=0.0, replies=[json.dumps(_WRONG_TYPES), json.dumps(_VALID)]
+    )
+
+    await StructuredOutputModel(model, Answer).ainvoke("q")
+
+    assert model.temperatures == [0.0, 0.0]

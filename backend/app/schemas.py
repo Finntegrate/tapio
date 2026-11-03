@@ -78,6 +78,9 @@ class ErrorEvent(BaseModel):
 
 
 class HealthResponse(BaseModel):
-    """Result of the Ollama/model availability check."""
+    """Result of the model availability check."""
 
     model_available: bool
+    """True only if every configured model is available."""
+    models: dict[str, bool] = {}
+    """Availability per role: ``"default"``, each guide with its own model, and ``"guardrail"``."""

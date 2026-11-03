@@ -11,13 +11,13 @@ router = APIRouter()
 
 @router.get("/health")
 async def health(orchestrator: OrchestratorDep) -> HealthResponse:
-    """Report whether the configured Ollama model is reachable and loaded.
+    """Report whether each configured model (default, per-guide, guardrail) is available.
 
     Args:
         orchestrator: Shared RAG orchestrator, injected.
 
     Returns:
-        Whether the configured model is currently available.
+        Overall availability, plus availability per model role.
     """
-    available = await run_in_threadpool(orchestrator.check_model_availability)
-    return HealthResponse(model_available=available)
+    statuses = await run_in_threadpool(orchestrator.check_model_statuses)
+    return HealthResponse(model_available=all(statuses.values()), models=statuses)

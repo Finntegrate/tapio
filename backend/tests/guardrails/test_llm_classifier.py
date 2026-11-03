@@ -1,5 +1,6 @@
 """Tests for the parallel, structured-output LLM guardrail classification stage (#29)."""
 
+import logging
 import re
 from collections.abc import Sequence
 from types import SimpleNamespace
@@ -30,6 +31,7 @@ def _build_classifier(
     crisis: _CheckOutcome | Sequence[_CheckOutcome],
     legal_sensitive: _CheckOutcome | Sequence[_CheckOutcome],
     out_of_scope: _CheckOutcome | Sequence[_CheckOutcome],
+    shares_generation_model: bool = True,
 ) -> LLMGuardrailClassifier:
     """Build a real LLMGuardrailClassifier with its structured model stubbed per check.
 
@@ -44,7 +46,7 @@ def _build_classifier(
     across that check's calls (the classifier retries once on a parse-type failure), with the
     last item repeating if the check is called more times than the sequence has entries.
     """
-    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"))
+    classifier = LLMGuardrailClassifier(ChatOllama(model="test-model"), shares_generation_model=shares_generation_model)
 
     def _as_queue(outcome: _CheckOutcome | Sequence[_CheckOutcome]) -> list[_CheckOutcome]:
         if isinstance(outcome, GuardrailCheckResult | Exception):
@@ -74,7 +76,9 @@ def _build_classifier(
             raise outcome
         return outcome
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=fake_ainvoke
+    )
     return classifier
 
 
@@ -95,7 +99,9 @@ async def test_classify_runs_all_three_checks() -> None:
         calls.append(prompt)
         return _NO_MATCH
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=counting_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=counting_ainvoke
+    )
 
     await classifier.classify("Anything")
 
@@ -142,12 +148,40 @@ async def test_classify_fails_open_immediately_on_infra_error_without_retry(infr
             calls.append(prompt)
         return await real_ainvoke(prompt)
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=counting_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=counting_ainvoke
+    )
 
     result = await classifier.classify("some message")
 
     assert result is None
     assert len(calls) == 1  # no retry for an infra-classified failure
+
+
+@pytest.mark.parametrize(
+    ("shares_generation_model", "expected_level"),
+    [(True, logging.WARNING), (False, logging.ERROR)],
+)
+async def test_infra_failure_logs_at_error_when_the_guardrail_has_its_own_model(
+    *, shares_generation_model: bool, expected_level: int, caplog: pytest.LogCaptureFixture
+) -> None:
+    """With its own model, a guardrail infra failure means generation carries on unguarded."""
+    classifier = _build_classifier(
+        crisis=_INFRA_ERRORS[0],
+        legal_sensitive=_NO_MATCH,
+        out_of_scope=_NO_MATCH,
+        shares_generation_model=shares_generation_model,
+    )
+
+    with caplog.at_level(logging.WARNING, logger="app.guardrails.llm_classifier"):
+        assert await classifier.classify("some message") is None
+
+    infra_records = [
+        record
+        for record in caplog.records
+        if record.name == "app.guardrails.llm_classifier" and "failed (infra)" in record.getMessage()
+    ]
+    assert [record.levelno for record in infra_records] == [expected_level]
 
 
 async def test_classify_retries_once_on_parse_error_and_uses_the_retry_result() -> None:
@@ -260,7 +294,9 @@ async def test_classify_treats_an_unexpected_result_type_as_a_parse_error() -> N
     async def fake_ainvoke(prompt: str) -> dict[str, bool] | GuardrailCheckResult:
         return {"match": True} if "self-harm or" in prompt else _NO_MATCH
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=fake_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=fake_ainvoke
+    )
 
     result = await classifier.classify("some message")
 
@@ -278,7 +314,9 @@ async def test_check_prompt_shows_the_schemas_exact_fields() -> None:
         prompts.append(prompt)
         return _NO_MATCH
 
-    classifier._structured_model._runnable = SimpleNamespace(ainvoke=capturing_ainvoke)
+    classifier._structured_model._runnable = classifier._structured_model._retry_runnable = SimpleNamespace(
+        ainvoke=capturing_ainvoke
+    )
 
     await classifier.classify("some message")
 

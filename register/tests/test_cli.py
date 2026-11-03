@@ -41,6 +41,12 @@ def test_summary_prints_coverage(source):
     assert json.loads(result.output)["concept_count"] == 3
 
 
+def test_sources_prints_coverage_per_declared_source(source):
+    result = runner.invoke(app, ["sources", "--source", str(source)])
+    assert result.exit_code == 0
+    assert json.loads(result.output)["by_source"]["migri"] == 3
+
+
 def test_generate_check_passes_on_the_checked_in_artifacts():
     result = runner.invoke(app, ["generate", "--check"])
     assert result.exit_code == 0, result.output

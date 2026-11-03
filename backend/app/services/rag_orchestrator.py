@@ -38,6 +38,7 @@ class RAGOrchestrator:
         doc_retrieval_service: DocumentRetrievalService,
         llm_service: BaseChatModel,
         agent_models: Mapping[str, BaseChatModel] | None = None,
+        guardrail_model: BaseChatModel | None = None,
     ) -> None:
         """Initialize the RAG orchestrator.
 
@@ -45,6 +46,7 @@ class RAGOrchestrator:
             doc_retrieval_service: Service for retrieving documents from vector store
             llm_service: Default chat model for LLM generation
             agent_models: Optional per-guide chat models keyed by guide id (#139)
+            guardrail_model: Optional guardrail-stage chat model, checked by ``/health`` (#139)
 
         Example:
             >>> from app.factories import RAGOrchestratorFactory
@@ -67,6 +69,7 @@ class RAGOrchestrator:
             doc_retrieval_service=doc_retrieval_service,
             llm_service=llm_service,
             agent_models=agent_models,
+            guardrail_model=guardrail_model,
         )
 
         logger.info(
@@ -118,6 +121,14 @@ class RAGOrchestrator:
             bool: True if the model is available, False otherwise
         """
         return self.graph.check_model_availability()
+
+    def check_model_statuses(self) -> dict[str, bool]:
+        """Check each configured model separately.
+
+        Returns:
+            Availability keyed by role (see ``TapioOrchestratorGraph.check_model_statuses``).
+        """
+        return self.graph.check_model_statuses()
 
     def format_documents_for_display(self, documents: list[Any]) -> str:
         """Format retrieved documents for display.

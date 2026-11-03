@@ -10,6 +10,7 @@ from langgraph.graph.state import CompiledStateGraph
 
 from app.agents import get_agent
 from app.agents.router import AUTO_ROUTE, AgentRoute, AgentRouter
+from app.config.llm_settings import GUARDRAIL_ROLE
 from app.graph.nodes import make_generate_node, make_retrieve_node, make_route_node
 from app.graph.state import OrchestratorState
 from app.services.chat_model import check_model_availability
@@ -33,6 +34,8 @@ class TapioOrchestratorGraph:
         doc_retrieval_service: Service backing the retrieval node.
         llm_service: Default chat model backing the generation node.
         agent_models: Optional per-guide chat models keyed by guide id (#139).
+        guardrail_model: Optional guardrail-stage chat model, held here only so
+            ``check_model_statuses`` covers it; the graph never generates with it.
 
     Example:
         >>> from app.factories import RAGOrchestratorFactory
@@ -48,6 +51,7 @@ class TapioOrchestratorGraph:
         doc_retrieval_service: DocumentRetrievalService,
         llm_service: BaseChatModel,
         agent_models: Mapping[str, BaseChatModel] | None = None,
+        guardrail_model: BaseChatModel | None = None,
     ) -> None:
         """Build the graph and store the dependencies its nodes close over.
 
@@ -57,11 +61,15 @@ class TapioOrchestratorGraph:
             llm_service: Default chat model backing the generation node.
             agent_models: Optional per-guide chat models keyed by guide id (#139); a
                 guide without an entry uses ``llm_service``.
+            guardrail_model: Optional guardrail-stage chat model (#139). It can differ from
+                every generation model, and the guardrail fails open on infra errors, so
+                ``/health`` has to check it too or a broken one would go unnoticed.
         """
         self.agent_router = agent_router
         self.doc_retrieval_service = doc_retrieval_service
         self.llm_service = llm_service
         self.agent_models = dict(agent_models or {})
+        self.guardrail_model = guardrail_model
         self._compiled_graph = self._build_graph()
         logger.info("Initialized Tapio orchestrator graph")
 
@@ -153,13 +161,34 @@ class TapioOrchestratorGraph:
 
         return result["route"], stream_generator(), result["retrieved_docs"]
 
+    def check_model_statuses(self) -> dict[str, bool]:
+        """Check each configured model separately, so an operator can see which one is down.
+
+        Returns:
+            Availability keyed by role: ``"default"``, each guide with its own model, and
+            ``"guardrail"`` if a guardrail model was given.
+        """
+        models: dict[str, BaseChatModel] = {"default": self.llm_service, **self.agent_models}
+        if self.guardrail_model is not None:
+            models[GUARDRAIL_ROLE] = self.guardrail_model
+        return {
+            role: check_model_availability(
+                model,
+                role=role,
+                # build_chat_model only passes TAPIO_LLM_API_KEY to the default provider, and a
+                # provider always builds the same model class, so a matching class means it applies.
+                tapio_key_applies=type(model) is type(self.llm_service),
+            )
+            for role, model in models.items()
+        }
+
     def check_model_availability(self) -> bool:
-        """Check if the default model and every per-guide model are available.
+        """Check if every configured model is available.
 
         Returns:
             bool: True if every configured model is available, False otherwise
         """
-        return all(check_model_availability(model) for model in (self.llm_service, *self.agent_models.values()))
+        return all(self.check_model_statuses().values())
 
     def format_documents_for_display(self, documents: list[Any]) -> str:
         """Format retrieved documents for display.

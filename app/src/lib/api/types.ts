@@ -43,6 +43,8 @@ export interface ErrorEventData {
 
 export interface HealthResponse {
 	model_available: boolean;
+	/** Availability per model role: `default`, each overridden guide, and `guardrail`. */
+	models: Record<string, boolean>;
 }
 
 export type ChatStreamEvent =

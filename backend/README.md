@@ -58,7 +58,24 @@ export TAPIO_LLM_MODEL_OVERRIDES='{"guardrail": "gemma4:e2b", "ilmarinen": "anth
 export ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-`TAPIO_LLM_API_BASE` and `TAPIO_LLM_API_KEY` apply only to models on `TAPIO_LLM_PROVIDER`. An override on a different provider uses that provider's own environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OLLAMA_HOST`, …), so a key or URL meant for one provider is never sent to another. `GET /health` checks every guide's model.
+`TAPIO_LLM_API_BASE` and `TAPIO_LLM_API_KEY` apply only to models on `TAPIO_LLM_PROVIDER`. An override on a different provider uses that provider's own environment variables (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `OPENAI_BASE_URL`, `OLLAMA_HOST`, …), so a key or URL meant for one provider is never sent to another. `GET /health` checks the default model, every guide's model, and the guardrail's model, and reports each one under `models`.
+
+## Agent tools
+
+Which tools the agents may call is configuration, not code (`app.tools`). A tool is available only if it is not disabled, its cost tier is within the allowed maximum, and every env var it needs is set.
+
+| Variable | Default | Description |
+| --- | --- | --- |
+| `TAPIO_TOOLS_DISABLED` | `[]` | JSON list of tool names to switch off, e.g. `'["add_calendar_days"]'`. An unknown name fails at startup. |
+| `TAPIO_TOOLS_MAX_COST_TIER` | `free` | Most expensive tier allowed: `free`, `metered`, or `paid`. The default never spends money on tools. |
+
+| Tool | Cost tier | Needs |
+| --- | --- | --- |
+| `get_current_datetime` | free | nothing |
+| `add_calendar_days` | free | nothing |
+| `add_business_days` | free | nothing (Finnish holidays from the bundled [`holidays`](https://pypi.org/project/holidays/) package, 1853-2100) |
+
+Each call is logged with the tool's name and cost tier (never its input, which can contain user text).
 
 ## Agent tools
 
@@ -78,7 +95,7 @@ Each call is logged with the tool's name and cost tier (never its input, which c
 
 ## Endpoints
 
-- `GET /health` — checks Ollama/model availability.
+- `GET /health` — checks model availability: `model_available` is true only if every configured model is available, and `models` breaks it down by role (`default`, each overridden guide, `guardrail`).
 - `GET /agents` — the guide roster (id, name, title, category, summary, color).
 - `POST /chat/stream` — Server-Sent Events chat stream. Emits `routing`, `citation`, `token` (repeated), and `done` events per turn, or `error` on failure.
 

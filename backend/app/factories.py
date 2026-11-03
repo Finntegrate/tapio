@@ -11,9 +11,9 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 from app.agents import AGENTS_BY_ID
 from app.config.config_models import RAGConfig
-from app.config.llm_settings import LLMSettings
+from app.config.llm_settings import GUARDRAIL_ROLE, LLMSettings
 from app.retrieval import ChromaRetriever
-from app.services.chat_model import build_chat_model
+from app.services.chat_model import build_chat_model, resolve_model
 from app.services.document_retrieval_service import DocumentRetrievalService
 from app.services.rag_orchestrator import RAGOrchestrator
 
@@ -120,11 +120,24 @@ class RAGOrchestratorFactory:
             if agent_id in AGENTS_BY_ID
         }
 
-    def create_orchestrator(self) -> RAGOrchestrator:
+    def guardrail_shares_default_model(self) -> bool:
+        """Whether the guardrail stage resolves to the same provider/model as default generation.
+
+        Returns:
+            True if the guardrail has no override, or one naming the default model.
+        """
+        return resolve_model(self.config, GUARDRAIL_ROLE) == resolve_model(self.config)
+
+    def create_orchestrator(self, guardrail_model: BaseChatModel | None = None) -> RAGOrchestrator:
         """Create fully configured RAG orchestrator.
 
         This is the main factory method that creates the complete RAG system
         with all dependencies properly wired together.
+
+        Args:
+            guardrail_model: Optional guardrail-stage chat model (from
+                ``create_chat_model(role=GUARDRAIL_ROLE)``) for the orchestrator to hold so
+                ``/health`` checks the same instance the guardrail classifier uses.
 
         Returns:
             Configured RAGOrchestrator instance ready to use
@@ -149,4 +162,5 @@ class RAGOrchestratorFactory:
             doc_retrieval_service=doc_service,
             llm_service=llm_service,
             agent_models=self.create_agent_chat_models(),
+            guardrail_model=guardrail_model,
         )

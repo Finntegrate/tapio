@@ -99,3 +99,21 @@ def test_an_edition_exists_for_the_source_version(shipped):
 def test_the_shipped_edition_rebuilds_to_its_recorded_digests():
     """Manifest-only releases are only honest if the payload reproduces exactly."""
     assert releasing.verify_current_edition() == []
+
+
+#: Declared in the schema but cited by no observation, as #175 records. Seeding from one
+#: of these, or removing it from the schema, is a deliberate change that updates this list.
+NEVER_OBSERVED = [
+    "jupo",
+    "suomi_fi_terminologies",
+    "koodistot",
+    "ptv",
+    "suomi_fi",
+    "infofinland",
+    "tyomarkkinatori",
+    "corpus",
+]
+
+
+def test_unused_sources_are_the_ones_175_records(shipped):
+    assert validation.source_coverage(shipped)["never_observed"] == NEVER_OBSERVED

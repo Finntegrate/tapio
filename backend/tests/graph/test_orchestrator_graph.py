@@ -217,6 +217,44 @@ def test_check_model_availability_covers_every_guide_model(
 
     with mock.patch(
         "app.graph.orchestrator_graph.check_model_availability",
-        side_effect=lambda model: model is not sampo_model,
+        side_effect=lambda model, **_: model is not sampo_model,
     ):
         assert graph.check_model_availability() is False
+
+
+def test_check_model_statuses_reports_each_role_separately(
+    mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
+) -> None:
+    sampo_model = _fake_chat_model("unused")
+    guardrail_model = _fake_chat_model("unused")
+    graph = TapioOrchestratorGraph(
+        agent_router=AgentRouter(),
+        doc_retrieval_service=mock_doc_retrieval_service,
+        llm_service=mock_llm_service,
+        agent_models={"sampo": sampo_model},
+        guardrail_model=guardrail_model,
+    )
+
+    with mock.patch(
+        "app.graph.orchestrator_graph.check_model_availability",
+        side_effect=lambda model, **_: model is not guardrail_model,
+    ) as mock_check:
+        statuses = graph.check_model_statuses()
+        overall = graph.check_model_availability()
+
+    assert statuses == {"default": True, "sampo": True, "guardrail": False}
+    assert overall is False
+    assert {call.kwargs["role"] for call in mock_check.call_args_list} == {"default", "sampo", "guardrail"}
+
+
+def test_check_model_statuses_omits_guardrail_when_not_given(
+    mock_doc_retrieval_service: mock.Mock, mock_llm_service: mock.Mock
+) -> None:
+    graph = TapioOrchestratorGraph(
+        agent_router=AgentRouter(),
+        doc_retrieval_service=mock_doc_retrieval_service,
+        llm_service=mock_llm_service,
+    )
+
+    with mock.patch("app.graph.orchestrator_graph.check_model_availability", return_value=True):
+        assert graph.check_model_statuses() == {"default": True}

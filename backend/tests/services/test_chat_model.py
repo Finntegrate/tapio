@@ -1,5 +1,6 @@
 """Tests for building and using the configured LangChain chat model (#9)."""
 
+import logging
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -12,6 +13,8 @@ from pydantic import SecretStr
 from app.config.config_models import RAGConfig
 from app.config.llm_settings import LLMSettings
 from app.services.chat_model import (
+    GENERATION_TEMPERATURE,
+    GUARDRAIL_TEMPERATURE,
     build_chat_model,
     build_messages,
     check_model_availability,
@@ -149,6 +152,28 @@ class TestBuildChatModel:
         model = build_chat_model(config, LLMSettings(), timeout=30.0)
 
         assert model.request_timeout == 30.0
+
+
+class TestTemperatureByRole:
+    """Safety classification wants the same verdict every time; generation wants variety (#207)."""
+
+    def test_the_guardrail_stage_samples_at_the_guardrail_temperature(self) -> None:
+        model = build_chat_model(RAGConfig(llm_provider="ollama"), LLMSettings(), role="guardrail")
+
+        assert model.temperature == GUARDRAIL_TEMPERATURE == 0.0
+
+    @pytest.mark.parametrize("role", [None, "ilmarinen"])
+    def test_generation_keeps_the_generation_temperature(self, role: str | None) -> None:
+        model = build_chat_model(RAGConfig(llm_provider="ollama"), LLMSettings(), role=role)
+
+        assert model.temperature == GENERATION_TEMPERATURE
+
+    def test_a_guardrail_override_on_another_provider_still_samples_at_the_guardrail_temperature(self) -> None:
+        config = RAGConfig(llm_provider="ollama", llm_model_overrides={"guardrail": "anthropic:claude-haiku-4-5"})
+
+        model = build_chat_model(config, LLMSettings(), role="guardrail")
+
+        assert model.temperature == GUARDRAIL_TEMPERATURE
 
 
 class TestModelOverrides:
@@ -420,6 +445,31 @@ class TestCheckModelAvailability:
         model = build_chat_model(config, LLMSettings(api_key="ollama-proxy-key"), role="sampo")
 
         assert check_model_availability(model) is False
+
+    def test_missing_credential_warning_names_the_role_and_model(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        model = ChatAnthropic(model="claude-haiku-4-5")
+
+        with caplog.at_level(logging.WARNING, logger="app.services.chat_model"):
+            assert check_model_availability(model, role="guardrail", tapio_key_applies=False) is False
+
+        assert "guardrail model claude-haiku-4-5 has no credential; set ANTHROPIC_API_KEY" in caplog.text
+        assert "TAPIO_LLM_API_KEY" not in caplog.text
+
+    def test_missing_credential_warning_suggests_tapio_llm_api_key_for_the_default_provider(
+        self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+        model = ChatAnthropic(model="claude-haiku-4-5")
+
+        with caplog.at_level(logging.WARNING, logger="app.services.chat_model"):
+            assert check_model_availability(model) is False
+
+        assert "default model claude-haiku-4-5 has no credential; set ANTHROPIC_API_KEY or TAPIO_LLM_API_KEY" in (
+            caplog.text
+        )
 
     def test_openai_unavailable_with_no_credentials(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.delenv("OPENAI_API_KEY", raising=False)
