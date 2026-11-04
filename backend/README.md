@@ -49,7 +49,7 @@ export TAPIO_LLM_API_KEY=...
 
 By default every guide and the guardrail share the one model above. `TAPIO_LLM_MODEL_OVERRIDES` gives individual guides or stages their own — for example a small, fast model for guardrail checks and a stronger one for a specialist's answers. Anything without an entry keeps using `TAPIO_LLM_PROVIDER`/`TAPIO_LLM_MODEL`, so this is optional.
 
-Keys are a guide id (`tapio`, `ilmarinen`, `sampo`, `rauni`, `otso`) or `guardrail` (message classification and the localized safety-response intro). An unknown key fails at startup. Values use LangChain's own `provider:model` form, as `init_chat_model` accepts; a value without a provider prefix (such as an Ollama tag like `gemma4:e2b`) uses `TAPIO_LLM_PROVIDER`.
+Keys are a guide id (`tapio`, `ilmarinen`, `sampo`, `rauni`, `otso`) or `guardrail` (message classification and the localized safety-response intro). An unknown key fails at startup. Values use the `provider:model` form, where the provider is one Tapio supports: `ollama`, `openai`, or `anthropic`. Other LangChain providers (such as `google_genai`) are rejected at startup, as is a near-miss of a supported name (such as `antropic`). A value without a provider prefix, such as an Ollama tag like `gemma4:e2b`, uses `TAPIO_LLM_PROVIDER`, and is only accepted when that is `ollama`; on a cloud default, prefix it (e.g. `openai:ft:gpt-4o-mini:...`).
 
 ```bash
 export TAPIO_LLM_PROVIDER=ollama

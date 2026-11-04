@@ -1,8 +1,9 @@
 """Environment-driven LLM provider configuration (#9, #139)."""
 
-from typing import Final
+from typing import Final, Self
 
-from pydantic import SecretStr, field_validator
+from langchain.chat_models import base as langchain_chat_models
+from pydantic import SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from app.agents.definitions import AGENTS_BY_ID
@@ -13,6 +14,11 @@ GUARDRAIL_ROLE: Final = "guardrail"
 
 MODEL_OVERRIDE_ROLES: Final = frozenset({*AGENTS_BY_ID, GUARDRAIL_ROLE})
 """Every key ``TAPIO_LLM_MODEL_OVERRIDES`` accepts: a guide id, or a non-guide LLM stage."""
+
+# Every provider name init_chat_model recognizes. LangChain keeps the list private, so
+# tests/config/test_llm_settings.py fails if an upgrade renames it, rather than this
+# silently becoming empty and letting unsupported providers through again.
+LANGCHAIN_PROVIDERS: Final[frozenset[str]] = frozenset(getattr(langchain_chat_models, "_BUILTIN_PROVIDERS", ()))
 
 
 class LLMSettings(BaseSettings):
@@ -73,3 +79,60 @@ class LLMSettings(BaseSettings):
             msg = f"Unknown TAPIO_LLM_MODEL_OVERRIDES keys {unknown}; expected any of {sorted(MODEL_OVERRIDE_ROLES)}"
             raise ValueError(msg)
         return value
+
+    @model_validator(mode="after")
+    def _reject_unsupported_override_providers(self) -> Self:
+        """Fail at startup on an override that would silently reach the wrong provider.
+
+        ``resolve_model`` reads a value whose prefix isn't a Tapio provider as a bare model
+        name on the default provider, which keeps Ollama tags such as ``gemma4:e2b`` working.
+        Without this check, a typo (``antropic:...``) or a provider LangChain supports but
+        Tapio doesn't (``google_genai:...``) would be sent to the default provider under a
+        nonsense model id, failing only at request time, and failing open for the guardrail.
+
+        Returns:
+            ``self``, unchanged.
+
+        Raises:
+            ValueError: If an override names a provider Tapio doesn't support, a near-miss of
+                one it does, or an unknown prefix while the default provider isn't Ollama.
+        """
+        # Imported here: app.services imports app.config, so a module-level import would be circular.
+        from app.services.llm_providers import PROVIDERS  # noqa: PLC0415
+
+        supported = sorted(PROVIDERS)
+        for role, value in self.model_overrides.items():
+            prefix, separator, _model = value.partition(":")
+            if not separator or prefix in PROVIDERS:
+                continue
+            where = f"TAPIO_LLM_MODEL_OVERRIDES[{role!r}] = {value!r}"
+            if prefix in LANGCHAIN_PROVIDERS:
+                msg = f"{where}: provider {prefix!r} is not supported by Tapio; supported providers are {supported}"
+                raise ValueError(msg)
+            near_miss = next((name for name in supported if _one_edit_apart(prefix, name)), None)
+            if near_miss:
+                msg = f"{where}: unknown provider {prefix!r}; did you mean {near_miss!r}?"
+                raise ValueError(msg)
+            if self.provider != "ollama":
+                msg = (
+                    f"{where}: {prefix!r} is not a provider. A bare model name is only accepted on an "
+                    f"Ollama default; prefix the value with one of {supported} (e.g. 'openai:{value}')."
+                )
+                raise ValueError(msg)
+        return self
+
+
+def _one_edit_apart(a: str, b: str) -> bool:
+    """Whether ``a`` becomes ``b`` with one insertion, deletion, substitution, or adjacent swap.
+
+    Deliberately tight: a looser similarity would flag real Ollama tags, e.g. ``llama3`` is
+    two edits from ``ollama``.
+    """
+    if a == b or abs(len(a) - len(b)) > 1:
+        return False
+    if len(a) == len(b):
+        if sum(x != y for x, y in zip(a, b, strict=True)) == 1:
+            return True
+        return any(a[:i] + a[i + 1] + a[i] + a[i + 2 :] == b for i in range(len(a) - 1))
+    shorter, longer = sorted((a, b), key=len)
+    return any(longer[:i] + longer[i + 1 :] == shorter for i in range(len(longer)))
