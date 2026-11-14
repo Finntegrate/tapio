@@ -611,3 +611,98 @@ async def test_cancelled_control_stops_discovery_before_any_request(store: Manif
     assert summary.cancelled
     assert summary.complete is False
     client_get.assert_not_awaited()
+
+
+def _gap_site_config() -> SiteConfig:
+    return _site_config(
+        discovery=DiscoveryConfig(source="none"),
+        gap_crawl=GapCrawlConfig(enabled=True, seed_urls=["https://example.com"]),
+        scope=ScopeConfig(allowed_domains=["example.com"]),
+    )
+
+
+async def _run_gap(store: ManifestStore, result: GapCrawlResult, *, save: dict[str, object] | None = None) -> object:
+    """Run discovery with a stubbed gap crawl that optionally saves a checkpoint first."""
+
+    async def fake_gap_crawl(*_args: object, **kwargs: object) -> GapCrawlResult:
+        if save is not None:
+            kwargs["save_checkpoint"](save)  # type: ignore[operator]
+        fake_gap_crawl.checkpoint = kwargs["checkpoint"]  # type: ignore[attr-defined]
+        return result
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True)),
+        ),
+        patch("tapio_crawler.discovery.runner.discover_via_gap_crawl", fake_gap_crawl),
+    ):
+        summary = await DiscoveryRunner(store).run("example", _gap_site_config())
+    summary.checkpoint_given = fake_gap_crawl.checkpoint  # type: ignore[attr-defined]
+    return summary
+
+
+@pytest.mark.asyncio
+async def test_a_cancelled_gap_crawl_keeps_its_checkpoint_and_is_reported_cancelled(store: ManifestStore) -> None:
+    saved = {"discovered": ["https://example.com/a"]}
+
+    summary = await _run_gap(store, GapCrawlResult(cancelled=True, finished=False, complete=False), save=saved)
+
+    assert summary.cancelled is True  # type: ignore[attr-defined]
+    assert summary.discovered == 0  # type: ignore[attr-defined]  # recorded by the run that resumes
+    fingerprints = store._connection.execute("SELECT state FROM deep_crawl_checkpoint").fetchall()
+    assert len(fingerprints) == 1
+
+
+@pytest.mark.asyncio
+async def test_the_next_run_is_given_the_saved_checkpoint(store: ManifestStore) -> None:
+    saved = {"discovered": ["https://example.com/a"]}
+    await _run_gap(store, GapCrawlResult(cancelled=True, finished=False, complete=False), save=saved)
+
+    summary = await _run_gap(store, GapCrawlResult(urls=["https://example.com/a"], complete=True))
+
+    assert summary.checkpoint_given == saved  # type: ignore[attr-defined]
+
+
+@pytest.mark.asyncio
+async def test_a_finished_gap_crawl_clears_its_checkpoint(store: ManifestStore) -> None:
+    await _run_gap(store, GapCrawlResult(urls=["https://example.com/a"], complete=True), save={"discovered": ["x"]})
+
+    assert store._connection.execute("SELECT COUNT(*) FROM deep_crawl_checkpoint").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_changing_the_gap_crawl_settings_discards_the_checkpoint(store: ManifestStore) -> None:
+    saved = {"discovered": ["https://example.com/a"]}
+    await _run_gap(store, GapCrawlResult(cancelled=True, finished=False, complete=False), save=saved)
+
+    changed = _gap_site_config()
+    changed.crawler_config.gap_crawl.max_depth += 1
+    captured: dict[str, object] = {}
+
+    async def fake_gap_crawl(*_args: object, **kwargs: object) -> GapCrawlResult:
+        captured["checkpoint"] = kwargs["checkpoint"]
+        return GapCrawlResult(urls=[], complete=True)
+
+    with (
+        patch(
+            "tapio_crawler.discovery.runner.fetch_robots_rules",
+            AsyncMock(return_value=RobotsRules(reachable=True)),
+        ),
+        patch("tapio_crawler.discovery.runner.discover_via_gap_crawl", fake_gap_crawl),
+    ):
+        await DiscoveryRunner(store).run("example", changed)
+
+    assert captured["checkpoint"] is None
+
+
+@pytest.mark.asyncio
+async def test_the_checkpoint_survives_a_failure_to_persist_the_urls(store: ManifestStore) -> None:
+    """Until the URLs are in the manifest, the checkpoint is their only copy."""
+    with (
+        patch.object(DiscoveryRunner, "_persist_discovered_urls", side_effect=RuntimeError("disk full")),
+        pytest.raises(RuntimeError),
+    ):
+        await _run_gap(store, GapCrawlResult(urls=["https://example.com/a"], complete=True), save={"discovered": ["x"]})
+
+    assert store._connection.execute("SELECT COUNT(*) FROM deep_crawl_checkpoint").fetchone()[0] == 1

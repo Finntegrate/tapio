@@ -7,14 +7,40 @@ provenance and advances ``last_seen_at`` rather than creating a duplicate row.
 from __future__ import annotations
 
 import json
+import logging
 import sqlite3
+import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Final, TypeVar
 
 from tapio_crawler.config.settings import DEFAULT_MANIFEST_PATH
 from tapio_crawler.manifest.models import ManifestRecord
+
+logger = logging.getLogger(__name__)
+
+_T = TypeVar("_T")
+
+# Waits before each retry of a write that hit "database is locked". busy_timeout already
+# waits up to 30s inside SQLite; this covers what it can't, such as a lock that only
+# shows up at COMMIT, and keeps the total bounded (#178).
+_LOCK_RETRY_DELAYS: Final[tuple[float, ...]] = (0.5, 1.0, 2.0)
+
+# SQLite's primary result codes for "another connection holds the lock".
+_SQLITE_BUSY: Final = 5
+_SQLITE_LOCKED: Final = 6
+
+
+def _is_lock_error(error: sqlite3.OperationalError) -> bool:
+    """Whether ``error`` is a transient lock, rather than e.g. a missing table or a full disk."""
+    code = getattr(error, "sqlite_errorcode", None)
+    if code is not None:
+        return code & 0xFF in {_SQLITE_BUSY, _SQLITE_LOCKED}
+    message = str(error).lower()
+    return "locked" in message or "busy" in message
+
 
 _COLUMNS = (
     "site_name",
@@ -47,6 +73,17 @@ _SCHEMA = f"""
 CREATE TABLE IF NOT EXISTS manifest (
     {", ".join(f"{name} INTEGER" if name in _INTEGER_COLUMNS else f"{name} TEXT" for name in _COLUMNS)},
     PRIMARY KEY (site_name, canonical_url)
+);
+"""
+
+# One saved deep-crawl checkpoint per site: Crawl4AI's crawl state per seed plus the URLs
+# found so far, so a cancelled or crashed gap crawl resumes instead of starting over (#178).
+_DEEP_CRAWL_CHECKPOINT_SCHEMA = """
+CREATE TABLE IF NOT EXISTS deep_crawl_checkpoint (
+    site_name TEXT PRIMARY KEY,
+    config_fingerprint TEXT NOT NULL,
+    state TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 """
 
@@ -104,13 +141,47 @@ class ManifestStore:
         # runs for different sites open this same file concurrently (#79).
         self._connection = sqlite3.connect(self.path, timeout=30.0)
         self._connection.row_factory = sqlite3.Row
-        self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute("PRAGMA busy_timeout=30000")
+        self._with_lock_retry(self._create_schema)
+
+    def _create_schema(self) -> None:
+        """Enable WAL, then create and migrate the tables. Retried as one unit on a lock."""
+        self._connection.execute("PRAGMA journal_mode=WAL")
         self._connection.execute(_SCHEMA)
         self._connection.execute(_DISCOVERY_RUN_SCHEMA)
+        self._connection.execute(_DEEP_CRAWL_CHECKPOINT_SCHEMA)
         self._add_missing_columns()
         self._add_missing_discovery_run_columns()
-        self._connection.commit()
+
+    def _with_lock_retry(self, unit: Callable[[], _T]) -> _T:
+        """Run ``unit`` and commit it, retrying the whole unit on a transient lock.
+
+        A retry re-runs ``unit`` from the start after rolling back, so a multi-statement
+        write such as ``rekey``'s delete-then-insert is never left half-applied. Any
+        other ``OperationalError``, or a lock that outlasts every retry, is raised.
+
+        Args:
+            unit: The reads and writes that make up one transaction, without a commit.
+
+        Returns:
+            Whatever ``unit`` returns.
+        """
+        delays = iter(_LOCK_RETRY_DELAYS)
+        attempt = 1
+        while True:
+            try:
+                result = unit()
+                self._connection.commit()
+            except sqlite3.OperationalError as error:
+                self._connection.rollback()
+                delay = next(delays, None)
+                if delay is None or not _is_lock_error(error):
+                    raise
+                logger.warning("Manifest %s is locked (attempt %d); retrying in %.1fs", self.path.name, attempt, delay)
+                time.sleep(delay)
+                attempt += 1
+            else:
+                return result
 
     def _add_missing_columns(self) -> None:
         """Add any missing column, so an older database file doesn't fail.
@@ -164,14 +235,68 @@ class ManifestStore:
                 configuration has changed since and treat a cache hit as
                 stale even within ``cache_ttl_hours``.
         """
-        self._connection.execute(
-            "INSERT INTO discovery_run (site_name, completed_at, complete, config_fingerprint) "
-            "VALUES (?, ?, ?, ?) "
-            "ON CONFLICT (site_name) DO UPDATE SET completed_at = excluded.completed_at, "
-            "complete = excluded.complete, config_fingerprint = excluded.config_fingerprint",
-            (site_name, completed_at.isoformat(), int(complete), config_fingerprint),
+        self._with_lock_retry(
+            lambda: self._connection.execute(
+                "INSERT INTO discovery_run (site_name, completed_at, complete, config_fingerprint) "
+                "VALUES (?, ?, ?, ?) "
+                "ON CONFLICT (site_name) DO UPDATE SET completed_at = excluded.completed_at, "
+                "complete = excluded.complete, config_fingerprint = excluded.config_fingerprint",
+                (site_name, completed_at.isoformat(), int(complete), config_fingerprint),
+            )
         )
-        self._connection.commit()
+
+    def save_deep_crawl_checkpoint(self, site_name: str, config_fingerprint: str, state: dict[str, Any]) -> None:
+        """Save ``site_name``'s deep-crawl checkpoint, replacing any earlier one.
+
+        Args:
+            site_name: Name of the configured source site.
+            config_fingerprint: Fingerprint of the discovery settings the crawl runs under.
+            state: The checkpoint, JSON-serializable.
+        """
+        self._with_lock_retry(
+            lambda: self._connection.execute(
+                "INSERT INTO deep_crawl_checkpoint (site_name, config_fingerprint, state, updated_at) "
+                "VALUES (?, ?, ?, ?) ON CONFLICT (site_name) DO UPDATE SET "
+                "config_fingerprint = excluded.config_fingerprint, state = excluded.state, "
+                "updated_at = excluded.updated_at",
+                (site_name, config_fingerprint, json.dumps(state), datetime.now(UTC).isoformat()),
+            )
+        )
+
+    def get_deep_crawl_checkpoint(self, site_name: str, config_fingerprint: str) -> dict[str, Any] | None:
+        """Return ``site_name``'s saved checkpoint, if it was saved under the same settings.
+
+        A checkpoint from different discovery settings would resume the wrong crawl, so it
+        is discarded and ``None`` returned.
+
+        Args:
+            site_name: Name of the configured source site.
+            config_fingerprint: Fingerprint of the current discovery settings.
+
+        Returns:
+            The checkpoint, or ``None`` if there is none or it is stale.
+        """
+        row = self._connection.execute(
+            "SELECT config_fingerprint, state FROM deep_crawl_checkpoint WHERE site_name = ?",
+            (site_name,),
+        ).fetchone()
+        if row is None:
+            return None
+        if row["config_fingerprint"] != config_fingerprint:
+            self.clear_deep_crawl_checkpoint(site_name)
+            return None
+        state: dict[str, Any] = json.loads(row["state"])
+        return state
+
+    def clear_deep_crawl_checkpoint(self, site_name: str) -> None:
+        """Delete ``site_name``'s checkpoint, once its crawl has run to the end.
+
+        Args:
+            site_name: Name of the configured source site.
+        """
+        self._with_lock_retry(
+            lambda: self._connection.execute("DELETE FROM deep_crawl_checkpoint WHERE site_name = ?", (site_name,))
+        )
 
     def get_last_discovery_run(self, site_name: str) -> LastDiscoveryRun | None:
         """Return when ``site_name``'s discovery last completed, if ever.
@@ -207,6 +332,10 @@ class ManifestStore:
         Returns:
             The record as persisted, after any merge with an existing row.
         """
+        return self._with_lock_retry(lambda: self._upsert(record))
+
+    def _upsert(self, record: ManifestRecord) -> ManifestRecord:
+        """Read, merge, and write ``record``, without committing; see ``upsert``."""
         existing = self.get(record.site_name, record.canonical_url)
         merged = (
             record
@@ -300,7 +429,7 @@ class ManifestStore:
             record: The full record to write, already read and mutated by
                 the caller (for example, after a render attempt).
         """
-        self._write(record)
+        self._with_lock_retry(lambda: self._write(record))
 
     def list_eligible_page(
         self,
@@ -390,6 +519,10 @@ class ManifestStore:
             old_canonical_url: The record's previous canonical identity.
             new_record: The record to persist under its new canonical identity.
         """
+        self._with_lock_retry(lambda: self._rekey(site_name, old_canonical_url, new_record))
+
+    def _rekey(self, site_name: str, old_canonical_url: str, new_record: ManifestRecord) -> None:
+        """Delete the old row and write the merged new one, without committing; see ``rekey``."""
         existing_target = self.get(site_name, new_record.canonical_url)
         merged = (
             new_record
@@ -409,7 +542,7 @@ class ManifestStore:
         self._write(merged)
 
     def _write(self, record: ManifestRecord) -> None:
-        """Upsert ``record``'s row into the ``manifest`` table.
+        """Upsert ``record``'s row into the ``manifest`` table, without committing.
 
         Args:
             record: The record to write, already merged with any existing row.
@@ -427,7 +560,6 @@ class ManifestStore:
             f"ON CONFLICT (site_name, canonical_url) DO UPDATE SET {update_clause}",
             [values[name] for name in _COLUMNS],
         )
-        self._connection.commit()
 
 
 def _record_to_row(record: ManifestRecord) -> dict[str, Any]:

@@ -10,7 +10,7 @@ the manifest in a consistent, resumable state.
 from __future__ import annotations
 
 import asyncio
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Literal, Protocol
 
 JobPhase = Literal["pending", "discovery", "render", "done", "incomplete", "cancelled", "failed"]
@@ -88,6 +88,22 @@ class JobControl:
 
 
 @dataclass
+class DiscoveryProgress:
+    """How far a deep-crawl discovery has got, from Crawl4AI's own crawl state (#178).
+
+    Attributes:
+        visited: Pages crawled so far, including any from a resumed run (Crawl4AI's
+            ``pages_crawled``; its ``visited`` set also counts links merely queued).
+        queued: Pages queued for the next BFS level.
+        resumed: Whether this run continued from a saved checkpoint.
+    """
+
+    visited: int = 0
+    queued: int = 0
+    resumed: bool = False
+
+
+@dataclass
 class SiteProgress:
     """Live, read-only-by-observers state of one site job.
 
@@ -98,6 +114,7 @@ class SiteProgress:
         render_summary: The in-flight render summary, once rendering starts.
         current_delay: Effective minimum per-request delay for the host, in
             seconds, once rendering starts.
+        discovery: Deep-crawl discovery progress, filled in while a gap crawl runs.
     """
 
     site_name: str
@@ -105,11 +122,16 @@ class SiteProgress:
     due_total: int = 0
     render_summary: RenderCounts | None = None
     current_delay: float | None = None
+    discovery: DiscoveryProgress = field(default_factory=DiscoveryProgress)
 
     def describe(self, *, paused: bool = False) -> str:
         """Return a one-line, human-readable progress report."""
         label = f"{self.phase} (paused)" if paused and self.phase in ("discovery", "render") else self.phase
         parts = [f"[{self.site_name}] {label}"]
+        crawl = self.discovery
+        if self.phase == "discovery" and (crawl.visited or crawl.queued):
+            resumed = " (resumed)" if crawl.resumed else ""
+            parts.append(f"crawled {crawl.visited}; queued {crawl.queued}{resumed}")
         summary = self.render_summary
         if summary is not None and self.phase in ("render", "done", "incomplete", "cancelled"):
             parts.append(
