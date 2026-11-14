@@ -85,6 +85,43 @@ These pytest cases were also run against a real local Ollama model (`gemma4:late
 
 There is no dedicated AI evaluation harness in this repo yet (see the open items below); these pytest cases are the guardrail regression suite until one exists.
 
+## Decision-model evaluation (baseline, 2026-10-17)
+
+Whether a "System One" decision model (text plus typed questions in, a probability per answer out) should back these checks instead of a structured-output chat call. This section records the baseline; the decision-model comparison is pending API access.
+
+**Set and method.** `backend/evals/guardrail_decisions.yaml`: 46 synthetic messages (en, fi, sv, ru, ar, so, code-switched fi-en), including near-misses that mirror the classifier's negative examples, and 16 generated intros for the contact-detail check. `backend/evals/run_guardrail_baseline.py` runs the production checks one call at a time and writes results to `backend/evals/results/`. No real user message is, or should be, in the set.
+
+**Baseline: structured-output `gemma3:4b` on local CPU, plus the contact-detail regex.** The default `gemma4:latest` wasn't available on the machine used, so these numbers are for the closest local model and should be rerun on the default.
+
+| Check | Recall | False-positive rate |
+| --- | --- | --- |
+| crisis | 100% (13/13) | 15% (5/33) |
+| legal_sensitive | 100% (8/8) | 32% (12/38) |
+| out_of_scope | 100% (7/7) | **97% (38/39)** |
+| contact_detail (regex) | **40% (4/10)** | 0% (0/6) |
+
+- **Out-of-scope flags almost everything**, including core questions such as Kela housing allowance and rental agreements. In production that means nearly every non-crisis, non-legal turn is refused as off-topic on this model. This is the most urgent finding, independent of the decision-model question.
+- **The regex misses every contact detail without a URL, email or digit shape**: spelled-out numbers (en, fi), a street address, "mieli dot fi", a messaging handle.
+- **Crisis catches every positive but over-fires** on legal messages and near-misses. That direction is the acceptable one, but a bare boolean leaves no threshold to tune.
+- **Latency**: median 17.7s, p95 22.0s per check; about 53s per turn when the three checks serialize on one Ollama. Two calls hit the 60s timeout and failed open. Cost: $0 (local compute).
+- **Calibration**: not measurable, since the structured-output path returns no score.
+
+**Data terms of the candidates** (from the providers' published terms, 2026-10-15; to be confirmed in writing before any crisis text is sent):
+
+| | TypeSafe Jev | OpenAI Decisions API |
+| --- | --- | --- |
+| Zero retention | Enterprise only | Yes, for eligible customers |
+| EU processing | No (US-hosted, SCCs) | Yes (EEA), +10% price; residency for `/v1/decisions` listed as pending confirmation |
+| Trains on inputs | No | No |
+| Hard spend cap | Not found | Yes (org/project, 429 on cap) |
+| Input price | $0.042 / 1M tokens | $0.10 / 1M tokens |
+
+Jev fails the EU-processing and zero-retention constraints from #187 for crisis messages without an enterprise agreement. OpenAI Decisions meets them on paper, pending confirmation for that endpoint.
+
+**Seam if a candidate wins.** A `DecisionModel` protocol beside `StructuredOutputModel` in `app.services.structured_output`, taking text plus typed questions and returning a probability per answer. Each check then sets its own threshold (low for crisis). The structured-output path stays as the implementation for local-only deployments, mapping its boolean to 0 or 1. The contact-detail regex stays as a cheap backstop alongside a semantic check.
+
+**Recommendation so far.** Not yet decided, pending a measured run of OpenAI Decisions on the same set. Before that: fix or re-tune the out-of-scope check, and rerun this baseline on `gemma4:latest` to see whether the 97% is the model or the prompt.
+
 ## Non-goals / open follow-ups
 
 - **A general safety classifier.** This is a targeted layer for three specific categories, not a content-moderation system.
