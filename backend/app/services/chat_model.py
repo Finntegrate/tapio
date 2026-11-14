@@ -296,7 +296,7 @@ def _check_ollama_availability(model_name: str, base_url: str | None) -> bool:
             return False
         logger.info("Found exact matching model: %s", model_name)
     except Exception as e:
-        logger.warning("Could not connect to Ollama: %s", e)
+        logger.warning("Could not connect to Ollama: %s", type(e).__name__)
         logger.warning("Make sure Ollama is running")
         return False
     else:

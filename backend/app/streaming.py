@@ -88,7 +88,8 @@ async def stream_chat_turn(
 
         guardrail_match = await guardrail_classifier.classify(message)
         if guardrail_match is not None:
-            logger.info("Guardrail intercepted message: %s (%s)", guardrail_match.reason, guardrail_match.category)
+            # The category only: the reason is model output and can quote the message (#191).
+            logger.info("Guardrail intercepted a message: %s", guardrail_match.category)
             yield {"event": "guardrail", "data": _guardrail_event(guardrail_match).model_dump_json()}
             yield {"event": "citation", "data": CitationEvent(citations=[]).model_dump_json()}
             response_text = await build_guardrail_response(guardrail_match, message)

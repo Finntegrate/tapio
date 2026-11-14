@@ -13,6 +13,11 @@ from app.config.config_models import RAGConfig
 from app.config.llm_settings import GUARDRAIL_ROLE
 from app.factories import RAGOrchestratorFactory
 from app.guardrails import LLMGuardrailClassifier
+from app.log_privacy import (
+    install_content_free_exception_logging,
+    quiet_content_logging_libraries,
+    refuse_third_party_tracing,
+)
 from app.routes import agents, chat, health
 
 logger = logging.getLogger(__name__)
@@ -51,6 +56,10 @@ def create_app() -> FastAPI:
     Returns:
         The configured, ready-to-serve FastAPI application.
     """
+    # First, before any model client or route exists (#191, ADR 0011).
+    refuse_third_party_tracing()
+    install_content_free_exception_logging()
+    quiet_content_logging_libraries()
     settings = BackendSettings()
     app = FastAPI(title="Tapio backend", lifespan=lifespan)
     app.add_middleware(
