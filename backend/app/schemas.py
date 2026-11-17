@@ -50,12 +50,20 @@ class Citation(BaseModel):
     title: str
     source_url: str
     snippet: str
+    crawl_date: str | None = None
+    formatted: str = ""
 
 
 class CitationEvent(BaseModel):
-    """Sources retrieved for this turn."""
+    """Sources retrieved for this turn.
+
+    ``no_source`` is true when retrieval ran but found nothing citable, so the
+    answer is the fixed "no reliable source" message rather than a model answer.
+    It stays false on guardrail turns, which skip retrieval.
+    """
 
     citations: list[Citation]
+    no_source: bool = False
 
 
 class GuardrailEvent(BaseModel):

@@ -82,6 +82,13 @@ def test_system_prompt_requires_sources_for_all_factual_guidance():
     assert "source URL" in prompt
 
 
+def test_system_prompt_leaves_the_source_list_to_the_citation_formatter():
+    """Sources are rendered deterministically from retrieval (#114), never composed by the model."""
+    prompt = load_prompt("system_prompt")
+
+    assert "do not write out your own list of sources" in prompt
+
+
 @pytest.mark.parametrize(
     "agent",
     [agent for agent in AGENTS if agent.specialist_prompt is not None],

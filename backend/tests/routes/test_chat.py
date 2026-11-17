@@ -1,9 +1,12 @@
 """Tests for POST /chat/stream."""
 
 import json
-from unittest.mock import Mock
+from unittest.mock import MagicMock, Mock
 
 from fastapi.testclient import TestClient
+
+from app.graph.orchestrator_graph import SetupFailedStream
+from app.grounding import NO_SOURCE_MESSAGE
 
 
 def _parse_sse_events(body: str) -> list[tuple[str, dict]]:
@@ -47,6 +50,8 @@ def test_chat_stream_emits_routing_citation_tokens_then_done(client: TestClient)
 
     citation_data = events[1][1]
     assert citation_data["citations"][0]["source_url"] == "https://example.com"
+    assert citation_data["citations"][0]["formatted"] == "Example source — https://example.com"
+    assert citation_data["no_source"] is False
 
     token_texts = [data["text"] for event_type, data in events if event_type == "token"]
     assert "".join(token_texts) == "Mocked response"
@@ -148,3 +153,36 @@ def test_chat_stream_emits_error_event_when_orchestrator_fails(
 
     error_data = events[-1][1]
     assert error_data["message"] == "I encountered an error while processing your query. Please try again."
+
+
+def test_chat_stream_says_so_instead_of_answering_when_nothing_citable_was_retrieved(
+    client: TestClient, mock_orchestrator_graph: Mock
+) -> None:
+    model_stream = MagicMock()
+    mock_orchestrator_graph.query_stream.return_value = (None, model_stream, [])
+
+    response = client.post(
+        "/chat/stream",
+        json={"message": "How do I apply for a residence permit?", "agent_id": "ilmarinen"},
+    )
+
+    events = _parse_sse_events(response.text)
+    assert [event_type for event_type, _ in events] == ["routing", "citation", "token", "done"]
+    assert dict(events)["citation"] == {"citations": [], "no_source": True}
+    assert dict(events)["token"]["text"] == NO_SOURCE_MESSAGE
+    model_stream.__next__.assert_not_called()
+    model_stream.close.assert_called_once()
+
+
+def test_chat_stream_reports_a_graph_setup_failure_as_an_error_not_a_missing_source(
+    client: TestClient, mock_orchestrator_graph: Mock
+) -> None:
+    mock_orchestrator_graph.query_stream.return_value = (None, SetupFailedStream(), [])
+
+    response = client.post(
+        "/chat/stream",
+        json={"message": "How do I apply for a residence permit?", "agent_id": "ilmarinen"},
+    )
+
+    events = _parse_sse_events(response.text)
+    assert [event_type for event_type, _ in events] == ["routing", "error"]
