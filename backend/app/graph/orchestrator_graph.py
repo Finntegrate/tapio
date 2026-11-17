@@ -1,7 +1,7 @@
 """Compiled LangGraph graph fronting Tapio's routing -> retrieval -> generation flow."""
 
 import logging
-from collections.abc import Generator, Mapping
+from collections.abc import Generator, Iterator, Mapping
 from typing import Any, cast
 
 from langchain_core.language_models import BaseChatModel
@@ -19,6 +19,25 @@ from app.services.document_retrieval_service import DocumentRetrievalService
 logger = logging.getLogger(__name__)
 
 GENERIC_ERROR_MESSAGE = "I encountered an error while processing your query. Please try again."
+
+
+class SetupFailedStream(Iterator[str]):
+    """The response stream returned when the graph failed before generation.
+
+    It yields the generic error message once. Its own type lets a caller tell a
+    failed turn apart from one where retrieval simply found nothing.
+    """
+
+    def __init__(self) -> None:
+        """Start with the error message not yet yielded."""
+        self._done = False
+
+    def __next__(self) -> str:
+        """Yield the generic error message once, then stop."""
+        if self._done:
+            raise StopIteration
+        self._done = True
+        return GENERIC_ERROR_MESSAGE
 
 
 class TapioOrchestratorGraph:
@@ -123,7 +142,7 @@ class TapioOrchestratorGraph:
         query_text: str,
         history: list[dict[str, Any]] | None = None,
         agent_id: str = AUTO_ROUTE,
-    ) -> tuple[AgentRoute, Generator[str], list[Any]]:
+    ) -> tuple[AgentRoute, Iterator[str], list[Any]]:
         """Run routing and retrieval eagerly, then return a lazily-consumed response stream.
 
         Args:
@@ -139,11 +158,7 @@ class TapioOrchestratorGraph:
         except Exception:
             logger.exception("Error in query_stream setup")
 
-            def error_generator() -> Generator[str]:
-                """Yield the single generic error chunk in place of a real response stream."""
-                yield GENERIC_ERROR_MESSAGE
-
-            return self.safe_route(query_text, agent_id), error_generator(), []
+            return self.safe_route(query_text, agent_id), SetupFailedStream(), []
 
         upstream_stream = result["response_stream"]
 

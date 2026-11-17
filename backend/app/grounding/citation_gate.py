@@ -70,7 +70,8 @@ class CitationReport:
         }
 
 
-def _canonical_url(url: str) -> str:
+def canonical_url(url: str) -> str:
+    """Normalize a URL for comparison: lowercase scheme and host, no trailing slash or fragment."""
     parts = urlsplit(url.strip())
     return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), parts.path.rstrip("/"), parts.query, ""))
 
@@ -88,7 +89,7 @@ def check_citations(claims: Iterable[Claim], retrieved: Iterable[RetrievedChunk]
     """
     chunks = list(retrieved)
     chunk_ids = {chunk.chunk_id for chunk in chunks}
-    id_by_url = {_canonical_url(chunk.source_url): chunk.chunk_id for chunk in chunks}
+    id_by_url = {canonical_url(chunk.source_url): chunk.chunk_id for chunk in chunks}
 
     repaired_claims: list[Claim] = []
     repairs: list[CitationRepair] = []
@@ -107,7 +108,7 @@ def check_citations(claims: Iterable[Claim], retrieved: Iterable[RetrievedChunk]
             if citation in chunk_ids:
                 new_cites.append(citation)
                 continue
-            near_miss = id_by_url.get(_canonical_url(citation))
+            near_miss = id_by_url.get(canonical_url(citation))
             if near_miss is not None:
                 claim_repairs.append(CitationRepair(index, citation, near_miss))
                 new_cites.append(near_miss)
