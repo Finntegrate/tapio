@@ -37,10 +37,19 @@ class SourceCitation:
         return f"{text} (retrieved {self.crawl_date})" if self.crawl_date else text
 
 
+def _is_web_url(value: str) -> bool:
+    """True for an http(s) URL with a host, the only kind a user can open to verify."""
+    try:
+        parts = urlsplit(value)
+        return parts.scheme in {"http", "https"} and bool(parts.hostname)
+    except ValueError:  # malformed, e.g. an unclosed IPv6 bracket
+        return False
+
+
 def _source_url(metadata: dict[str, Any]) -> str | None:
     for key in ("citation_url", "source_url", "url"):
         value = metadata.get(key)
-        if isinstance(value, str) and urlsplit(value.strip()).scheme in {"http", "https"}:
+        if isinstance(value, str) and _is_web_url(value.strip()):
             return value.strip()
     return None
 

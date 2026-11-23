@@ -55,6 +55,27 @@ def test_a_document_without_a_web_url_is_not_cited() -> None:
     assert citations == []
 
 
+def test_a_malformed_url_is_skipped_without_losing_the_other_citations() -> None:
+    citations = format_citations(
+        [
+            _doc(title="Broken", source_url="https://[migri.fi"),
+            _doc(title="Fine", source_url="https://kela.fi"),
+        ]
+    )
+
+    assert [c.title for c in citations] == ["Fine"]
+
+
+def test_a_malformed_url_falls_through_to_the_next_metadata_key() -> None:
+    (citation,) = format_citations([_doc(title="T", citation_url="https://[bad", source_url="https://migri.fi")])
+
+    assert citation.url == "https://migri.fi"
+
+
+def test_a_url_without_a_host_is_not_a_source() -> None:
+    assert format_citations([_doc(source_url="https://"), _doc(source_url="https:///permits")]) == []
+
+
 def test_a_missing_title_falls_back_to_the_page_address() -> None:
     (citation,) = format_citations([_doc(source_url="https://migri.fi/en/work/")])
 
