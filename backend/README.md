@@ -81,7 +81,7 @@ Each call is logged with the tool's name and cost tier (never its input, which c
 
 - `GET /health` — checks model availability: `model_available` is true only if every configured model is available, and `models` breaks it down by role (`default`, each overridden guide, `guardrail`).
 - `GET /agents` — the guide roster (id, name, title, category, summary, color).
-- `POST /chat/stream` — Server-Sent Events chat stream. Emits `routing`, `citation`, `token` (repeated), and `done` events per turn, or `error` on failure.
+- `POST /chat/stream` — Server-Sent Events chat stream. Emits `routing`, `citation`, `token` (repeated), and `done` events per turn, or `error` on failure. The `citation` event's sources are built from retrieval metadata, never by the model (`app.grounding.format_citations`): one entry per source page, each with a fixed-format `formatted` string (`Title — URL`, plus `(retrieved DATE)` when the index records a `crawl_date`). If retrieval finds nothing citable, the event has `no_source: true` and the reply is a fixed "no reliable source" message instead of a model answer (PRD §7.3).
 
 ## Out of scope
 

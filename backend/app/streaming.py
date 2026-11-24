@@ -2,19 +2,18 @@
 
 import logging
 from collections.abc import AsyncIterator
-from typing import Any
 
 from starlette.concurrency import iterate_in_threadpool, run_in_threadpool
 
 from app.agents.router import AgentRoute
-from app.graph.orchestrator_graph import TapioOrchestratorGraph
+from app.graph.orchestrator_graph import SetupFailedStream, TapioOrchestratorGraph
+from app.grounding import NO_SOURCE_MESSAGE, SourceCitation, format_citations
 from app.guardrails import GuardrailClassifierProtocol, GuardrailMatch, build_guardrail_response
 from app.schemas import ChatMessage, Citation, CitationEvent, ErrorEvent, GuardrailEvent, RoutingEvent, TokenEvent
 
 logger = logging.getLogger(__name__)
 
 GENERIC_ERROR_MESSAGE = "I encountered an error while processing your query. Please try again."
-CITATION_SNIPPET_LENGTH = 280
 
 
 def _routing_event(route: AgentRoute) -> RoutingEvent:
@@ -32,12 +31,14 @@ def _guardrail_event(match: GuardrailMatch) -> GuardrailEvent:
     return GuardrailEvent(category=match.category.value, reason=match.reason)
 
 
-def _citation(document: Any) -> Citation:
-    metadata = document.metadata if hasattr(document, "metadata") else {}
-    source_url = metadata.get("citation_url") or metadata.get("source_url") or metadata.get("url") or "Unknown source"
-    title = metadata.get("title", "Untitled source")
-    content = document.page_content if hasattr(document, "page_content") else str(document)
-    return Citation(title=title, source_url=source_url, snippet=content[:CITATION_SNIPPET_LENGTH])
+def _citation(source: SourceCitation) -> Citation:
+    return Citation(
+        title=source.title,
+        source_url=source.url,
+        snippet=source.snippet,
+        crawl_date=source.crawl_date,
+        formatted=source.formatted,
+    )
 
 
 async def stream_chat_turn(
@@ -48,6 +49,10 @@ async def stream_chat_turn(
     agent_id: str,
 ) -> AsyncIterator[dict[str, str]]:
     """Yield SSE-ready events for one chat turn: routing, citation, token(s), then done.
+
+    Citations are built deterministically from the retrieved documents (#114).
+    If none of them is citable, the model's answer is never generated: the
+    citation event carries ``no_source`` and the reply is ``NO_SOURCE_MESSAGE``.
 
     Mirrors the call sequence in ``tapio.app.TapioAssistantApp`` (route, then
     stream), bridging the orchestrator graph's synchronous retrieval and
@@ -104,12 +109,25 @@ async def stream_chat_turn(
             agent_id=route.agent.id,
         )
 
-        citations = [_citation(document) for document in retrieved_docs]
-        yield {"event": "citation", "data": CitationEvent(citations=citations).model_dump_json()}
+        if isinstance(response_stream, SetupFailedStream):
+            # The graph failed before generation; this is an error, not a turn without sources.
+            yield {"event": "error", "data": ErrorEvent(message=GENERIC_ERROR_MESSAGE).model_dump_json()}
+            return
 
-        async for chunk in iterate_in_threadpool(response_stream):
-            if chunk:
-                yield {"event": "token", "data": TokenEvent(text=chunk).model_dump_json()}
+        sources = format_citations(retrieved_docs)
+        citation_event = CitationEvent(citations=[_citation(source) for source in sources], no_source=not sources)
+        yield {"event": "citation", "data": citation_event.model_dump_json()}
+
+        if not sources:
+            # PRD §7.3: with nothing to cite, say so rather than let the model answer unsourced.
+            logger.info("No citable source retrieved; returning the no-source message")
+            if hasattr(response_stream, "close"):
+                response_stream.close()
+            yield {"event": "token", "data": TokenEvent(text=NO_SOURCE_MESSAGE).model_dump_json()}
+        else:
+            async for chunk in iterate_in_threadpool(response_stream):
+                if chunk:
+                    yield {"event": "token", "data": TokenEvent(text=chunk).model_dump_json()}
 
         yield {"event": "done", "data": "{}"}
     except Exception:

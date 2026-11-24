@@ -12,7 +12,7 @@ auto-route. The FastAPI chat route talks to the graph directly (see
 """
 
 import logging
-from collections.abc import Generator, Mapping
+from collections.abc import Iterator, Mapping
 from typing import Any
 
 from langchain_core.language_models import BaseChatModel
@@ -100,7 +100,7 @@ class RAGOrchestrator:
         query_text: str,
         history: list[dict[str, Any]] | None = None,
         agent_id: str = "tapio",
-    ) -> tuple[Generator[str], list[Any]]:
+    ) -> tuple[Iterator[str], list[Any]]:
         """Generate a streaming response using RAG.
 
         Args:

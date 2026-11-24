@@ -27,10 +27,16 @@ export interface Citation {
 	title: string;
 	source_url: string;
 	snippet: string;
+	/** When the page was crawled, if the index records it. */
+	crawl_date?: string | null;
+	/** The fixed-format citation: "Title — URL", plus "(retrieved DATE)" when known. */
+	formatted?: string;
 }
 
 export interface CitationEventData {
 	citations: Citation[];
+	/** True when retrieval found nothing citable, so the reply is the fixed no-source message. */
+	no_source?: boolean;
 }
 
 export interface TokenEventData {
