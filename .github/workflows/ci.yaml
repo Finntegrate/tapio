@@ -257,6 +257,7 @@ jobs:
           {
             echo "output<<$delimiter"
             tail -c 4000 /tmp/app-typecheck-output.txt 2>/dev/null || true
+            echo  # svelte-check's output has no trailing newline; the delimiter needs its own line
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
