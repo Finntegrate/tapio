@@ -127,3 +127,10 @@ repos:
         language: system
         files: ^app/.*\.(js|cjs|mjs|ts|cts|mts|svelte)$
         pass_filenames: false
+      # Compiles the Paraglide messages before type checking, so a fresh checkout passes.
+      - id: svelte-check-app
+        name: Type check SvelteKit app (svelte-check)
+        entry: bash -c 'cd app && npm run --silent check'
+        language: system
+        files: ^app/(?:.*\.(js|cjs|mjs|ts|cts|mts|svelte)|tsconfig\.json|svelte\.config\.js|package(?:-lock)?\.json|messages/.*\.json|project\.inlang/settings\.json)$
+        pass_filenames: false

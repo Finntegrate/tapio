@@ -240,18 +240,43 @@ jobs:
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
+      # `npm run check` compiles the Paraglide messages first, so it works on a fresh checkout.
+      - name: Type check
+        id: typecheck
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run check 2>&1 | tee /tmp/app-typecheck-output.txt
+
+      - name: Capture type check output
+        id: typecheck-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/app-typecheck-output.txt 2>/dev/null || true
+            echo  # svelte-check's output has no trailing newline; the delimiter needs its own line
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Write result for report job
         if: always()
         env:
           LINT_OUTCOME: ${{ steps.lint.outcome }}
           LINT_OUTPUT: ${{ steps.lint-summary.outputs.output }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          TYPECHECK_OUTPUT: ${{ steps.typecheck-summary.outputs.output }}
         run: |
           jq -n \
             --arg lint_outcome "$LINT_OUTCOME" --arg lint_output "$LINT_OUTPUT" \
+            --arg typecheck_outcome "$TYPECHECK_OUTCOME" --arg typecheck_output "$TYPECHECK_OUTPUT" \
             '{
               service: "app",
               checks: {
-                "lint (eslint + prettier)": {outcome: $lint_outcome, output: $lint_output, fix: "npm run lint --prefix app"}
+                "lint (eslint + prettier)": {outcome: $lint_outcome, output: $lint_output, fix: "npm run lint --prefix app"},
+                "type check (svelte-check)": {outcome: $typecheck_outcome, output: $typecheck_output, fix: "npm run check --prefix app"}
               }
             }' > result.json
 
@@ -262,11 +287,14 @@ jobs:
           path: app/result.json
           retention-days: 1
 
-      - name: Fail if lint failed
+      - name: Fail if lint or type check failed
         if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
         run: |
-          if [ "${{ steps.lint.outcome }}" != "success" ]; then
-            echo "Lint failed for app. See the job summary above."
+          if [ "$LINT_OUTCOME" != "success" ] || [ "$TYPECHECK_OUTCOME" != "success" ]; then
+            echo "Lint or type check failed for app. See the job summary above."
             exit 1
           fi
 
