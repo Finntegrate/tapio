@@ -240,18 +240,74 @@ jobs:
             echo "$delimiter"
           } >> "$GITHUB_OUTPUT"
 
+      # `npm run check` compiles the Paraglide messages first, so it works on a fresh checkout.
+      - name: Type check
+        id: typecheck
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run check 2>&1 | tee /tmp/app-typecheck-output.txt
+
+      - name: Capture type check output
+        id: typecheck-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/app-typecheck-output.txt 2>/dev/null || true
+            echo  # svelte-check's output has no trailing newline; the delimiter needs its own line
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
+      # The client project renders components in headless Chromium.
+      - name: Install Chromium for browser tests
+        if: always()
+        run: npx --no-install playwright install --with-deps chromium
+
+      # Server (node) and client (browser) projects only; the storybook project is
+      # left out until its addon setup loads reliably (see app/README.md).
+      - name: Unit tests
+        id: unit
+        if: always()
+        continue-on-error: true
+        run: |
+          set -o pipefail
+          npm run test:unit -- --run --project server --project client 2>&1 | tee /tmp/app-unit-output.txt
+
+      - name: Capture unit test output
+        id: unit-summary
+        if: always()
+        run: |
+          delimiter="EOF_$(openssl rand -hex 16)"
+          {
+            echo "output<<$delimiter"
+            tail -c 4000 /tmp/app-unit-output.txt 2>/dev/null || true
+            echo
+            echo "$delimiter"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Write result for report job
         if: always()
         env:
           LINT_OUTCOME: ${{ steps.lint.outcome }}
           LINT_OUTPUT: ${{ steps.lint-summary.outputs.output }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          TYPECHECK_OUTPUT: ${{ steps.typecheck-summary.outputs.output }}
+          UNIT_OUTCOME: ${{ steps.unit.outcome }}
+          UNIT_OUTPUT: ${{ steps.unit-summary.outputs.output }}
         run: |
           jq -n \
             --arg lint_outcome "$LINT_OUTCOME" --arg lint_output "$LINT_OUTPUT" \
+            --arg typecheck_outcome "$TYPECHECK_OUTCOME" --arg typecheck_output "$TYPECHECK_OUTPUT" \
+            --arg unit_outcome "$UNIT_OUTCOME" --arg unit_output "$UNIT_OUTPUT" \
             '{
               service: "app",
               checks: {
-                "lint (eslint + prettier)": {outcome: $lint_outcome, output: $lint_output, fix: "npm run lint --prefix app"}
+                "lint (eslint + prettier)": {outcome: $lint_outcome, output: $lint_output, fix: "npm run lint --prefix app"},
+                "type check (svelte-check)": {outcome: $typecheck_outcome, output: $typecheck_output, fix: "npm run check --prefix app"},
+                "unit tests (vitest)": {outcome: $unit_outcome, output: $unit_output, fix: "npm run test:unit --prefix app -- --run --project server --project client"}
               }
             }' > result.json
 
@@ -262,11 +318,15 @@ jobs:
           path: app/result.json
           retention-days: 1
 
-      - name: Fail if lint failed
+      - name: Fail if lint, type check, or unit tests failed
         if: always()
+        env:
+          LINT_OUTCOME: ${{ steps.lint.outcome }}
+          TYPECHECK_OUTCOME: ${{ steps.typecheck.outcome }}
+          UNIT_OUTCOME: ${{ steps.unit.outcome }}
         run: |
-          if [ "${{ steps.lint.outcome }}" != "success" ]; then
-            echo "Lint failed for app. See the job summary above."
+          if [ "$LINT_OUTCOME" != "success" ] || [ "$TYPECHECK_OUTCOME" != "success" ] || [ "$UNIT_OUTCOME" != "success" ]; then
+            echo "Lint, type check, or unit tests failed for app. See the job summary above."
             exit 1
           fi
 

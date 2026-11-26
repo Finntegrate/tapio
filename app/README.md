@@ -29,6 +29,28 @@ npm run dev
 npm run dev -- --open
 ```
 
+## Testing
+
+`npm run check` type checks the app with svelte-check (it compiles the Paraglide messages first, so it works on a fresh checkout).
+
+`npm run test:unit` runs Vitest, which `vite.config.ts` splits into three projects:
+
+| Project     | Files                                 | Runs in                                                                                |
+| ----------- | ------------------------------------- | -------------------------------------------------------------------------------------- |
+| `server`    | `src/**/*.{test,spec}.{js,ts}`        | Node, for plain TypeScript such as the SSE parser                                      |
+| `client`    | `src/**/*.svelte.{test,spec}.{js,ts}` | Headless Chromium via Playwright, for components rendered with `vitest-browser-svelte` |
+| `storybook` | `*.stories.svelte`                    | Headless Chromium, one test per story                                                  |
+
+Every test must make at least one assertion (`expect.requireAssertions`). The browser projects need Chromium once: `npx playwright install chromium`.
+
+CI runs the server and client projects:
+
+```sh
+npm run test:unit -- --run --project server --project client
+```
+
+The storybook project is not in CI yet: its addon setup fails to load (an `aria-query` export error, and on Node 22 a module-loading race in the Chromatic addon).
+
 ## Building
 
 To create a production version of your app:
