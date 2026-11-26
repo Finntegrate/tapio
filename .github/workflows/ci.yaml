@@ -264,7 +264,7 @@ jobs:
       # The client project renders components in headless Chromium.
       - name: Install Chromium for browser tests
         if: always()
-        run: npx playwright install --with-deps chromium
+        run: npx --no-install playwright install --with-deps chromium
 
       # Server (node) and client (browser) projects only; the storybook project is
       # left out until its addon setup loads reliably (see app/README.md).
